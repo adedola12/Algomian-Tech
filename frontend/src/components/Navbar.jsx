@@ -3,129 +3,110 @@ import { assets } from "../assets/assets";
 import { Link, NavLink } from "react-router-dom";
 
 const Navbar = () => {
-  const [visible, setVisisble] = useState(false);
-
-  const getNavLinkClass = ({ isActive }) =>
-    `flex flex-col items-center gap-1 ${isActive ? "active" : ""}`;
-
-  const getMobileNavLinkClass = ({ isActive }) =>
-    `py-2 pl-6 border ${isActive ? "text-black font-semibold" : ""}`;
+  const [visible, setVisible] = useState(false);
+  const [showSearchMobile, setShowSearchMobile] = useState(false);
 
   return (
-    <div className="flex items-center justify-between py-5 font-medium">
-      <Link to="/">
-        <img src={assets.color_logo} alt="Logo" className="w-50" />
-      </Link>
+    <div className="w-full border-b px-6 py-4 shadow-sm bg-white sticky top-0 z-50">
+      {/* Main Navbar */}
+      <div className="max-w-[1440px] mx-auto flex items-center justify-between gap-6 flex-wrap">
 
-      {/* Desktop Nav */}
-      <ul className="hidden sm:flex gap-5 text-sm text-gray-700">
-        <NavLink to="/" className={getNavLinkClass}>
-          <p>HOME</p>
-          <hr className="w-2/4 border-none h-[1.5px] bg-gray-700 hidden" />
-        </NavLink>
-        <NavLink to="/collection" className={getNavLinkClass}>
-          <p>COLLECTION</p>
-          <hr className="w-2/4 border-none h-[1.5px] bg-gray-700 hidden" />
-        </NavLink>
-        <NavLink to="/about" className={getNavLinkClass}>
-          <p>ABOUT</p>
-          <hr className="w-2/4 border-none h-[1.5px] bg-gray-700 hidden" />
-        </NavLink>
-        <NavLink to="/contact" className={getNavLinkClass}>
-          <p>CONTACT</p>
-          <hr className="w-2/4 border-none h-[1.5px] bg-gray-700 hidden" />
-        </NavLink>
-      </ul>
-
-      {/* Icons */}
-      <div className="flex items-center gap-6">
-        <img
-          src={assets.search_icon}
-          className="w-5 cursor-pointer"
-          alt="search"
-        />
-
-        <div className="group relative">
-          <img
-            src={assets.profile_icon}
-            className="w-5 cursor-pointer"
-            alt="profile"
-          />
-          <div className="group-hover:block hidden absolute dropdown-menu right-0 pt-4">
-            <div className="flex flex-col gap-2 w-36 py-3 bg-slate-50 text-gray-500 rounded">
-              <p className="cursor-pointer hover:text-black">My Profile</p>
-              <p className="cursor-pointer hover:text-black">Orders</p>
-              <p className="cursor-pointer hover:text-black">LogOut</p>
-            </div>
-          </div>
-        </div>
-
-        <Link to="/cart" className="relative">
-          <img
-            src={assets.cart_icon}
-            className="w-5 min-w-5 cursor-pointer"
-            alt="cart"
-          />
-          <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-            10
-          </div>
+        {/* Logo */}
+        <Link to="/">
+          <img src={assets.color_logo} alt="Logo" className="w-32 sm:w-40" />
         </Link>
 
-        <img
-          onClick={() => setVisisble(true)}
-          src={assets.menu_icon}
-          alt="menu"
-          className="w-5 cursor-pointer sm:hidden"
-        />
+        {/* Navigation Links */}
+        <div className="hidden lg:flex gap-6 text-sm text-gray-800 font-medium">
+          <NavLink to="/bestsellers" className="hover:text-black">Best Sellers</NavLink>
+          <NavLink to="/new" className="hover:text-black">New arrivals</NavLink>
+          <NavLink to="/affiliates" className="hover:text-black">Affiliates</NavLink>
+          <NavLink to="/track" className="hover:text-black">Track order</NavLink>
+        </div>
+
+        {/* Search Bar (md and up) */}
+        <div className="hidden md:flex flex-1 max-w-md items-center">
+          <input
+            type="text"
+            placeholder="Search"
+            className="w-full border rounded-full px-4 py-2 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-400"
+          />
+        </div>
+
+        {/* Icons */}
+        <div className="flex items-center gap-4 text-gray-700">
+
+          {/* Search Icon (only for small screens) */}
+          <button onClick={() => setShowSearchMobile(prev => !prev)} className="md:hidden">
+            <img src={assets.search_icon} alt="search" className="w-5" />
+          </button>
+
+          <button>
+            <img src={assets.heart_icon} alt="Wishlist" className="w-5 hover:background-red-400 cursor-pointer" />
+          </button>
+
+          <Link to="/cart" className="relative">
+            <img src={assets.cart_icon} className="w-5" alt="cart" />
+            <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+              10
+            </div>
+          </Link>
+
+          <button>
+            <img src={assets.bell_icon} alt="Notifications" className="w-5" />
+          </button>
+
+          {/* Profile Dropdown */}
+          <div className="group relative">
+            <img
+              src={assets.profile_icon}
+              className="w-5 cursor-pointer"
+              alt="profile"
+            />
+            <div className="group-hover:block hidden absolute right-0 mt-3 bg-white border shadow-md w-36 py-2 rounded text-sm text-gray-600">
+              <p className="px-4 py-1 hover:bg-gray-100 cursor-pointer">My Profile</p>
+              <p className="px-4 py-1 hover:bg-gray-100 cursor-pointer">Orders</p>
+              <p className="px-4 py-1 hover:bg-gray-100 cursor-pointer">Logout</p>
+            </div>
+          </div>
+
+          {/* Mobile Menu Icon */}
+          <img
+            onClick={() => setVisible(true)}
+            src={assets.menu_icon}
+            alt="menu"
+            className="w-6 cursor-pointer lg:hidden"
+          />
+        </div>
       </div>
+
+      {/* Mobile Search Input (below navbar when toggled) */}
+      {showSearchMobile && (
+        <div className="block md:hidden mt-3 px-2">
+          <input
+            type="text"
+            placeholder="Search..."
+            className="w-full border rounded-full px-4 py-2 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-400"
+          />
+        </div>
+      )}
 
       {/* Mobile Sidebar */}
       <div
-        className={`absolute top-0 right-0 bottom-0 overflow-hidden bg-white transition-all ${
-          visible ? "w-full" : "w-0"
+        className={`fixed top-0 right-0 bottom-0 bg-white z-50 transition-all duration-300 ${
+          visible ? "w-3/4 p-4" : "w-0 overflow-hidden"
         }`}
       >
-        <div className="flex flex-col text-gray-600">
-          <div
-            onClick={() => setVisisble(false)}
-            className="flex items-center gap-4 p-3 cursor-pointer"
-          >
-            <img
-              src={assets.dropdown_icon}
-              alt="back"
-              className="h-4 rotate-100"
-            />
-            <p>Back</p>
+        <div className="flex flex-col gap-4 text-gray-700">
+          <div onClick={() => setVisible(false)} className="cursor-pointer mb-4">
+            <img src={assets.close_icon} alt="close" className="w-4" />
           </div>
-
-          <NavLink
-            to="/"
-            onClick={() => setVisisble(false)}
-            className={getMobileNavLinkClass}
-          >
-            HOME
-          </NavLink>
-          <NavLink
-            to="/collection"
-            onClick={() => setVisisble(false)}
-            className={getMobileNavLinkClass}
-          >
-            COLLECTION
-          </NavLink>
-          <NavLink
-            to="/about"
-            onClick={() => setVisisble(false)}
-            className={getMobileNavLinkClass}
-          >
-            ABOUT
-          </NavLink>
-          <NavLink
-            to="/contact"
-            onClick={() => setVisisble(false)}
-            className={getMobileNavLinkClass}
-          >
-            CONTACT
-          </NavLink>
+          <NavLink to="/bestsellers" onClick={() => setVisible(false)}>Best Sellers</NavLink>
+          <NavLink to="/new" onClick={() => setVisible(false)}>New arrivals</NavLink>
+          <NavLink to="/affiliates" onClick={() => setVisible(false)}>Affiliates</NavLink>
+          <NavLink to="/track" onClick={() => setVisible(false)}>Track order</NavLink>
+          <NavLink to="/cart" onClick={() => setVisible(false)}>Cart</NavLink>
+          <NavLink to="/profile" onClick={() => setVisible(false)}>My Profile</NavLink>
         </div>
       </div>
     </div>

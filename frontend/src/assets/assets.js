@@ -9,7 +9,11 @@ import profile_icon from "./profile.png";
 import menu_icon from "./menu.png";
 import dropdown_icon from "./dropdown.png";
 import hero_img from "./Laptop-msi.jpg";
-import exchange_icon from './exchange.png'
+import exchange_icon from './exchange.png';
+import bell_icon from './bell.png';
+import heart_icon from './heart.png';
+import alarm_icon from './alarm.png'
+import hero_back from './hero_img.png'
 import prod_img1 from "./prod1.jpg";
 import prod_img2 from "./prod2.jpg";
 import prod_img3 from "./prod3.jpg";
@@ -17,6 +21,12 @@ import prod_img4 from "./prod4.jpg";
 import prod_img5 from "./prod5.jpg";
 import prod_img6 from "./prod6.jpg";
 import prod_img7 from "./prod7.jpg";
+import dell_img from './dell.png'
+import hp_img from './hp.png'
+import apple_img from './apple.png'
+import lenovo_img from './lenovo.png'
+import logi2_img from './logi2.png'
+import logi_img from './logoi.png'
 
 export const assets = {
   bin_icon,
@@ -29,7 +39,19 @@ export const assets = {
   profile_icon,
   menu_icon,
   dropdown_icon,
+  hero_back,
+  exchange_icon,
+  bell_icon,
+  heart_icon,
+  alarm_icon,
   hero_img,
+
+  dell_img,
+  hp_img,
+  apple_img,
+  lenovo_img,
+  logi2_img,
+  logi_img,
 
   prod_img1,
   prod_img2,
@@ -52,6 +74,7 @@ export const products = [
     subCategory: "Subcategory 1",
     size: ["S", "M", "L"],
     date: "2023-10-01",
+    rating: 4,
     bestseller: true,
   },
   {
@@ -64,6 +87,7 @@ export const products = [
     subCategory: "Subcategory 1",
     size: ["S", "M", "L"],
     date: "2023-10-01",
+    rating: 2,
     bestseller: true,
   },
   {
@@ -76,6 +100,7 @@ export const products = [
     subCategory: "Subcategory 1",
     size: ["S", "M", "L"],
     date: "2023-10-01",
+    rating: 5,
     bestseller: true,
   },
   {
@@ -88,6 +113,7 @@ export const products = [
     subCategory: "Subcategory 1",
     size: ["S", "M", "L"],
     date: "2023-10-01",
+    rating: 1,
     bestseller: true,
   },
   {
@@ -100,6 +126,7 @@ export const products = [
     subCategory: "Subcategory 1",
     size: ["S", "M", "L"],
     date: "2023-10-01",
+    rating: 4,
     bestseller: false,
   },
   {
@@ -112,6 +139,7 @@ export const products = [
     subCategory: "Subcategory 1",
     size: ["S", "M", "L"],
     date: "2023-10-01",
+    rating: 3,
     bestseller: false,
   },
   {
@@ -124,6 +152,7 @@ export const products = [
     subCategory: "Subcategory 1",
     size: ["S", "M", "L"],
     date: "2023-10-01",
+    rating: 5,
     bestseller: true,
   },
   {
@@ -136,6 +165,7 @@ export const products = [
     subCategory: "Subcategory 3",
     size: ["S", "M", "L"],
     date: "2023-10-01",
+    rating: 2,
     bestseller: false,
   },
   {
@@ -148,6 +178,7 @@ export const products = [
     subCategory: "Subcategory 3",
     size: ["S", "M", "L"],
     date: "2023-10-01",
+    rating: 4,
     bestseller: true,
   },
   {
@@ -160,6 +191,7 @@ export const products = [
     subCategory: "Subcategory 1",
     size: ["S", "M", "L"],
     date: "2023-10-01",
+    rating: 5,
     bestseller: false,
   },
   {
@@ -172,6 +204,7 @@ export const products = [
     subCategory: "Subcategory 1",
     size: ["S", "M", "L"],
     date: "2023-10-01",
+    rating: 3,
     bestseller: true,
   },
 ];
