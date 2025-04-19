@@ -27,6 +27,12 @@ import apple_img from './apple.png'
 import lenovo_img from './lenovo.png'
 import logi2_img from './logi2.png'
 import logi_img from './logoi.png'
+import headset_img from './headset.jpg'
+import woman_img from './woman.jpg'
+import delivery_img from './delivery.png'
+import samp_img from './samp.png'
+import samp_img2 from './samp1.png'
+import samp_img3 from './samp3.png'
 
 export const assets = {
   bin_icon,
@@ -45,6 +51,12 @@ export const assets = {
   heart_icon,
   alarm_icon,
   hero_img,
+  headset_img,
+  woman_img,
+  delivery_img,
+  samp_img,
+  samp_img2,
+  samp_img3,
 
   dell_img,
   hp_img,
@@ -208,3 +220,63 @@ export const products = [
     bestseller: true,
   },
 ];
+
+export const testimonials = [
+  {
+    _id: "a1a1a1",
+    name: "katherin Moss",
+    testimony: "new testimony from this user",
+    image: [prod_img1],
+    date: "2023-10-01",
+    rating: 4,
+  },
+  {
+    _id: "a1a1a1",
+    name: "katherin Moss",
+    testimony: "new testimony from this user",
+    image: [prod_img1],
+    date: "2023-10-01",
+    rating: 4,
+  },
+  {
+    _id: "a1a1a1",
+    name: "katherin Moss",
+    testimony: "new testimony from this user",
+    image: [prod_img1],
+    date: "2023-10-01",
+    rating: 4,
+  },
+  {
+    _id: "a1a1a1",
+    name: "katherin Moss",
+    testimony: "new testimony from this user",
+    image: [prod_img1],
+    date: "2023-10-01",
+    rating: 4,
+  },
+  {
+    _id: "a1a1a1",
+    name: "katherin Moss",
+    testimony: "new testimony from this user",
+    image: [prod_img1],
+    date: "2023-10-01",
+    rating: 4,
+  },
+  {
+    _id: "a1a1a1",
+    name: "katherin Moss",
+    testimony: "new testimony from this user",
+    image: [prod_img1],
+    date: "2023-10-01",
+    rating: 4,
+  },
+  {
+    _id: "a1a1a1",
+    name: "katherin Moss",
+    testimony: "new testimony from this user",
+    image: [prod_img1],
+    date: "2023-10-01",
+    rating: 4,
+  },
+
+]
