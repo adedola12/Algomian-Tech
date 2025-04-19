@@ -33,6 +33,9 @@ import delivery_img from './delivery.png'
 import samp_img from './samp.png'
 import samp_img2 from './samp1.png'
 import samp_img3 from './samp3.png'
+import blog_img1 from './blogImg1.png'
+import blog_img2 from './blogImg2.png'
+import blog_img3 from './blogImg3.png'
 
 export const assets = {
   bin_icon,
@@ -57,6 +60,9 @@ export const assets = {
   samp_img,
   samp_img2,
   samp_img3,
+  blog_img1,
+  blog_img2,
+  blog_img3,
 
   dell_img,
   hp_img,
@@ -279,4 +285,52 @@ export const testimonials = [
     rating: 4,
   },
 
+]
+
+export const blogs = [
+  {
+    _id:"aw111",
+    title: "UX review presentations",
+    author: "Olivia Rrye",
+    date: "20 Jan 2024",
+    description: "How do you create compelling presentations that wow your colleagues and impress your managers?",
+    tags: ["Design", "Research", "Presentation"],
+    image: blog_img1
+  },
+  {
+    _id:"aw111",
+    title: "UX review presentations",
+    author: "Olivia Rrye",
+    date: "20 Jan 2024",
+    description: "How do you create compelling presentations that wow your colleagues and impress your managers?",
+    tags: ["Design", "Research", "Presentation"],
+    image: blog_img2
+  },
+  {
+    _id:"aw111",
+    title: "UX review presentations",
+    author: "Olivia Rrye",
+    date: "20 Jan 2024",
+    description: "How do you create compelling presentations that wow your colleagues and impress your managers?",
+    tags: ["Design", "Research", "Presentation"],
+    image: blog_img3
+  },
+  {
+    _id:"aw111",
+    title: "UX review presentations",
+    author: "Olivia Rrye",
+    date: "20 Jan 2024",
+    description: "How do you create compelling presentations that wow your colleagues and impress your managers?",
+    tags: ["Design", "Research", "Presentation"],
+    image: blog_img1
+  },
+  {
+    _id:"aw111",
+    title: "UX review presentations",
+    author: "Olivia Rrye",
+    date: "20 Jan 2024",
+    description: "How do you create compelling presentations that wow your colleagues and impress your managers?",
+    tags: ["Design", "Research", "Presentation"],
+    image: blog_img3
+  },
 ]

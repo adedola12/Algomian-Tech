@@ -6,6 +6,10 @@ import Band from '../components/Band'
 import Brand from '../components/Brand'
 import Delivery from '../components/Delivery'
 import Offer from '../components/Offer'
+import Testimony from '../components/Testimony'
+import Subscribe from '../components/Subscribe'
+import Blog from '../components/Blog'
+import Footer from '../components/Footer'
 
 
 const Home = () => {
@@ -18,6 +22,10 @@ const Home = () => {
       <BestSeller/>
       <Delivery/>
       <Offer/>
+      <Testimony/>
+      <Subscribe />
+      <Blog/>
+      <Footer/>
     </div>
   )
 }
