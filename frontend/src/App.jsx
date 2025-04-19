@@ -11,6 +11,7 @@ import Cart from './pages/Cart'
 import Login from './pages/Login'
 import Navbar from './components/Navbar'
 import Header from './components/Header'
+import Search from './pages/Search'
 
 
 const App = () => {
@@ -21,6 +22,7 @@ const App = () => {
       <Routes>
           <Route path='/' element={<Home />} />
           <Route path='/about' element={<About />} />
+          <Route path='/search' element={<Search/>} />
           <Route path='/cart' element={<Cart />} />
           <Route path='/collection' element={<Collection />} />
           <Route path='/content' element={<Content />} />

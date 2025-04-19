@@ -36,6 +36,7 @@ import samp_img3 from './samp3.png'
 import blog_img1 from './blogImg1.png'
 import blog_img2 from './blogImg2.png'
 import blog_img3 from './blogImg3.png'
+import error_back from './errorBac.png'
 
 export const assets = {
   bin_icon,
@@ -63,6 +64,7 @@ export const assets = {
   blog_img1,
   blog_img2,
   blog_img3,
+  error_back,
 
   dell_img,
   hp_img,
@@ -94,6 +96,7 @@ export const products = [
     date: "2023-10-01",
     rating: 4,
     bestseller: true,
+    graphicsCard: "NVIDIA GeForce GTX 1650",
   },
   {
     _id: "aaaa",
@@ -333,4 +336,38 @@ export const blogs = [
     tags: ["Design", "Research", "Presentation"],
     image: blog_img3
   },
+]
+
+export const productBrands = [
+  "Apple", "Dell", "HP", "Lenovo", "Logitech", "Samsung", "Microsoft", "Asus", "Acer", "Razer"
+]
+
+export const processorType = [
+  "Intel Core i3", "Intel Core i5", "Intel Core i7", "AMD Ryzen 3", "AMD Ryzen 5", "AMD Ryzen 7", "Apple M1", "Apple M2"
+]
+
+export const ramSize = [
+  "4GB", "8GB", "16GB", "32GB", "64GB"
+]
+
+export const storageSize = [
+  "128GB", "256GB", "512GB", "1TB", "2TB"
+]
+
+export const rating = [
+  { value: 1, label: "1 Star" },
+  { value: 2, label: "2 Stars" },
+  { value: 3, label: "3 Stars" },
+  { value: 4, label: "4 Stars" },
+  { value: 5, label: "5 Stars" },
+]
+
+export const graphicsCard = [
+  "NVIDIA GeForce GTX 1650",
+  "NVIDIA GeForce GTX 1660",
+  "NVIDIA GeForce RTX 2060",
+  "NVIDIA GeForce RTX 3060",
+  "AMD Radeon RX 5500M",
+  "AMD Radeon RX 5600M",
+  "Intel Iris Xe Graphics",
 ]

@@ -6,7 +6,7 @@ import { assets } from '../assets/assets';
 const Footer = () => {
   return (
     <footer className="bg-[#463ec9] text-white px-4 md:px-10 py-6">
-      <div className="max-w-[1500px] mx-auto">
+      <div className="max-w-full mx-auto">
         {/* Top Section */}
         <div className="flex flex-col lg:flex-row justify-between items-center gap-6 mb-4">
           {/* Logo & Address */}
