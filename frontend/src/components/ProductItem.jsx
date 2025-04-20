@@ -4,10 +4,12 @@ import { Link } from "react-router-dom";
 import { FaHeart, FaStar, FaRegStar } from "react-icons/fa";
 
 const ProductItem = ({ id, image, name, price, description, rating }) => {
-  const { currency } = useContext(ShopContext);
+  const { currency, addToCart } = useContext(ShopContext);
 
   const imageSrc =
-    typeof image?.[0] === "string" ? image[0] : image?.[0]?.default || image?.[0];
+    typeof image?.[0] === "string"
+      ? image[0]
+      : image?.[0]?.default || image?.[0];
 
   return (
     <Link
@@ -52,7 +54,10 @@ const ProductItem = ({ id, image, name, price, description, rating }) => {
         </p>
         <button
           className="mt-2 bg-[#5A4FCF] text-white text-xs font-semibold w-full py-2 rounded hover:bg-[#483dc2] transition"
-          onClick={(e) => e.preventDefault()}
+          onClick={(e) => {
+            e.preventDefault();
+            addToCart({ id, image, name, price, description, rating, _id: id });
+          }}
         >
           Add to cart
         </button>

@@ -1,11 +1,30 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import { Link } from "react-router-dom";
 import { FaStar, FaPlus, FaMinus } from "react-icons/fa";
+import { ShopContext } from "../context/ShopContext";
 
 const ProductDetails = ({ product, selectedSpecs, setSelectedSpecs }) => {
   const [selectedImage, setSelectedImage] = useState(product?.image[0] || "");
   const [quantity, setQuantity] = useState(1);
   const unitsRemaining = Math.max(0, product.unitsLeft - quantity);
+  const { addToCart } = useContext(ShopContext);
+
+  const isLaptop = product.category === "PC" && product.subCategory === "Laptops";
+
+  const handleAddToCart = () => {
+    if (isLaptop && (!selectedSpecs.ram || !selectedSpecs.storage || !selectedSpecs.processor)) {
+      alert("Please select RAM, Storage, and Processor before adding to cart.");
+      return;
+    }
+
+    const productToAdd = {
+      ...product,
+      quantity,
+      selectedSpecs: isLaptop ? selectedSpecs : null,
+    };
+
+    addToCart(productToAdd);
+  };
 
   return (
     <div className="mb-10">
@@ -59,10 +78,9 @@ const ProductDetails = ({ product, selectedSpecs, setSelectedSpecs }) => {
             </span>
           </div>
 
-          {/* Specs (Only for laptops) */}
-          {product.category === "PC" && product.subCategory === "Laptops" && (
+          {/* Specs (only for laptops) */}
+          {isLaptop && (
             <div className="grid sm:grid-cols-2 gap-4 mb-6">
-              {/* RAM */}
               <div>
                 <label className="text-sm font-medium">Choose RAM</label>
                 <select
@@ -77,7 +95,6 @@ const ProductDetails = ({ product, selectedSpecs, setSelectedSpecs }) => {
                 </select>
               </div>
 
-              {/* Storage */}
               <div>
                 <label className="text-sm font-medium">Choose Storage</label>
                 <select
@@ -92,7 +109,6 @@ const ProductDetails = ({ product, selectedSpecs, setSelectedSpecs }) => {
                 </select>
               </div>
 
-              {/* Processor */}
               <div>
                 <label className="text-sm font-medium">Choose Processor</label>
                 <select
@@ -115,17 +131,11 @@ const ProductDetails = ({ product, selectedSpecs, setSelectedSpecs }) => {
           {/* Quantity */}
           <div className="flex items-center gap-4 mb-4">
             <div className="flex items-center gap-2 border px-3 rounded">
-              <button
-                onClick={() => setQuantity(q => Math.max(1, q - 1))}
-                className="text-sm p-1"
-              >
+              <button onClick={() => setQuantity(q => Math.max(1, q - 1))} className="text-sm p-1">
                 <FaMinus />
               </button>
               <span className="px-2">{quantity}</span>
-              <button
-                onClick={() => setQuantity(q => q < product.unitsLeft ? q + 1 : q)}
-                className="text-sm p-1"
-              >
+              <button onClick={() => setQuantity(q => q < product.unitsLeft ? q + 1 : q)} className="text-sm p-1">
                 <FaPlus />
               </button>
             </div>
@@ -139,7 +149,10 @@ const ProductDetails = ({ product, selectedSpecs, setSelectedSpecs }) => {
             <button className="bg-orange-500 text-white px-6 py-2 rounded hover:bg-orange-600">
               Buy Now
             </button>
-            <button className="border border-gray-400 px-6 py-2 rounded hover:bg-gray-200">
+            <button
+              onClick={handleAddToCart}
+              className="border border-gray-400 px-6 py-2 rounded hover:bg-gray-200"
+            >
               Add to Cart
             </button>
           </div>
