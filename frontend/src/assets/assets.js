@@ -37,6 +37,7 @@ import blog_img1 from './blogImg1.png'
 import blog_img2 from './blogImg2.png'
 import blog_img3 from './blogImg3.png'
 import error_back from './errorBac.png'
+import empty_img from './emptyCart.png'
 
 export const assets = {
   bin_icon,
@@ -65,6 +66,7 @@ export const assets = {
   blog_img2,
   blog_img3,
   error_back,
+  empty_img,
 
   dell_img,
   hp_img,

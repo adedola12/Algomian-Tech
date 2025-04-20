@@ -3,6 +3,7 @@ import { assets } from "../assets/assets";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useSearch } from "../context/SearchContext";
 import { ShopContext } from "../context/ShopContext";
+import UserProfileView from "./UserProfileView";
 import MyCart from "./MyCart";
 
 const Navbar = () => {
@@ -13,6 +14,7 @@ const Navbar = () => {
   const [visible, setVisible] = useState(false);
   const [showSearchMobile, setShowSearchMobile] = useState(false);
   const [showCart, setShowCart] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
 
   const { cartItems } = useContext(ShopContext);
 
@@ -25,7 +27,7 @@ const Navbar = () => {
 
   return (
     <div className="w-full border-b px-6 py-4 shadow-sm bg-white sticky top-0 z-[100]">
-     <div className="max-w-[1440px] mx-auto flex items-center justify-between gap-3 sm:gap-6 flex-nowrap">
+      <div className="max-w-[1440px] mx-auto flex items-center justify-between gap-3 sm:gap-6 flex-nowrap">
         {/* Logo */}
         <Link to="/">
           <img src={assets.color_logo} alt="Logo" className="w-32 sm:w-40" />
@@ -80,19 +82,25 @@ const Navbar = () => {
             <img src={assets.bell_icon} alt="Notifications" className="w-5" />
           </button>
 
-          {/* Profile */}
-          <div className="group relative">
-            <img
-              src={assets.profile_icon}
-              className="w-5 cursor-pointer"
-              alt="profile"
-            />
-            <div className="group-hover:block hidden absolute right-0 mt-3 bg-white border shadow-md w-36 py-2 rounded text-sm text-gray-600">
-              <p className="px-4 py-1 hover:bg-gray-100">My Profile</p>
-              <p className="px-4 py-1 hover:bg-gray-100">Orders</p>
-              <p className="px-4 py-1 hover:bg-gray-100">Logout</p>
-            </div>
-          </div>
+        {/* Profile */}
+<div className="relative">
+  <img
+    src={assets.profile_icon}
+    className="w-5 cursor-pointer"
+    alt="profile"
+    onClick={() => setShowProfile((prev) => !prev)}
+  />
+
+  {showProfile && (
+    <div
+      className="absolute right-0 top-8 z-[150]"
+      onMouseLeave={() => setShowProfile(false)}
+    >
+      <UserProfileView onClose={() => setShowProfile(false)} />
+    </div>
+  )}
+</div>
+
 
           {/* Mobile Menu */}
           <img
@@ -161,6 +169,21 @@ const Navbar = () => {
           <MyCart />
         </div>
       )}
+
+      {/* Profile Overlay for Mobile (Optional Backdrop)
+      {showProfile && (
+        <div
+          className="fixed inset-0 z-[120] bg-black bg-opacity-40 flex justify-end md:justify-center"
+          onClick={() => setShowProfile(false)}
+        >
+          <div
+            className="mt-16 mr-4 md:mr-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <UserProfileView onClose={() => setShowProfile(false)} />
+          </div>
+        </div>
+      )} */}
     </div>
   );
 };
