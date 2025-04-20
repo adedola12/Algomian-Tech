@@ -39,7 +39,7 @@ const SearchResult = () => {
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           {currentProducts.map((item, idx) => (
-            <ProductItem key={idx} {...item} />
+            <ProductItem key={idx} {...item} id={item._id} />
           ))}
         </div>
       )}

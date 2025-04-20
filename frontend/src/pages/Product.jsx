@@ -1,10 +1,14 @@
 import React from 'react'
-import Delivery from '../components/Delivery'
+import ProductDetails from '../components/ProductDetails'
+import ProductSpecification from '../components/ProductSpecification'
+
 
 const Product = () => {
   return (
     <div>
-      <Delivery/>
+      <ProductDetails/>
+      <ProductSpecification />
+      
     </div>
   )
 }
