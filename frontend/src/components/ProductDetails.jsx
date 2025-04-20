@@ -1,16 +1,10 @@
 import React, { useState } from "react";
-import { useParams, Link } from "react-router-dom";
-import { products } from "../assets/assets";
+import { Link } from "react-router-dom";
 import { FaStar, FaPlus, FaMinus } from "react-icons/fa";
 
-const ProductDetails = ({ product }) => {
-  // Removed: product lookup logic (now passed from parent)
+const ProductDetails = ({ product, selectedSpecs, setSelectedSpecs }) => {
   const [selectedImage, setSelectedImage] = useState(product?.image[0] || "");
   const [quantity, setQuantity] = useState(1);
-  const [selectedRam, setSelectedRam] = useState("");
-  const [selectedStorage, setSelectedStorage] = useState("");
-  const [selectedProcessor, setSelectedProcessor] = useState("");
-
   const unitsRemaining = Math.max(0, product.unitsLeft - quantity);
 
   return (
@@ -47,11 +41,12 @@ const ProductDetails = ({ product }) => {
           </div>
         </div>
 
-        {/* RIGHT: Info */}
+        {/* RIGHT: Product Info */}
         <div>
           <h1 className="text-2xl font-bold mb-2">{product.name}</h1>
           <p className="text-gray-600 text-sm mb-3">{product.description}</p>
 
+          {/* Rating */}
           <div className="flex items-center flex-wrap gap-2 mb-4">
             <div className="flex text-orange-500 text-sm">
               {[...Array(product.rating)].map((_, idx) => (
@@ -64,41 +59,49 @@ const ProductDetails = ({ product }) => {
             </span>
           </div>
 
-          {/* Dynamic dropdowns for Laptops */}
+          {/* Specs (Only for laptops) */}
           {product.category === "PC" && product.subCategory === "Laptops" && (
             <div className="grid sm:grid-cols-2 gap-4 mb-6">
+              {/* RAM */}
               <div>
                 <label className="text-sm font-medium">Choose RAM</label>
                 <select
-                  onChange={(e) => setSelectedRam(e.target.value)}
+                  value={selectedSpecs.ram}
+                  onChange={(e) => setSelectedSpecs(prev => ({ ...prev, ram: e.target.value }))}
                   className="mt-1 w-full border rounded px-3 py-2 text-sm"
                 >
                   <option value="">Select</option>
-                  {["8gb ram", "16gb ram", "32gb ram"].map((ram) => (
+                  {["8gb ram", "16gb ram", "32gb ram"].map(ram => (
                     <option key={ram}>{ram}</option>
                   ))}
                 </select>
               </div>
+
+              {/* Storage */}
               <div>
                 <label className="text-sm font-medium">Choose Storage</label>
                 <select
-                  onChange={(e) => setSelectedStorage(e.target.value)}
+                  value={selectedSpecs.storage}
+                  onChange={(e) => setSelectedSpecs(prev => ({ ...prev, storage: e.target.value }))}
                   className="mt-1 w-full border rounded px-3 py-2 text-sm"
                 >
                   <option value="">Select</option>
-                  {["128gb", "256gb", "512gb", "1tb"].map((storage) => (
+                  {["128gb", "256gb", "512gb", "1tb"].map(storage => (
                     <option key={storage}>{storage}</option>
                   ))}
                 </select>
               </div>
+
+              {/* Processor */}
               <div>
                 <label className="text-sm font-medium">Choose Processor</label>
                 <select
-                  onChange={(e) => setSelectedProcessor(e.target.value)}
+                  value={selectedSpecs.processor}
+                  onChange={(e) => setSelectedSpecs(prev => ({ ...prev, processor: e.target.value }))}
                   className="mt-1 w-full border rounded px-3 py-2 text-sm"
                 >
                   <option value="">Select</option>
-                  {["Core i3", "Core i5", "Core i7"].map((proc) => (
+                  {["Core i3", "Core i5", "Core i7"].map(proc => (
                     <option key={proc}>{proc}</option>
                   ))}
                 </select>
@@ -106,19 +109,21 @@ const ProductDetails = ({ product }) => {
             </div>
           )}
 
+          {/* Price */}
           <p className="text-2xl font-semibold mb-3">₦{product.price.toLocaleString()}</p>
 
+          {/* Quantity */}
           <div className="flex items-center gap-4 mb-4">
             <div className="flex items-center gap-2 border px-3 rounded">
               <button
-                onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                onClick={() => setQuantity(q => Math.max(1, q - 1))}
                 className="text-sm p-1"
               >
                 <FaMinus />
               </button>
               <span className="px-2">{quantity}</span>
               <button
-                onClick={() => setQuantity((q) => (q < product.unitsLeft ? q + 1 : q))}
+                onClick={() => setQuantity(q => q < product.unitsLeft ? q + 1 : q)}
                 className="text-sm p-1"
               >
                 <FaPlus />
@@ -129,6 +134,7 @@ const ProductDetails = ({ product }) => {
             </span>
           </div>
 
+          {/* Actions */}
           <div className="flex flex-wrap gap-4 mb-6">
             <button className="bg-orange-500 text-white px-6 py-2 rounded hover:bg-orange-600">
               Buy Now
@@ -138,6 +144,7 @@ const ProductDetails = ({ product }) => {
             </button>
           </div>
 
+          {/* Delivery Info */}
           <div className="border rounded p-4 text-sm text-gray-700">
             <h4 className="font-medium mb-2">🚚 Delivery / Shipping Timeline</h4>
             <p>Within Lagos: <strong>24hrs</strong></p>
@@ -150,5 +157,3 @@ const ProductDetails = ({ product }) => {
 };
 
 export default ProductDetails;
-
-

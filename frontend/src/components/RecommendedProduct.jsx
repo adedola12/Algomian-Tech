@@ -29,7 +29,7 @@ const RecommendedProduct = () => {
   }
 
   return (
-    <div className="mt-16 px-4">
+    <div className="my-16 px-4">
       <h2 className="text-lg font-semibold text-orange-600 mb-4">
         Recommended Product
       </h2>
