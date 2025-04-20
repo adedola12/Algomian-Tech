@@ -12,6 +12,7 @@ import Login from './pages/Login'
 import Navbar from './components/Navbar'
 import Header from './components/Header'
 import Search from './pages/Search'
+import Shipping from './pages/Shipping'
 
 
 const App = () => {
@@ -26,7 +27,8 @@ const App = () => {
           <Route path='/cart' element={<Cart />} />
           <Route path='/collection' element={<Collection />} />
           <Route path='/content' element={<Content />} />
-          <Route path='orders' element={<Orders />} />
+          <Route path='/orders' element={<Orders />} />
+          <Route path='/shipping' element={<Shipping />} />
           <Route path='/place-order' element={<PlaceOrder />} />
           <Route path='/product/:productId' element={<Product />} />
           <Route path='/login' element={<Login />} />
