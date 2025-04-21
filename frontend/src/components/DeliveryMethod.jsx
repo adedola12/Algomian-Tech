@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { FaTruck, FaWarehouse, FaWalking } from "react-icons/fa";
 
 const deliveryOptions = [
@@ -19,9 +19,7 @@ const deliveryOptions = [
   },
 ];
 
-const DeliveryMethod = () => {
-  const [selected, setSelected] = useState("");
-
+const DeliveryMethod = ({ selected, onChange }) => {
   return (
     <div className="w-full max-w-xl">
       <h3 className="font-semibold text-gray-800 mb-4">Delivery Method</h3>
@@ -30,7 +28,7 @@ const DeliveryMethod = () => {
           <label
             key={option.value}
             className={`flex items-center justify-between border rounded-lg px-4 py-3 cursor-pointer transition ${
-              selected === option.value
+              selected === option.label
                 ? "bg-purple-100 border-purple-500"
                 : "bg-gray-50 border-gray-200 hover:border-purple-400"
             }`}
@@ -45,8 +43,8 @@ const DeliveryMethod = () => {
               type="radio"
               name="deliveryMethod"
               value={option.value}
-              checked={selected === option.value}
-              onChange={() => setSelected(option.value)}
+              checked={selected === option.label}
+              onChange={() => onChange(option.label)} // Pass label like "Park Pick up"
               className="form-radio accent-purple-600"
             />
           </label>

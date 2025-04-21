@@ -2,7 +2,7 @@ import React, { useContext, useState } from "react";
 import { ShopContext } from "../context/ShopContext";
 import { useNavigate } from "react-router-dom";
 
-const MyOrder = ({ mode = "shipping" }) => {
+const MyOrder = ({ mode = "shipping", onPlaceOrder }) => {
   const { cartItems, currency } = useContext(ShopContext);
   const navigate = useNavigate();
   const [couponCode, setCouponCode] = useState("");
@@ -14,8 +14,10 @@ const MyOrder = ({ mode = "shipping" }) => {
   );
   const deliveryFee = cartSubtotal > 0 ? 1000 : 0;
   const discountThreshold = 5000000;
-  const defaultDiscount = cartSubtotal >= discountThreshold ? cartSubtotal * 0.1 : 0;
-  const estimatedTotal = cartSubtotal + deliveryFee - (appliedDiscount || defaultDiscount);
+  const defaultDiscount =
+    cartSubtotal >= discountThreshold ? cartSubtotal * 0.1 : 0;
+  const estimatedTotal =
+    cartSubtotal + deliveryFee - (appliedDiscount || defaultDiscount);
 
   const handleApplyDiscount = () => {
     if (couponCode.toLowerCase() === "save10") {
@@ -57,7 +59,9 @@ const MyOrder = ({ mode = "shipping" }) => {
                 className="w-16 h-16 rounded object-cover"
               />
               <div className="flex-1">
-                <p className="text-xs font-semibold text-gray-800">{item.name}</p>
+                <p className="text-xs font-semibold text-gray-800">
+                  {item.name}
+                </p>
                 <p className="text-[11px] text-gray-500">{item.description}</p>
                 <p className="text-xs mt-1">
                   <span className="font-medium">QTY:</span> {item.quantity}
@@ -70,18 +74,24 @@ const MyOrder = ({ mode = "shipping" }) => {
           ))}
         </div>
       ) : (
-        <p className="text-gray-500 text-sm mb-4">Your cart is currently empty. Please add items before proceeding to checkout.</p>
-
+        <p className="text-gray-500 text-sm mb-4">
+          Your cart is currently empty. Please add items before proceeding to
+          checkout.
+        </p>
       )}
 
       {/* Price Summary */}
       <div className="flex justify-between py-2 text-gray-600 text-sm">
         <span>Cart Subtotal</span>
-        <span>{currency} {cartSubtotal.toLocaleString()}</span>
+        <span>
+          {currency} {cartSubtotal.toLocaleString()}
+        </span>
       </div>
       <div className="flex justify-between py-2 font-semibold text-gray-900 text-sm">
         <span>Estimated Total</span>
-        <span>{currency} {estimatedTotal.toLocaleString()}</span>
+        <span>
+          {currency} {estimatedTotal.toLocaleString()}
+        </span>
       </div>
 
       {/* Discount & CTA (only on place order page) */}
@@ -109,8 +119,8 @@ const MyOrder = ({ mode = "shipping" }) => {
           </div>
 
           <button
-            onClick={handlePlaceOrder}
-            className="w-full mt-4 bg-[#5A4FCF] text-white font-medium py-2 rounded hover:bg-[#483dc2] transition duration-200"
+            onClick={onPlaceOrder}
+            className="w-full mt-4 bg-[#524D9B] text-white font-medium py-2 rounded hover:bg-[#483dc2] transition duration-200"
           >
             Place Order
           </button>

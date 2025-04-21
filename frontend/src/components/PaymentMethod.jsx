@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { FaUniversity } from "react-icons/fa";
 import { SiFlutter } from "react-icons/si";
 
@@ -15,9 +15,7 @@ const paymentOptions = [
   },
 ];
 
-const PaymentMethod = () => {
-  const [selected, setSelected] = useState("");
-
+const PaymentMethod = ({ selected, onChange }) => {
   return (
     <div className="w-full max-w-xl">
       <h3 className="font-semibold text-gray-800 mb-4">Payment Method</h3>
@@ -26,7 +24,7 @@ const PaymentMethod = () => {
           <label
             key={option.value}
             className={`flex items-center justify-between border rounded-lg px-4 py-3 cursor-pointer transition ${
-              selected === option.value
+              selected === option.label
                 ? "bg-purple-100 border-purple-500"
                 : "bg-gray-50 border-gray-200 hover:border-purple-400"
             }`}
@@ -41,8 +39,8 @@ const PaymentMethod = () => {
               type="radio"
               name="paymentMethod"
               value={option.value}
-              checked={selected === option.value}
-              onChange={() => setSelected(option.value)}
+              checked={selected === option.label}
+              onChange={() => onChange(option.label)} // store label like "Pay with Flutterwave"
               className="form-radio accent-purple-600"
             />
           </label>

@@ -6,13 +6,19 @@ import MyOrder from "../components/MyOrder";
 import Footer from "../components/Footer";
 import EditShippingInfo from "../components/EditShippingInfo";
 import ContactInfo from "../components/ContactInfo";
+import { useNavigate } from "react-router-dom";
 
 const PlaceOrder = () => {
+  const navigate = useNavigate();
+
   const [deliveryList, setDeliveryList] = useState(
     JSON.parse(localStorage.getItem("deliveryInfo")) || []
   );
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [editIndex, setEditIndex] = useState(null);
+
+  const [deliveryMethod, setDeliveryMethod] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("");
 
   const handleEditDelivery = (index) => {
     setEditIndex(index);
@@ -24,6 +30,17 @@ const PlaceOrder = () => {
     setDeliveryList(updated);
     setEditIndex(null);
     localStorage.setItem("deliveryInfo", JSON.stringify(updated));
+  };
+
+  // 🔐 Save selected order info and redirect
+  const handlePlaceOrder = () => {
+    const selectedAddress = deliveryList[selectedIndex];
+
+    localStorage.setItem("selectedDeliveryMethod", deliveryMethod);
+    localStorage.setItem("selectedPaymentMethod", paymentMethod);
+    localStorage.setItem("deliveryInfo", JSON.stringify([selectedAddress]));
+
+    navigate("/order-success"); // redirect to confirmation page
   };
 
   return (
@@ -47,13 +64,19 @@ const PlaceOrder = () => {
               />
             )}
 
-            <DeliveryMethod />
-            <PaymentMethod />
+            <DeliveryMethod
+              selected={deliveryMethod}
+              onChange={setDeliveryMethod}
+            />
+            <PaymentMethod
+              selected={paymentMethod}
+              onChange={setPaymentMethod}
+            />
           </div>
 
           {/* RIGHT SIDE */}
           <div className="w-full lg:w-1/3">
-            <MyOrder mode="place" />
+            <MyOrder mode="place" onPlaceOrder={handlePlaceOrder} />
           </div>
         </div>
       </div>

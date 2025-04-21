@@ -52,6 +52,9 @@ const ShopContextProvider = ({ children }) => {
 
   const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0);
 
+  const clearCart = () => setCartItems([]);
+
+
   const value = {
     products,
     currency,
@@ -62,6 +65,7 @@ const ShopContextProvider = ({ children }) => {
     removeFromCart,
     getCartTotal,
     cartCount,
+    clearCart
   };
 
   return (
