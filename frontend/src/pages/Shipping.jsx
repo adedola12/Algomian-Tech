@@ -1,3 +1,4 @@
+// pages/Shipping.js
 import React, { useState } from "react";
 import ShippingInfo from "../components/ShippingInfo";
 import EditShippingInfo from "../components/EditShippingInfo";
@@ -9,6 +10,7 @@ const Shipping = () => {
   const [deliveryList, setDeliveryList] = useState([]);
   const [showShippingForm, setShowShippingForm] = useState(true);
   const [editIndex, setEditIndex] = useState(null);
+  const [selectedIndex, setSelectedIndex] = useState(0);
 
   const handleAddShipping = (data) => {
     if (editIndex !== null) {
@@ -18,6 +20,7 @@ const Shipping = () => {
       setEditIndex(null);
     } else {
       setDeliveryList((prev) => [...prev, data]);
+      setSelectedIndex(deliveryList.length); // select newly added
     }
     setShowShippingForm(false);
   };
@@ -35,11 +38,16 @@ const Shipping = () => {
   const handleDelete = (index) => {
     const filtered = deliveryList.filter((_, i) => i !== index);
     setDeliveryList(filtered);
+    setSelectedIndex((prev) => (prev === index ? 0 : prev > index ? prev - 1 : prev));
   };
 
   const handleNext = () => {
-    // Navigate to next step (e.g., /payment or summary review)
-    window.location.href = "/payment"; // update with actual route
+    if (deliveryList.length > 0) {
+      localStorage.setItem("deliveryInfo", JSON.stringify([deliveryList[selectedIndex]]));
+      window.location.href = "/place-order";
+    } else {
+      alert("Please select or add a delivery address.");
+    }
   };
 
   return (
@@ -64,13 +72,15 @@ const Shipping = () => {
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 onNext={handleNext}
+                selectedIndex={selectedIndex}
+                onSelect={setSelectedIndex}
               />
             )}
           </div>
 
           {/* Right */}
           <div className="w-full lg:w-[360px]">
-            <MyOrder />
+            <MyOrder mode='shipping'/>
           </div>
         </div>
       </div>

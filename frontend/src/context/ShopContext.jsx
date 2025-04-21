@@ -1,4 +1,4 @@
-import { createContext, useState } from "react";
+import { createContext, useState, useEffect } from "react";
 import { products } from "../assets/assets";
 
 export const ShopContext = createContext();
@@ -7,9 +7,16 @@ const ShopContextProvider = ({ children }) => {
   const currency = "₦";
   const delivery_Fee = 0;
 
-  const [cartItems, setCartItems] = useState([]);
+  const [cartItems, setCartItems] = useState(() => {
+    const storedCart = localStorage.getItem("cartItems");
+    return storedCart ? JSON.parse(storedCart) : [];
+  });
 
-  // Add product to cart
+  // Save cart to localStorage on every change
+  useEffect(() => {
+    localStorage.setItem("cartItems", JSON.stringify(cartItems));
+  }, [cartItems]);
+
   const addToCart = (product) => {
     setCartItems((prev) => {
       const existing = prev.find((item) => item._id === product._id);
@@ -24,7 +31,6 @@ const ShopContextProvider = ({ children }) => {
     });
   };
 
-  // Update cart item quantity
   const updateCartQuantity = (productId, amount) => {
     setCartItems((prev) =>
       prev
@@ -37,18 +43,12 @@ const ShopContextProvider = ({ children }) => {
     );
   };
 
-  // Remove from cart
   const removeFromCart = (productId) => {
     setCartItems((prev) => prev.filter((item) => item._id !== productId));
   };
 
-  // Get cart total
-  const getCartTotal = () => {
-    return cartItems.reduce(
-      (total, item) => total + item.price * item.quantity,
-      0
-    );
-  };
+  const getCartTotal = () =>
+    cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
 
   const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0);
 
@@ -65,7 +65,9 @@ const ShopContextProvider = ({ children }) => {
   };
 
   return (
-    <ShopContext.Provider value={value}>{children}</ShopContext.Provider>
+    <ShopContext.Provider value={value}>
+      {children}
+    </ShopContext.Provider>
   );
 };
 
