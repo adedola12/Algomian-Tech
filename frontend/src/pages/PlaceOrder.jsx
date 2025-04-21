@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useContext, useState } from "react";
 import DeliveryInfo from "../components/DeliveryInfo";
 import DeliveryMethod from "../components/DeliveryMethod";
 import PaymentMethod from "../components/PaymentMethod";
@@ -7,6 +7,7 @@ import Footer from "../components/Footer";
 import EditShippingInfo from "../components/EditShippingInfo";
 import ContactInfo from "../components/ContactInfo";
 import { useNavigate } from "react-router-dom";
+import { ShopContext } from "../context/ShopContext";
 
 const PlaceOrder = () => {
   const navigate = useNavigate();
@@ -14,6 +15,8 @@ const PlaceOrder = () => {
   const [deliveryList, setDeliveryList] = useState(
     JSON.parse(localStorage.getItem("deliveryInfo")) || []
   );
+
+  const {cartItems} = useContext(ShopContext)
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [editIndex, setEditIndex] = useState(null);
 
@@ -32,16 +35,33 @@ const PlaceOrder = () => {
     localStorage.setItem("deliveryInfo", JSON.stringify(updated));
   };
 
-  // 🔐 Save selected order info and redirect
+  const generateOrderId = () => {
+    const id = `ORDER-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+    localStorage.setItem("latestOrderId", id);
+    return id;
+  };
+  
+  const generateTrackingId = () => {
+    const code = `IZ99AA${Date.now().toString().slice(-10)}`;
+    localStorage.setItem("trackingId", code);
+    return code;
+  };
+  
   const handlePlaceOrder = () => {
     const selectedAddress = deliveryList[selectedIndex];
-
+  
     localStorage.setItem("selectedDeliveryMethod", deliveryMethod);
     localStorage.setItem("selectedPaymentMethod", paymentMethod);
     localStorage.setItem("deliveryInfo", JSON.stringify([selectedAddress]));
-
-    navigate("/order-success"); // redirect to confirmation page
+    localStorage.setItem("orderedItems", JSON.stringify(cartItems)); // 👈 save ordered items
+  
+    const orderId = generateOrderId();
+    const trackingId = generateTrackingId();
+    localStorage.setItem("orderSuccessMessage", `Thank you! Your Order ID is ${orderId}`);
+  
+    navigate("/order-success");
   };
+  
 
   return (
     <div className="min-h-screen flex flex-col bg-[#fafafa]">

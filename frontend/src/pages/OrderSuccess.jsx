@@ -8,7 +8,8 @@ const OrderSuccess = () => {
     <div className="bg-white">
       <div className="w-full max-w-[1440px] mx-auto px-4">
         <OrderInfo />
-        <div className="mt-1 pt-1">
+        {/* Tighten spacing between order info and contact info */}
+        <div className="mt-4 sm:mt-2 pt-0 border-t">
           <ContactInfo />
         </div>
       </div>

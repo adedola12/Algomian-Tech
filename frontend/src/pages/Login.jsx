@@ -1,8 +1,13 @@
 import React from 'react'
+import LogAcct from '../components/LogAcct'
+import Footer from '../components/Footer'
 
 const Login = () => {
   return (
-    <div>Login</div>
+    <div>
+      <LogAcct />
+      <Footer />
+    </div>
   )
 }
 

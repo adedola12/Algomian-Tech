@@ -32,6 +32,9 @@ const UserProfileView = ({ onClose }) => {
           <Link to="/cart" onClick={onClose} className="block px-4 py-2 hover:bg-gray-50">My Cart</Link>
         </li>
         <li>
+          <Link to="/inventory" onClick={onClose} className="block px-4 py-2 hover:bg-gray-50">Inventory</Link>
+        </li>
+        <li>
           <button
             onClick={onClose}
             className="w-full text-left text-red-600 px-4 py-2 hover:bg-red-50"

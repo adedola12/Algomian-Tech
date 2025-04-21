@@ -28,17 +28,8 @@ const MyOrder = ({ mode = "shipping", onPlaceOrder }) => {
     }
   };
 
-  const handleCheckout = () => {
-    navigate("/shipping");
-  };
-
-  const handlePlaceOrder = () => {
-    // Optional: clear cart or save order info to localStorage here
-    navigate("/order-success");
-  };
   return (
     <div className="w-full bg-white rounded-lg shadow-md p-5 border text-sm">
-      {/* Header */}
       <div className="flex justify-between items-start mb-4">
         <h2 className="text-base font-semibold text-gray-800">My Order</h2>
         {mode === "place" && (
@@ -48,7 +39,6 @@ const MyOrder = ({ mode = "shipping", onPlaceOrder }) => {
         )}
       </div>
 
-      {/* All Cart Items */}
       {cartItems.length > 0 ? (
         <div className="space-y-4 mb-4">
           {cartItems.map((item, idx) => (
@@ -59,13 +49,9 @@ const MyOrder = ({ mode = "shipping", onPlaceOrder }) => {
                 className="w-16 h-16 rounded object-cover"
               />
               <div className="flex-1">
-                <p className="text-xs font-semibold text-gray-800">
-                  {item.name}
-                </p>
+                <p className="text-xs font-semibold text-gray-800">{item.name}</p>
                 <p className="text-[11px] text-gray-500">{item.description}</p>
-                <p className="text-xs mt-1">
-                  <span className="font-medium">QTY:</span> {item.quantity}
-                </p>
+                <p className="text-xs mt-1"><span className="font-medium">QTY:</span> {item.quantity}</p>
                 <p className="text-sm font-medium mt-1">
                   {currency} {(item.price * item.quantity).toLocaleString()}
                 </p>
@@ -75,26 +61,19 @@ const MyOrder = ({ mode = "shipping", onPlaceOrder }) => {
         </div>
       ) : (
         <p className="text-gray-500 text-sm mb-4">
-          Your cart is currently empty. Please add items before proceeding to
-          checkout.
+          Your cart is currently empty. Please add items before proceeding to checkout.
         </p>
       )}
 
-      {/* Price Summary */}
       <div className="flex justify-between py-2 text-gray-600 text-sm">
         <span>Cart Subtotal</span>
-        <span>
-          {currency} {cartSubtotal.toLocaleString()}
-        </span>
+        <span>{currency} {cartSubtotal.toLocaleString()}</span>
       </div>
       <div className="flex justify-between py-2 font-semibold text-gray-900 text-sm">
         <span>Estimated Total</span>
-        <span>
-          {currency} {estimatedTotal.toLocaleString()}
-        </span>
+        <span>{currency} {estimatedTotal.toLocaleString()}</span>
       </div>
 
-      {/* Discount & CTA (only on place order page) */}
       {mode === "place" && (
         <>
           <div className="mt-4">
