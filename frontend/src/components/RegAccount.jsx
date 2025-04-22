@@ -2,9 +2,12 @@ import React, { useState } from "react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { FcGoogle } from "react-icons/fc";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import api from "../api";
 
 const RegAccount = () => {
+  const navigate = useNavigate();
+
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -13,30 +16,47 @@ const RegAccount = () => {
     password: "",
     confirmPassword: "",
   });
-
   const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
 
-  const handleChange = (e) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-  };
+  const handleChange = (e) =>
+    setFormData((p) => ({ ...p, [e.target.name]: e.target.value }));
 
+  /* ---------------------------------------------------------------- */
   const validate = () => {
-    const newErrors = {};
-    if (!formData.firstName.trim())
-      newErrors.firstName = "First name is required";
-    if (!formData.lastName.trim()) newErrors.lastName = "Last name is required";
-    if (!formData.phone.trim()) newErrors.phone = "Phone number is required";
-    if (!formData.email.trim()) newErrors.email = "Email address is required";
-    if (!formData.password.trim()) newErrors.password = "Password is required";
+    const e = {};
+    if (!formData.firstName.trim()) e.firstName = "First name is required";
+    if (!formData.lastName.trim()) e.lastName = "Last name is required";
+    if (!formData.phone.trim()) e.phone = "Phone number is required";
+    if (!formData.email.trim()) e.email = "Email address is required";
+    if (!formData.password.trim()) e.password = "Password is required";
     if (formData.password !== formData.confirmPassword)
-      newErrors.confirmPassword = "Passwords do not match";
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+      e.confirmPassword = "Passwords do not match";
+    setErrors(e);
+    return Object.keys(e).length === 0;
   };
+  /* ---------------------------------------------------------------- */
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (validate()) {
+    if (!validate()) {
+      toast.error("Please correct the errors above.", {
+        position: "top-center",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      /* map field names → backend keys */
+      await api.post("/api/users/register", {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        whatAppNumber: formData.phone,
+        email: formData.email,
+        password: formData.password,
+      });
+
       toast.success("Registration complete!", { position: "top-center" });
       setFormData({
         firstName: "",
@@ -47,13 +67,21 @@ const RegAccount = () => {
         confirmPassword: "",
       });
       setErrors({});
-    } else {
-      toast.error("Please correct the errors above.", {
-        position: "top-center",
-      });
+
+      /* Give toast time to show then redirect to login */
+      setTimeout(() => navigate("/login"), 1000);
+    } catch (err) {
+      const msg =
+        err.response?.data?.message ||
+        err.response?.data ||
+        "Registration failed";
+      toast.error(msg, { position: "top-center" });
+    } finally {
+      setLoading(false);
     }
   };
 
+  /* ------------------------- JSX (unchanged) ------------------------- */
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#fafafa] px-4 py-10">
       <ToastContainer />
@@ -176,11 +204,13 @@ const RegAccount = () => {
           </div>
 
           {/* Submit */}
+          
           <button
             type="submit"
-            className="bg-[#5A4FCF] text-white font-medium py-2 rounded w-full hover:bg-[#483dc2] transition"
+            disabled={loading}
+            className="bg-[#5A4FCF] text-white font-medium py-2 rounded w-full hover:bg-[#483dc2] transition disabled:opacity-60"
           >
-            Register
+            {loading ? "Processing…" : "Register"}
           </button>
 
           <div className="flex items-center justify-center text-xs text-gray-500">

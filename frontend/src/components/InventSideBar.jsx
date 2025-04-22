@@ -26,33 +26,33 @@ const navLinks = [
 const InventSideBar = ({ isOpen, setIsOpen }) => {
   return (
     <>
-      {/* Backdrop overlay */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-30 z-30 md:hidden"
-          onClick={() => setIsOpen(false)}
-        ></div>
-      )}
+      {/* Dark overlay for mobile */}
+      <div
+        className={`fixed inset-0 z-30 bg-black bg-opacity-50 transition-opacity duration-300 ${
+          isOpen ? "block md:hidden" : "hidden"
+        }`}
+        onClick={() => setIsOpen(false)}
+      />
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 z-40 h-full w-[260px] bg-white border-r transform transition-transform duration-300 ease-in-out
-        ${isOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
+        className={`fixed top-0 left-0 z-40 w-[260px] bg-white h-screen flex flex-col justify-between border-r transform transition-transform duration-300 ease-in-out
+        ${isOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 md:static`}
       >
-        {/* Logo */}
+        {/* Logo & Close Button */}
         <div className="flex items-center justify-between px-4 pt-6 pb-4">
           <Link to="/inventory">
             <img src={assets.color_logo} alt="Logo" className="w-32" />
           </Link>
           <button
             onClick={() => setIsOpen(false)}
-            className="text-xl md:hidden text-gray-500"
+            className="md:hidden text-xl text-gray-500"
           >
             <FiX />
           </button>
         </div>
 
-        {/* Navigation */}
+        {/* Nav Links */}
         <nav className="px-4 flex-1 space-y-2">
           {navLinks.map(({ path, label, icon }) => (
             <NavLink
@@ -73,7 +73,7 @@ const InventSideBar = ({ isOpen, setIsOpen }) => {
           ))}
         </nav>
 
-        {/* User Footer */}
+        {/* Footer */}
         <div className="p-4 border-t mt-auto">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">

@@ -1,22 +1,26 @@
-import React, { useState } from "react";
-import InventNav from "../components/InventNav";
-import InventSideBar from "../components/InventSideBar";
+import { useState }      from "react";
+import { Outlet }        from "react-router-dom";
+import InventNav         from "../components/InventNav";
+import InventSideBar     from "../components/InventSideBar";
 
-const InventoryLayout = ({ children }) => {
-  const [isSidebarOpen, setSidebarOpen] = useState(false);
+export default function InventoryLayout() {
+  const [sidebarOpen, setSidebarOpen] = useState(false);   // mobile drawer
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      {/* Sidebar */}
-      <InventSideBar isOpen={isSidebarOpen} setIsOpen={setSidebarOpen} />
+    <div className="relative min-h-screen bg-gray-50">
+      {/* permanent sidebar (desktop) / drawer (mobile) */}
+      <InventSideBar
+        isOpen={sidebarOpen}
+        setIsOpen={setSidebarOpen}
+      />
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col">
-        <InventNav toggleSidebar={() => setSidebarOpen(!isSidebarOpen)} />
-        <main className="p-4 sm:p-6 overflow-y-auto">{children}</main>
-      </div>
+      {/* fixed top bar */}
+      <InventNav toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
+
+      {/* page content */}
+      <main className="pt-16 px-4 sm:px-6 md:px-8 md:ml-[260px]">
+        <Outlet />            {/* current admin page renders here */}
+      </main>
     </div>
   );
-};
-
-export default InventoryLayout;
+}

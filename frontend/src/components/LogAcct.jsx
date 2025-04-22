@@ -1,93 +1,111 @@
-import React, { useState } from 'react';
-import { toast, ToastContainer } from 'react-toastify';
-import { FcGoogle } from 'react-icons/fc';
-import 'react-toastify/dist/ReactToastify.css';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast, ToastContainer } from "react-toastify";
+import { FcGoogle } from "react-icons/fc";
+import api from "../api";
+import "react-toastify/dist/ReactToastify.css";
 
-const LogAcct = () => {
-  const [formData, setFormData] = useState({
-    identifier: '',
-    password: '',
-  });
+export default function LogAcct() {
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState({ identifier: "", password: "" });
+  const [loading, setLoading]  = useState(false);
 
-  const handleChange = (e) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-  };
+  const handleChange = (e) =>
+    setFormData((p) => ({ ...p, [e.target.name]: e.target.value }));
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
+    if (!formData.identifier || !formData.password) {
+      toast.error("Please enter your login details.", { position: "top-center" });
+      return;
+    }
 
-    if (formData.identifier && formData.password) {
-      toast.success('Login successful!', { position: 'top-center' });
-      // Proceed with login logic or API call
-      setFormData({ identifier: '', password: '' });
-    } else {
-      toast.error('Please enter your login details.', { position: 'top-center' });
+    setLoading(true);
+    try {
+      const { data } = await api.post("/api/users/login", {
+        email: formData.identifier,    // backend accepts either
+        phone: formData.identifier,
+        password: formData.password,
+      });
+
+      /* save token */
+      localStorage.setItem("algomian:token", data.token);
+
+      /* notify this tab (Navbar listener) */
+      window.dispatchEvent(new Event("algomian-login"));
+
+      toast.success("Login successful!", { position: "top-center" });
+      navigate("/");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Invalid credentials", {
+        position: "top-center",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#fafafa] px-4 py-10">
+    <div className="flex min-h-screen items-center justify-center bg-[#fafafa] px-4 py-10">
       <ToastContainer />
-      <div className="w-full max-w-lg bg-white rounded-xl shadow-md p-6 sm:p-10">
-        <h2 className="text-xl sm:text-2xl font-semibold text-gray-800 mb-1">Log In</h2>
-        <p className="text-sm text-gray-500 mb-6">
-          If you do not have an account with us, please create one at the Register Account Page.
+      <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-md sm:p-10">
+        <h2 className="mb-1 text-xl font-semibold text-gray-800 sm:text-2xl">
+          Log In
+        </h2>
+        <p className="mb-6 text-sm text-gray-500">
+          If you do not have an account with us, please create one at the
+          Register Account page.
         </p>
 
         <form onSubmit={handleLogin} className="space-y-4">
-          {/* Identifier */}
           <div>
-            <label className="block text-sm font-medium mb-1">Phone Number or email</label>
+            <label className="mb-1 block text-sm font-medium">
+              Phone Number or Email
+            </label>
             <input
               name="identifier"
               value={formData.identifier}
               onChange={handleChange}
-              className="w-full border rounded px-4 py-2 text-sm"
-              placeholder="Placeholder"
+              className="w-full rounded border px-4 py-2 text-sm"
+              placeholder="you@example.com"
             />
           </div>
 
-          {/* Password */}
           <div>
-            <label className="block text-sm font-medium mb-1">Password</label>
+            <label className="mb-1 block text-sm font-medium">Password</label>
             <input
               type="password"
               name="password"
               value={formData.password}
               onChange={handleChange}
-              className="w-full border rounded px-4 py-2 text-sm"
-              placeholder="Placeholder"
+              className="w-full rounded border px-4 py-2 text-sm"
+              placeholder="••••••"
             />
-            <p className="text-xs text-[#5A4FCF] font-medium mt-1 cursor-pointer hover:underline">
+            <p className="mt-1 text-xs font-medium text-[#5A4FCF] hover:underline">
               Forgot Password?
             </p>
           </div>
 
-          {/* Login Button */}
           <button
             type="submit"
-            className="bg-[#5A4FCF] text-white text-sm font-medium py-2 rounded w-full hover:bg-[#483dc2] transition"
+            disabled={loading}
+            className="w-full rounded bg-[#5A4FCF] py-2 text-sm font-medium text-white transition hover:bg-[#483dc2] disabled:opacity-60"
           >
-            Log in
+            {loading ? "Signing in…" : "Log in"}
           </button>
 
-          {/* Divider */}
           <div className="flex items-center justify-center text-xs text-gray-500">
             <span className="px-2">or</span>
           </div>
 
-          {/* Google Login */}
           <button
             type="button"
-            className="flex items-center justify-center gap-2 border border-gray-300 py-2 rounded w-full text-sm hover:bg-gray-50"
+            className="flex w-full items-center justify-center gap-2 rounded border border-gray-300 py-2 text-sm hover:bg-gray-50"
           >
-            <FcGoogle className="text-lg" />
-            Log in with Google
+            <FcGoogle className="text-lg" /> Log in with Google
           </button>
         </form>
       </div>
     </div>
   );
-};
-
-export default LogAcct;
+}

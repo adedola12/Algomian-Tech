@@ -36,5 +36,16 @@ a.active hr{
   .no-scrollbar::-webkit-scrollbar {
     display: none; /* Chrome, Safari, Opera */
   }
+
+  @layer utilities {
+    .form-label {
+      @apply block mb-1 text-sm font-medium text-gray-900;
+    }
+    .input {
+      @apply w-full rounded border border-gray-300 bg-white
+             px-3 py-2 text-sm placeholder:text-gray-400
+             outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500;
+    }
+  }
   
   

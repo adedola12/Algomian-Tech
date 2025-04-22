@@ -1,50 +1,36 @@
-import React from "react";
 import { Link } from "react-router-dom";
 
-const UserProfileView = ({ onClose }) => {
+export default function UserProfileView({ user, onLogout, onClose }) {
+  const avatar = user?.profileImage || "https://api.dicebear.com/7.x/personas/svg";
+
   return (
-    <div className="w-64 bg-white rounded shadow-lg text-sm border z-[150]">
-      {/* Header */}
-      <div className="p-4 flex items-center gap-3 border-b">
-        <img
-          src="https://randomuser.me/api/portraits/women/44.jpg"
-          alt="profile"
-          className="w-10 h-10 rounded-full"
-        />
-        <div>
-          <p className="font-semibold">Olivia Rhye</p>
-          <p className="text-gray-500 text-xs">olivia@untitledui.com</p>
+    <div className="w-64 overflow-hidden rounded border bg-white text-sm shadow-lg">
+      {/* header */}
+      <div className="flex items-center gap-3 border-b p-4">
+        <img src={avatar} alt="" className="h-10 w-10 rounded-full object-cover" />
+        <div className="min-w-0">
+          <p className="truncate font-semibold">
+            {user?.firstName} {user?.lastName}
+          </p>
+          <p className="truncate text-xs text-gray-500">{user?.email}</p>
         </div>
       </div>
 
-      {/* Menu Links */}
-      <ul className="divide-y text-sm text-gray-700">
+      {/* menu */}
+      <ul className="divide-y text-gray-700">
+        <li><Link onClick={onClose} to="/profile"     className="block px-4 py-2 hover:bg-gray-50">Personal Information</Link></li>
+        <li><Link onClick={onClose} to="/orders"      className="block px-4 py-2 hover:bg-gray-50">My Orders</Link></li>
+        <li><Link onClick={onClose} to="/wishlist"    className="block px-4 py-2 hover:bg-gray-50">Wishlist</Link></li>
+        <li><Link onClick={onClose} to="/cart"        className="block px-4 py-2 hover:bg-gray-50">My Cart</Link></li>
+        {user?.userType === "Admin" && (
+          <li><Link onClick={onClose} to="/inventory" className="block px-4 py-2 hover:bg-gray-50">Inventory</Link></li>
+        )}
         <li>
-          <Link to="/profile" onClick={onClose} className="block px-4 py-2 hover:bg-gray-50">Personal Information</Link>
-        </li>
-        <li>
-          <Link to="/orders" onClick={onClose} className="block px-4 py-2 hover:bg-gray-50">My Order</Link>
-        </li>
-        <li>
-          <Link to="/wishlist" onClick={onClose} className="block px-4 py-2 hover:bg-gray-50">Wishlist</Link>
-        </li>
-        <li>
-          <Link to="/cart" onClick={onClose} className="block px-4 py-2 hover:bg-gray-50">My Cart</Link>
-        </li>
-        <li>
-          <Link to="/inventory" onClick={onClose} className="block px-4 py-2 hover:bg-gray-50">Inventory</Link>
-        </li>
-        <li>
-          <button
-            onClick={onClose}
-            className="w-full text-left text-red-600 px-4 py-2 hover:bg-red-50"
-          >
-            Log out
+          <button onClick={onLogout} className="w-full px-4 py-2 text-left text-red-600 hover:bg-red-50">
+            Log out
           </button>
         </li>
       </ul>
     </div>
   );
-};
-
-export default UserProfileView;
+}
