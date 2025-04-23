@@ -12,61 +12,54 @@ import MyCart           from "./MyCart";
 import UserProfileView  from "./UserProfileView";
 
 export default function Navbar() {
-  /* – hooks / context – */
-  const navigate         = useNavigate();
-  const { setFilters }   = useSearch();
-  const { cartItems }    = useContext(ShopContext);
+  const navigate       = useNavigate();
+  const { setFilters } = useSearch();
+  const { cartItems }  = useContext(ShopContext);
 
-  /* – auth state – */
+  /* ---------- auth state ---------- */
   const [token, setToken] = useState(
     () => localStorage.getItem("algomian:token") || null
   );
-  const [user, setUser]   = useState(null);
+  const [user , setUser ] = useState(null);
 
-  /* – ui state – */
-  const [search, setSearch]   = useState("");
-  const [showCart, setShowCart]         = useState(false);
-  const [showProfile, setShowProfile]   = useState(false);
-  const [drawer, setDrawer]             = useState(false);
-  const [mSearch, setMSearch]           = useState(false);
+  /* ---------- ui state ------------ */
+  const [search, setSearch]     = useState("");
+  const [showCart, setShowCart] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [drawer, setDrawer]           = useState(false);
+  const [mSearch, setMSearch]         = useState(false);
 
-  /* ────────────────────────────────────────────────────────────────
-     Sync profile whenever `token` changes OR when other tabs / the
-     login page broadcast a change.
-  ──────────────────────────────────────────────────────────────── */
+  /* ---------- listen for token changes from ANYWHERE ---------- */
   useEffect(() => {
-    const authSync = (e) => {
-      if (e.key === "algomian:token") setToken(e.newValue);
-      if (e.type === "algomian-login") setToken(localStorage.getItem("algomian:token"));
+    const sync = (e) => {
+      if (e.key === "algomian:token")             setToken(e.newValue);
+      if (e.type === "algomian-login")            setToken(localStorage.getItem("algomian:token"));
     };
-
-    window.addEventListener("storage",        authSync);   // other tabs
-    window.addEventListener("algomian-login", authSync);   // this tab
-
+    window.addEventListener("storage",        sync);   // other tabs
+    window.addEventListener("algomian-login", sync);   // same tab
     return () => {
-      window.removeEventListener("storage",        authSync);
-      window.removeEventListener("algomian-login", authSync);
+      window.removeEventListener("storage",        sync);
+      window.removeEventListener("algomian-login", sync);
     };
   }, []);
 
-  /* fetch profile whenever token is set / changed */
+  /* ---------- fetch profile whenever token exists ---------- */
   useEffect(() => {
-    if (!token) { setUser(null); return; }
+    if (!token) {                       // logged‑out
+      api.defaults.headers.common.Authorization = "";
+      setUser(null);
+      return;
+    }
+
+    api.defaults.headers.common.Authorization = `Bearer ${token}`;
 
     (async () => {
-      try {
-        const { data } = await api.get("/api/users/profile", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setUser(data);
-      } catch {
-        localStorage.removeItem("algomian:token");
-        setToken(null);
-      }
+      try   { setUser((await api.get("/api/users/profile")).data); }
+      catch { localStorage.removeItem("algomian:token"); setToken(null); }
     })();
   }, [token]);
 
-  /* – helpers – */
+  /* ---------- helpers ---------- */
   const totalItems = cartItems.reduce((t, i) => t + i.quantity, 0);
 
   const doSearch = () => {
@@ -83,7 +76,7 @@ export default function Navbar() {
     navigate("/");
   };
 
-  /* – UI – */
+  /* ---------- UI ---------- */
   return (
     <header className="sticky top-0 z-50 border-b bg-white px-4 py-3 shadow-sm">
       <ToastContainer />
@@ -99,7 +92,9 @@ export default function Navbar() {
           <NavLink to="/new">New Arrivals</NavLink>
           <NavLink to="/affiliates">Affiliates</NavLink>
           <NavLink to="/track">Track Order</NavLink>
-          {user?.userType === "Admin" && <NavLink to="/inventory">Inventory</NavLink>}
+          {user?.userType === "Admin" && (
+            <NavLink to="/inventory">Inventory</NavLink>
+          )}
         </nav>
 
         {/* desktop search */}
