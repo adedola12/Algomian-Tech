@@ -17,7 +17,7 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 
-const whitelist = ["http://localhost:5173"];
+const whitelist = ["http://localhost:5173", "https://algomian-web-app.vercel.app"];
 app.use(
   cors({
     origin: whitelist,
