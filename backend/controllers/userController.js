@@ -1,18 +1,16 @@
-/*  controllers/userController.js  */
+// ---------------------------------------------
+//  backend/controllers/userController.js
+// ---------------------------------------------
 import asyncHandler from "express-async-handler";
-import User          from "../models/userModel.js";
+import User from "../models/userModel.js";
 import generateToken from "../utils/generateToken.js";
 
-/* ──────────────────────────────────────────
-   Helpers
-   ────────────────────────────────────────── */
-const strongPassword = (pwd = "") =>
-  /^(?=.*\d).{6,}$/.test(pwd);              // ≥6 chars & ≥1 digit
+/* ─────────────────────────────────────────────
+   tiny helper – ≥6 chars & ≥1 digit
+   ──────────────────────────────────────────── */
+const strongPassword = (pwd = "") => /^(?=.*\d).{6,}$/.test(pwd);
 
-
-/* ──────────────────────────────────────────
-   Register
-   ────────────────────────────────────────── */
+/* ─────────────  REGISTER  ───────────── */
 export const registerUser = asyncHandler(async (req, res) => {
   const { firstName, lastName, whatAppNumber, email, password, userType } =
     req.body;
@@ -33,32 +31,27 @@ export const registerUser = asyncHandler(async (req, res) => {
     firstName,
     lastName,
     whatAppNumber,
-    email,
-    password,            // hashed automatically by the schema hook
-    userType,            // default = "Customer"
-    profileImage: req.body.profileImage || "",
+    email: email.toLowerCase(),
+    password,
+    userType, 
+    profileImage:
+      req.body.profileImage ||
+      `https://api.dicebear.com/7.x/personas/svg?seed=${encodeURIComponent(firstName + lastName)}`,
   });
 
-  res.status(201).json({
-    _id:    user._id,
-    firstName:  user.firstName,
-    lastName:   user.lastName,
-    email:      user.email,
-    userType:   user.userType,
-    profileImage: user.profileImage,
-    token:      generateToken(user._id),
-  });
+  const token = generateToken(user._id);
+  res
+    .status(201)
+    .cookie("algomianToken", token, cookieOpts) // ↓ see bottom
+    .json({ ...safeUser(user), token });
 });
 
-
-/* ──────────────────────────────────────────
-   Login  (email OR whatsapp number)
-   ────────────────────────────────────────── */
+/* ─────────────  LOGIN  ───────────── */
 export const authUser = asyncHandler(async (req, res) => {
-  const { email, phone, password } = req.body;
+  const { identifier = "", password } = req.body; // email OR phone
 
   const user = await User.findOne({
-    $or: [{ email }, { whatAppNumber: phone }],
+    $or: [{ email: identifier.toLowerCase() }, { whatAppNumber: identifier }],
   });
 
   if (!user || !(await user.matchPassword(password))) {
@@ -66,24 +59,15 @@ export const authUser = asyncHandler(async (req, res) => {
     throw new Error("Invalid credentials");
   }
 
-  res.json({
-    _id:    user._id,
-    firstName:  user.firstName,
-    lastName:   user.lastName,
-    email:      user.email,
-    userType:   user.userType,
-    profileImage: user.profileImage,
-    token:      generateToken(user._id),
-  });
+  const token = generateToken(user._id);
+  res
+    .cookie("algomianToken", token, cookieOpts)
+    .json({ ...safeUser(user), token });
 });
 
-
-/* ──────────────────────────────────────────
-   Get profile  (protected)
-   ────────────────────────────────────────── */
+/* ─────────────  PROFILE  ───────────── */
 export const getUserProfile = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id).select("-password");
-
   if (!user) {
     res.status(404);
     throw new Error("User not found");
@@ -91,23 +75,19 @@ export const getUserProfile = asyncHandler(async (req, res) => {
   res.json(user);
 });
 
-
-/* ──────────────────────────────────────────
-   Update profile  (protected)
-   ────────────────────────────────────────── */
+/* ─────────────  UPDATE PROFILE  ───────────── */
 export const updateUserProfile = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id);
-
   if (!user) {
     res.status(404);
     throw new Error("User not found");
   }
 
-  user.firstName     = req.body.firstName     || user.firstName;
-  user.lastName      = req.body.lastName      || user.lastName;
+  user.firstName = req.body.firstName || user.firstName;
+  user.lastName = req.body.lastName || user.lastName;
   user.whatAppNumber = req.body.whatAppNumber || user.whatAppNumber;
-  user.email         = req.body.email         || user.email;
-  user.profileImage  = req.body.profileImage  || user.profileImage;
+  user.email = req.body.email?.toLowerCase() || user.email;
+  user.profileImage = req.body.profileImage || user.profileImage;
 
   if (req.body.password) {
     if (!strongPassword(req.body.password)) {
@@ -116,18 +96,32 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
         "Password must be at least 6 characters and contain at least 1 number"
       );
     }
-    user.password = req.body.password;              // will be hashed by hook
+    user.password = req.body.password;
   }
 
   const updated = await user.save();
+  const token = generateToken(updated._id);
 
-  res.json({
-    _id:    updated._id,
-    firstName:  updated.firstName,
-    lastName:   updated.lastName,
-    email:      updated.email,
-    userType:   updated.userType,
-    profileImage: updated.profileImage,
-    token:      generateToken(updated._id),
-  });
+  res
+    .cookie("algomianToken", token, cookieOpts)
+    .json({ ...safeUser(updated), token });
 });
+
+/* ─────────────────────────────────────────────
+      helpers
+   ──────────────────────────────────────────── */
+const safeUser = (u) => ({
+  _id: u._id,
+  firstName: u.firstName,
+  lastName: u.lastName,
+  email: u.email,
+  userType: u.userType,
+  profileImage: u.profileImage,
+});
+
+const cookieOpts = {
+  httpOnly: true,
+  sameSite: "lax",
+  secure: process.env.NODE_ENV === "production",
+  maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+};

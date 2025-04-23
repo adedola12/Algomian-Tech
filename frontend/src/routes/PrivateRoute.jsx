@@ -1,25 +1,16 @@
-// src/routes/PrivateRoute.jsx
+// ---------------------------------------------
+//  frontend/src/routes/PrivateRoute.jsx
+// ---------------------------------------------
 import { Navigate, Outlet } from "react-router-dom";
-import { useEffect, useState } from "react";
-import api from "../api";
+import { useAuth }          from "../context/AuthContext";
 
 export default function PrivateRoute({ adminOnly = false }) {
-  const [status, setStatus] = useState("loading"); // loading | ok | fail
+  const { user, loading } = useAuth();
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const { data } = await api.get("/api/users/profile");
-        if (adminOnly && data.userType !== "Admin") setStatus("fail");
-        else setStatus("ok");
-      } catch {
-        setStatus("fail");
-      }
-    })();
-  }, []);
-
-  if (status === "loading") return <p className="text-center mt-10">Loading…</p>;
-  if (status === "fail")    return <Navigate to="/login" replace />;
+  if (loading) return <p className="text-center mt-10">Loading…</p>;
+  if (!user)    return <Navigate to="/login" replace />;
+  if (adminOnly && user.userType !== "Admin")
+      return <Navigate to="/" replace />;
 
   return <Outlet />;
 }
