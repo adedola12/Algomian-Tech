@@ -2,7 +2,7 @@
 //  frontend/src/pages/LogAcct.jsx
 // ---------------------------------------------
 import { useState }         from "react";
-import { useNavigate }      from "react-router-dom";
+import { Link, useNavigate }      from "react-router-dom";
 import { toast }            from "react-toastify";
 import { FcGoogle }         from "react-icons/fc";
 import api                  from "../api";
@@ -101,6 +101,10 @@ export default function LogAcct() {
             <FcGoogle className="text-lg" /> Log in with Google
           </button>
         </form>
+
+        <div className="flex items-center justify-center text-xs text-gray-500 mt-3">
+            <span className="px-2">Dont have an account? <Link to={'/signup'} className="text-purple-800 text-bold">Sign Up Now!!!</Link></span>
+          </div>
       </div>
     </div>
   );
