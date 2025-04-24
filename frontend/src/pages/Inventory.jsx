@@ -6,7 +6,11 @@ const Inventory = () => {
   return (
     <div>
         <InventTop />
+        <div className="mt-10">
+
+
         <InventTable />
+        </div>
     </div>
   )
 }
