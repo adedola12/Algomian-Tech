@@ -1,12 +1,16 @@
-// ---------------------------------------------
-//  frontend/src/api.js
-// ---------------------------------------------
 import axios from "axios";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000",
   withCredentials: true,                      // <- receive httpOnly cookie too
 });
+
+// 🔹 PRODUCTS
+export const fetchProducts = (params = {}) =>
+  api.get("/api/products", { params }).then((r) => r.data);
+
+export const fetchProduct  = (id) =>
+  api.get(`/api/products/${id}`).then((r) => r.data);
 
 /* inject token on every request */
 api.interceptors.request.use((config) => {

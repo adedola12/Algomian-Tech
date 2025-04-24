@@ -3,11 +3,10 @@ import { google } from "googleapis";
 import { fileURLToPath } from "url";
 import path from "path";
 import mime from "mime-types";
-import {Readable } from "stream";
+import { Readable } from "stream";
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
-
+const __dirname = path.dirname(__filename);
 
 const auth = new google.auth.GoogleAuth({
   keyFile: path.resolve(__dirname, "../config/serviceAccount.json"),
@@ -32,15 +31,17 @@ export const uploadBufferToDrive = async (buffer, filename) => {
       mimeType,
       body: Readable.from(buffer),
     },
-    fields: "id, webContentLink, webViewLink",
+    fields: "id",
   });
 
   // 2) make it public
   await drive.permissions.create({
     fileId: file.id,
-    requestBody: { role: "reader", type: "anyone" },
+    requestBody: {
+      role: "reader",
+      type: "anyone",
+    },
   });
-
   // 3) get final shareable link
   const {
     data: { webContentLink },
@@ -49,7 +50,10 @@ export const uploadBufferToDrive = async (buffer, filename) => {
     fields: "webContentLink",
   });
 
+
+
+  
   /* webContentLink has a `&export=download` query — works in <img src>.
      You can also craft `https://drive.google.com/uc?id=<id>` */
-  return webContentLink.replace("&export=download", "");
+  return `https://drive.google.com/uc?export=view&id=${file.id}`;
 };

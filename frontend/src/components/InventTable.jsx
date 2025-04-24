@@ -1,74 +1,95 @@
-/* ────────────────────────────────────────────────────────────
-   InventTable.jsx • Tailwind CSS 3 + React 18
-   ──────────────────────────────────────────────────────────── */
-import { useState } from "react";
-import {
-  FunnelIcon,
-  ChevronDownIcon,
-  EllipsisVerticalIcon,
-} from "@heroicons/react/24/outline";
+import { useEffect, useState, useMemo, useCallback } from "react";
+import { EllipsisVerticalIcon } from "@heroicons/react/24/outline";
 import InventDetails from "./InventDetails";
+import { fetchProducts } from "../api";
 
-/* demo data ----------------------------------------------------------- */
-const rows = [
-  {
-    id: 1,
-    name: "Oraimo EarBuds",
-    description:
-      "High quality earbuds with superb bass - perfect for everyday use.",
-    img: "https://via.placeholder.com/400x300?text=🎧",
-    sku: "#28373",
-    category: "Oraimo",
-    costPrice: "NGN 4 800",
-    unitPrice: "NGN 5 600",
-    qty: 1,
-    reorderLevel: 5,
-    status: "Low stock",
-    brand: "Oraimo",
-    baseRam: "—",
-    baseStorage: "—",
-    baseCPU: "—",
-  },
-  {
-    id: 2,
-    name: "Macbook pro M4Pro chip",
-    description:
-      "Buy a new laptop, they sell the best laptops and offer the best services. I'd recommend anyone looking for a laptop to Algomian Tech anytime anyday! Totally top notch!",
-    img: "https://via.placeholder.com/400x300?text=🖥️",
-    sku: "#32876",
-    category: "Macbook",
-    costPrice: "NGN 1 500 000",
-    unitPrice: "NGN 2 000 000",
-    qty: 15,
-    reorderLevel: 10,
-    status: "In stock",
-    brand: "Apple",
-    baseRam: "16 gb",
-    baseStorage: "256 gb",
-    baseCPU: "Core i7",
-  },
-  // …add more rows as needed
-];
-
-/* status → badge colour ---------------------------------------------- */
-const badge = (s) =>
-  s === "In stock"
-    ? "bg-green-100 text-green-700"
-    : s === "Low stock"
+const badge = (qty, reorder) =>
+  qty === 0
+    ? "bg-red-100 text-red-700"
+    : qty <= reorder
     ? "bg-yellow-100 text-yellow-700"
-    : "bg-red-100 text-red-700";
+    : "bg-green-100 text-green-700";
+
+const toEmbedUrl = (url) => {
+  if (!url) return url;
+  const match = url.match(/(?:file\/d\/|id=)([^/&?]+)/);
+  return match ? `https://drive.google.com/uc?export=view&id=${match[1]}` : url;
+};
+
+const testImageUrl = (url) => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = url;
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
+  });
+};
 
 export default function InventTable() {
+  const [rows, setRows] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("");
   const [selected, setSelected] = useState(null);
+
+  const loadProducts = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { products, total: grandTotal } = await fetchProducts({
+        search,
+        category,
+      });
+
+      // Check each product image URL accessibility
+      const verifiedProducts = await Promise.all(
+        products.map(async (product) => {
+          const imageUrl = product.images?.[0]
+            ? toEmbedUrl(product.images[0])
+            : null;
+          const isImageAccessible = imageUrl
+            ? await testImageUrl(imageUrl)
+            : false;
+
+          return {
+            ...product,
+            verifiedImage: isImageAccessible ? imageUrl : null,
+          };
+        })
+      );
+
+      setRows(verifiedProducts);
+      setTotal(grandTotal);
+      setError(null);
+    } catch (err) {
+      setError(err.response?.data?.message || err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [search, category]);
+
+  useEffect(() => {
+    loadProducts();
+  }, [loadProducts]);
+
+  const categories = useMemo(
+    () => [...new Set(rows.map((p) => p.productCategory))],
+    [rows]
+  );
+
+  if (loading) return <p className="p-4">Loading…</p>;
+  if (error) return <p className="p-4 text-red-600">Error: {error}</p>;
+  if (!rows.length) return <p className="p-4">No products match your query.</p>;
 
   return (
     <>
-      {/* card */}
       <section className="space-y-4 rounded-lg bg-white p-4 sm:p-5 shadow-sm">
-        {/* ───────── top-bar  (wraps nicely on small screens) ───────── */}
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative flex-grow sm:flex-grow-0 sm:basis-60">
+          <div className="relative flex-grow sm:flex-grow-0 sm:basis-64">
             <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
               type="text"
               placeholder="Search here…"
               className="peer w-full rounded border-gray-300 py-2 pl-10 pr-3 text-sm focus:outline-none"
@@ -76,8 +97,8 @@ export default function InventTable() {
             <svg
               className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-gray-400 peer-focus:text-gray-500"
               fill="none"
-              strokeWidth="2"
               stroke="currentColor"
+              strokeWidth="2"
               viewBox="0 0 24 24"
             >
               <path
@@ -88,21 +109,23 @@ export default function InventTable() {
             </svg>
           </div>
 
-          <button className="flex items-center gap-1 rounded border px-3 py-2 text-sm">
-            <FunnelIcon className="h-4 w-4" /> Filter
-          </button>
-
-          <div className="ml-auto">
-            <button className="flex items-center gap-1 rounded border px-3 py-2 text-sm">
-              Categories <ChevronDownIcon className="h-4 w-4" />
-            </button>
-          </div>
+          <select
+            className="ml-auto rounded border px-3 py-2 text-sm"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
+            <option value="">All categories</option>
+            {categories.map((c) => (
+              <option key={c}>{c}</option>
+            ))}
+          </select>
         </div>
 
-        {/* ───────── table wrapper ─────────
-               • full-width scrolling when viewport < lg
-               • on x-small screens the important columns stay, others are hidden
-          -------------------------------------------------------------------- */}
+        <p className="text-sm text-gray-500">
+          Total items:{" "}
+          <span className="font-medium text-gray-900">{total}</span>
+        </p>
+
         <div className="w-full overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
             <thead className="whitespace-nowrap border-b text-left text-gray-500">
@@ -111,54 +134,57 @@ export default function InventTable() {
                   <input type="checkbox" className="accent-orange-500" />
                 </th>
                 <th className="py-3">Name</th>
-                <th className="py-3 hidden xs:table-cell">Product ID</th>
+                <th className="py-3 hidden xs:table-cell">Product&nbsp;ID</th>
                 <th className="py-3 hidden sm:table-cell">Category</th>
-                <th className="py-3 hidden lg:table-cell">Unit Price</th>
-                <th className="py-3 w-[1%]">Qty</th>
+                <th className="py-3 hidden lg:table-cell">Unit&nbsp;Price</th>
+                <th className="py-3">Qty</th>
                 <th className="py-3 hidden xs:table-cell">Status</th>
-                <th className="py-3 pr-4 text-right w-[1%]"></th>
+                <th className="py-3 pr-4 text-right"></th>
               </tr>
             </thead>
 
             <tbody className="divide-y">
-              {rows.map((r) => (
-                <tr key={r.id} className="whitespace-nowrap hover:bg-gray-50">
-                  {/* cbx */}
+              {rows.map((p) => (
+                <tr key={p._id} className="whitespace-nowrap hover:bg-gray-50">
                   <td className="py-3 pl-4">
                     <input type="checkbox" className="accent-orange-500" />
                   </td>
-
-                  {/* name + image */}
                   <td className="py-3 flex min-w-[160px] items-center gap-3">
                     <img
-                      src={r.img}
-                      alt=""
+                      src={
+                        p.verifiedImage ||
+                        `https://ui-avatars.com/api/?size=128&name=${encodeURIComponent(
+                          p.productName
+                        )}` || "https://drive.usercontent.google.com/download?id=1jvulaDtxvT-ciRe2ubmSAopWq2VnMMaO&export=view&authuser=0"
+                      }
+                      alt={p.productName}
                       className="h-9 w-9 shrink-0 rounded object-cover"
                     />
-                    <span className="max-w-[120px] truncate xs:max-w-none">
-                      {r.name}
-                    </span>
+                    <span className="truncate">{p.productName}</span>
                   </td>
-
-                  <td className="py-3 hidden xs:table-cell">{r.sku}</td>
-                  <td className="py-3 hidden sm:table-cell">{r.category}</td>
-                  <td className="py-3 hidden lg:table-cell">{r.unitPrice}</td>
-                  <td className="py-3">{r.qty}</td>
-
-                  <td className="py-3 hidden xs:table-cell">
+                  <td className="hidden xs:table-cell">{p.productId}</td>
+                  <td className="hidden sm:table-cell">{p.productCategory}</td>
+                  <td className="hidden lg:table-cell">
+                    NGN {p.sellingPrice.toLocaleString()}
+                  </td>
+                  <td>{p.quantity}</td>
+                  <td className="hidden xs:table-cell">
                     <span
                       className={`rounded-full px-3 py-0.5 text-xs font-medium ${badge(
-                        r.status
+                        p.quantity,
+                        p.reorderLevel
                       )}`}
                     >
-                      {r.status}
+                      {p.quantity === 0
+                        ? "Out of stock"
+                        : p.quantity <= p.reorderLevel
+                        ? "Low stock"
+                        : "In stock"}
                     </span>
                   </td>
-
-                  {/* action */}
-                  <td className="py-3 pr-4 text-right">
+                  <td className="pr-4 text-right">
                     <button
-                      onClick={() => setSelected(r)}
+                      onClick={() => setSelected(p)}
                       className="rounded p-1 hover:bg-gray-100"
                     >
                       <EllipsisVerticalIcon className="h-5 w-5 text-gray-500" />
@@ -171,7 +197,6 @@ export default function InventTable() {
         </div>
       </section>
 
-      {/* slide-over */}
       {selected && (
         <InventDetails product={selected} onClose={() => setSelected(null)} />
       )}

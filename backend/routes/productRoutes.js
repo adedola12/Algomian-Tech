@@ -1,5 +1,6 @@
-import express from "express";
-import multer  from "multer";
+// routes/productRoutes.js
+import express  from "express";
+import multer   from "multer";
 import {
   createProduct,
   updateProduct,
@@ -9,15 +10,15 @@ import {
 } from "../controllers/productController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
-const router  = express.Router();
-const upload  = multer({ storage: multer.memoryStorage() });
+const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
 
 router.route("/")
-  .get(getProducts)
+  .get(getProducts)                                //  ← LIST
   .post(protect, upload.array("images", 10), createProduct);
 
 router.route("/:id")
-  .get(getProduct)
+  .get(getProduct)                                //  ← SINGLE
   .put(protect, upload.array("images", 10), updateProduct)
   .delete(protect, deleteProduct);
 

@@ -98,9 +98,38 @@ export const deleteProduct = asyncHandler(async (req, res) => {
   res.json({ message: "Product removed" });
 });
 
-/* ─────────────  READ (optional helpers) ───────────── */
-export const getProducts = asyncHandler(async (_req, res) => {
-  res.json(await Product.find().sort("-createdAt"));
+
+/* ─────────────  READ LIST  ─────────────
+   · ?search=laptop        – fuzzy search across name / brand / category
+   · ?category=PC          – exact match on category
+   · ?page=2&limit=20      – pagination
+──────────────────────────────────────── */
+export const getProducts = asyncHandler(async (req, res) => {
+  const { search = "", category, page = 1, limit = 50 } = req.query;
+
+  const q = {
+    $and: [
+      search
+        ? {
+            $or: [
+              { productName:     { $regex: search, $options: "i" } },
+              { brand:           { $regex: search, $options: "i" } },
+              { productCategory: { $regex: search, $options: "i" } },
+            ],
+          }
+        : {},
+      category ? { productCategory: category } : {},
+    ],
+  };
+
+  const skip  = (+page - 1) * +limit;
+  const total = await Product.countDocuments(q);
+  const products = await Product.find(q)
+    .sort("-createdAt")
+    .skip(skip)
+    .limit(+limit);
+
+  res.json({ products, total, page: +page, pages: Math.ceil(total / limit) });
 });
 
 export const getProduct = asyncHandler(async (req, res) => {
