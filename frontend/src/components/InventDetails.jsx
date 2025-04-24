@@ -2,9 +2,12 @@
    InventDetails.jsx · Tailwind 3 – full-detail slide-over
 ──────────────────────────────────────────────────────────── */
 import { XMarkIcon, PencilSquareIcon } from "@heroicons/react/24/outline";
+import { useNavigate } from "react-router-dom";
 
 export default function InventDetails({ product, onClose }) {
   if (!product) return null;
+
+  const navigate = useNavigate();
 
   const badge =
     product.quantity === 0
@@ -33,15 +36,14 @@ export default function InventDetails({ product, onClose }) {
     ["Stock Location", product.stockLocation ?? "—"],
   ];
 
-    /* helper ----------------------------------------------------------- */
-    const toEmbedUrl = (url) => {
-      if (!url) return url;
-      const match = url.match(/(?:file\/d\/|id=)([^/&?]+)/);
-      return match
-        ? `https://drive.google.com/uc?export=view&id=${match[1]}`
-        : url;
-    };
-    
+  /* helper ----------------------------------------------------------- */
+  const toEmbedUrl = (url) => {
+    if (!url) return url;
+    const match = url.match(/(?:file\/d\/|id=)([^/&?]+)/);
+    return match
+      ? `https://drive.google.com/uc?export=view&id=${match[1]}`
+      : url;
+  };
 
   const variants = product.variants?.length ? product.variants : [];
   const serials = product.serialNumbers?.length ? product.serialNumbers : [];
@@ -62,7 +64,10 @@ export default function InventDetails({ product, onClose }) {
             <XMarkIcon className="h-5 w-5 text-gray-500" />
           </button>
 
-          <button className="absolute right-14 top-[22px] flex items-center gap-1 text-sm text-orange-600 hover:underline">
+          <button
+            onClick={() => navigate(`/inventory/edit-product/${product._id}`)}
+            className="absolute right-14 top-[22px] flex items-center gap-1 text-sm text-orange-600 hover:underline"
+          >
             <PencilSquareIcon className="h-4 w-4" />
             Edit
           </button>
@@ -82,15 +87,16 @@ export default function InventDetails({ product, onClose }) {
           </span>
 
           <img
-  src={
-    product.images?.[0]
-      ? toEmbedUrl(product.images[0])
-      : `https://ui-avatars.com/api/?size=256&name=${encodeURIComponent(product.productName)}`
-  }
-  alt={product.productName}
-  className="mt-4 mb-6 h-44 w-full rounded object-cover"
-/>
-
+            src={
+              product.images?.[0]
+                ? toEmbedUrl(product.images[0])
+                : `https://ui-avatars.com/api/?size=256&name=${encodeURIComponent(
+                    product.productName
+                  )}`
+            }
+            alt={product.productName}
+            className="mt-4 mb-6 h-44 w-full rounded object-cover"
+          />
 
           <h3 className="font-semibold">Product Name: {product.productName}</h3>
           <p className="mt-1 mb-6 text-sm text-gray-700">
