@@ -32,6 +32,8 @@ import AddProduct   from "./pages/Inventory/AddProduct";
 /* ─ route guard ─ */
 import PrivateRoute from "./routes/PrivateRoute";      // ✅ correct
 import EditProduct from "./pages/Inventory/EditProduct";
+import InventoryOrder from "./pages/InventoryOrder";
+import CustomerOrderDetails from "./pages/CustomerOrderDetails";
 
 
 
@@ -67,6 +69,8 @@ export default function App() {
         <Route element={<InventoryLayout />}>
           <Route path="inventory"               element={<Inventory />} />
           <Route path="dashboard"               element={<Dashboard />} />
+          <Route path="customer-order-details/:id" element={<CustomerOrderDetails />} />
+          <Route path="/inventory/orders"               element={<InventoryOrder />} />
           <Route path="sales"                   element={<div>Sales Management</div>} />
           <Route path="logistics"               element={<div>Logistics</div>} />
           <Route path="customers"               element={<div>Customers</div>} />

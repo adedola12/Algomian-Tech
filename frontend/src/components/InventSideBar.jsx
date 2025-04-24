@@ -16,7 +16,7 @@ import { assets } from "../assets/assets";
 const navLinks = [
   { path: "/dashboard", label: "Dashboard", icon: <FiHome /> },
   { path: "/inventory", label: "Inventory", icon: <BsClipboard /> },
-  { path: "/orders", label: "Orders", icon: <FiShoppingCart /> },
+  { path: "/inventory/orders", label: "Orders", icon: <FiShoppingCart /> },
   { path: "/sales", label: "Sale Management", icon: <FiTag /> },
   { path: "/logistics", label: "Logistics", icon: <FiPackage /> },
   { path: "/customers", label: "Customers", icon: <FiUsers /> },
@@ -58,18 +58,19 @@ const InventSideBar = ({ isOpen, setIsOpen }) => {
         {/* Nav Links */}
         <nav className="px-4 flex-1 space-y-2">
           {navLinks.map(({ path, label, icon }) => (
-            <NavLink
-              to={path}
-              key={path}
-              onClick={() => setIsOpen(false)}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-2 rounded-md text-sm font-medium transition ${
-                  isActive
-                    ? "bg-orange-100 text-orange-500"
-                    : "text-gray-600 hover:bg-gray-100"
-                }`
-              }
-            >
+          <NavLink
+            to={path}
+            key={path}
+            end        // ← ADD THIS
+            onClick={() => setIsOpen(false)}
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-2 rounded-md text-sm font-medium transition ${
+                isActive
+                  ? "bg-orange-100 text-orange-500"
+                  : "text-gray-600 hover:bg-gray-100"
+              }`
+            }
+          >
               <span className="text-lg">{icon}</span>
               {label}
             </NavLink>
