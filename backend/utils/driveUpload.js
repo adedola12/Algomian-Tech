@@ -1,10 +1,16 @@
 // utils/driveUpload.js
 import { google } from "googleapis";
+import { fileURLToPath } from "url";
+import path from "path";
 import mime from "mime-types";
-import fs from "fs";
+import {Readable } from "stream";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
+
 
 const auth = new google.auth.GoogleAuth({
-  keyFile: "config/serviceAccount.json",
+  keyFile: path.resolve(__dirname, "../config/serviceAccount.json"),
   scopes: ["https://www.googleapis.com/auth/drive"],
 });
 
@@ -24,7 +30,7 @@ export const uploadBufferToDrive = async (buffer, filename) => {
     },
     media: {
       mimeType,
-      body: Buffer.from(buffer),
+      body: Readable.from(buffer),
     },
     fields: "id, webContentLink, webViewLink",
   });
