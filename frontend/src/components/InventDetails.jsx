@@ -1,84 +1,182 @@
-/* ────────────────────────────────────────────────────────────
-   InventDetails.jsx • Tailwind CSS 3
-   ──────────────────────────────────────────────────────────── */
-   import { XMarkIcon } from "@heroicons/react/24/outline";
+/* ───────────────────────────────────────────────────────────
+   InventDetails.jsx • Tailwind CSS 3 – full-detail, scrollable
+   ─────────────────────────────────────────────────────────── */
+   import { XMarkIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
 
    export default function InventDetails({ product, onClose }) {
-     if (!product) return null;              // render nothing if not open
+     if (!product) return null;
    
-     /* helpers ---------------------------------------------------------- */
-     const badgeColour =
+     /* badge --------------------------------------------------------------- */
+     const badge =
        product.qty === 0
-         ? "bg-red-100 text-red-700"
+         ? ['Out of stock', 'bg-red-100 text-red-700']
          : product.qty <= product.reorderLevel
-         ? "bg-yellow-100 text-yellow-700"
-         : "bg-green-100 text-green-700";
+         ? [`Low stock – ${product.qty} left`, 'bg-yellow-100 text-yellow-700']
+         : [`Available – ${product.qty} left`, 'bg-green-100 text-green-700'];
    
+     /* two-column meta helpers -------------------------------------------- */
+     const firstMeta = [
+       ['Brand',            product.brand               ?? '—'],
+       ['Base Ram',         product.baseRam             ?? '—'],
+       ['Category',         product.category            ?? '—'],
+       ['Base Storage',     product.baseStorage         ?? '—'],
+       ['Cost Price (NGN)', product.costPrice           ?? '—'],
+       ['Base CPU / Processor', product.baseCPU         ?? '—'],
+       ['Selling Price (NGN)',  product.unitPrice       ?? '—'],
+       ['Supplier',         product.supplier            ?? '—'],
+     ];
+   
+     const secondMeta = [
+       ['Product Quantity',                   product.qty           ?? '—'],
+       ['Product Status (alert when <)',      product.reorderLevel  ?? '—'],
+       ['Stock Location',                     product.stockLocation ?? '—'],
+     ];
+   
+     /* fallback placeholders ---------------------------------------------- */
+     const variants =
+       product.variants?.length
+         ? product.variants
+         : [
+             { attribute: 'Ram',       value: '—' },
+             { attribute: 'Storage',   value: '—' },
+             { attribute: 'Processor', value: '—' },
+           ];
+   
+     const serials =
+       product.serialNumbers?.length
+         ? product.serialNumbers
+         : Array.from({ length: 10 }, () => '—');
+   
+     const features =
+       product.features?.length
+         ? product.features
+         : [
+             { key: 'Processor', value: '—' },
+             { key: 'RAM',       value: '—' },
+             { key: 'Storage',   value: '—' },
+             { key: 'Graphics',  value: '—' },
+             { key: 'Display',   value: '—' },
+           ];
+   
+     /* render -------------------------------------------------------------- */
      return (
-       <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 backdrop-blur-sm">
-         {/* panel -------------------------------------------------------- */}
-         + <div className="relative max-h-[90vh] w-full sm:w-[420px] overflow-y-auto
-                rounded-t-2xl sm:rounded-lg bg-white p-6 shadow-xl">
-           {/* close button */}
-           <button
-             onClick={onClose}
-             className="absolute right-4 top-4 rounded p-1 hover:bg-gray-100">
-             <XMarkIcon className="h-5 w-5 text-gray-500" />
-           </button>
+       <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-sm p-4">
+         <div className="flex min-h-full items-start justify-center sm:items-center">
+           <div
+             className="relative w-full max-w-[460px] max-h-[calc(100vh-2rem)]
+                        overflow-y-auto rounded-lg bg-white p-6 pr-7 shadow-xl
+                        scrollbar-thin scrollbar-thumb-gray-300"
+           >
+             {/* close & edit ------------------------------------------------ */}
+             <button
+               onClick={onClose}
+               className="absolute right-4 top-4 rounded p-1 hover:bg-gray-100"
+             >
+               <XMarkIcon className="h-5 w-5 text-gray-500" />
+             </button>
    
-           {/* heading */}
-           <h2 className="mb-1 text-2xl font-bold">Inventory Details</h2>
-           <p className="text-sm text-gray-700 mb-4">
-             Product&nbsp;ID: <span className="text-red-600 font-medium">{product.sku}</span>
-           </p>
+             <button
+               className="absolute right-14 top-[22px] flex items-center gap-1
+                          text-sm text-orange-600 hover:underline"
+             >
+               <PencilSquareIcon className="h-4 w-4" />
+               Edit
+             </button>
    
-           {/* availability badge */}
-           <span
-             className={`mb-4 inline-block rounded-full px-3 py-1 text-xs font-medium ${badgeColour}`}>
-             {product.qty === 0
-               ? "Out of stock"
-               : product.qty <= product.reorderLevel
-               ? `Low stock – ${product.qty} left`
-               : `Available – ${product.qty} Units left`}
-           </span>
+             {/* header ------------------------------------------------------ */}
+             <h2 className="text-2xl font-bold">Inventory Details</h2>
+             <p className="mt-1 text-sm">
+               Product&nbsp;ID:{' '}
+               <span className="font-medium text-red-600">{product.sku}</span>
+             </p>
    
-           {/* thumbnail */}
-           <img
-             src={product.img}
-             alt={product.name}
-             className="mb-6 h-48 w-full rounded object-cover"
-           />
+             <span className={`mt-3 inline-block rounded-full px-3 py-0.5 text-xs font-medium ${badge[1]}`}>
+               {badge[0]}
+             </span>
    
-           {/* description block */}
-           <h3 className="mb-1 font-semibold">
-             Product Name: {product.name}
-           </h3>
-           <p className="mb-6 text-sm text-gray-700">{product.description}</p>
+             {/* image & description ---------------------------------------- */}
+             <img
+               src={product.img}
+               alt={product.name}
+               className="mt-4 mb-6 h-44 w-full rounded object-cover"
+             />
    
-           {/* key/val helper */}
-           {[
-             ["Brand", product.brand],
-             ["Category", product.category],
-             ["Cost Price per Unit (NGN)", product.costPrice],
-             ["Selling Price per Unit (NGN)", product.unitPrice],
-             ["Base Ram", product.baseRam],
-             ["Base Storage", product.baseStorage],
-             ["Base CPU / Processor", product.baseCPU],
-             ["Product Quantity", product.qty],
-             ["Product Status (Low-stock alert when stock is less than)", product.reorderLevel],
-           ].map(([label, value], idx) => (
-             <div key={label} className="mb-6 last:mb-0">
-               <p className="text-xs uppercase tracking-wide text-gray-400">
-                 {label}
-               </p>
-               <p className="mt-1 font-medium">{value}</p>
+             <h3 className="font-semibold">
+               Product Name: {product.name}
+             </h3>
+             <p className="mt-1 mb-6 text-sm text-gray-700">
+               {product.description}
+             </p>
    
-               {/* divider except after last row */}
-               {idx !== 8 && (
-                 <hr className="mt-4 border-t border-gray-200" />
-               )}
+             {/* meta grids ------------------------------------------------- */}
+             <div className="grid grid-cols-2 gap-y-6 text-sm">
+               {firstMeta.map(([label, val]) => (
+                 <div key={label}>
+                   <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                     {label}
+                   </p>
+                   <p className="mt-0.5 break-words">{val}</p>
+                 </div>
+               ))}
              </div>
-           ))}
+   
+             <div className="mt-6 grid grid-cols-2 gap-y-6 text-sm">
+               {secondMeta.map(([label, val]) => (
+                 <div key={label}>
+                   <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                     {label}
+                   </p>
+                   <p className="mt-0.5 break-words">{val}</p>
+                 </div>
+               ))}
+             </div>
+   
+             {/* Product Variants ------------------------------------------- */}
+             <hr className="my-6" />
+             <h4 className="mb-3 font-semibold">Product Variants</h4>
+             <div className="grid grid-cols-[120px_1fr] gap-y-2 text-sm">
+               {variants.map((v, i) => (
+                 <div key={i} className="contents">
+                   <span className="text-gray-500">{v.attribute}</span>
+                   <span className="break-words">{v.value}</span>
+                 </div>
+               ))}
+             </div>
+   
+             {/* Serial Numbers --------------------------------------------- */}
+             <hr className="my-6" />
+             <h4 className="mb-3 font-semibold">Product Serial Number</h4>
+             <div className="columns-2 gap-x-6 text-sm sm:columns-3">
+               {serials.map((s, i) => (
+                 <p key={i} className="break-all">
+                   {i + 1}. {s}
+                 </p>
+               ))}
+             </div>
+   
+             {/* Features table -------------------------------------------- */}
+             <hr className="my-6" />
+             <h4 className="mb-3 font-semibold">Product Features</h4>
+             <div className="overflow-x-auto">
+               <table className="w-full text-sm">
+                 <thead>
+                   <tr className="bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">
+                     <th className="px-3 py-2">Features</th>
+                     <th className="px-3 py-2">Details</th>
+                   </tr>
+                 </thead>
+                 <tbody className="divide-y">
+                   {features.map((f, i) => (
+                     <tr key={i}>
+                       <td className="whitespace-nowrap px-3 py-2">{f.key}</td>
+                       <td className="px-3 py-2">{f.value}</td>
+                     </tr>
+                   ))}
+                 </tbody>
+               </table>
+             </div>
+   
+           </div>
          </div>
        </div>
      );
