@@ -7,14 +7,14 @@ import {
   FiShoppingBag,
   FiArrowUpRight,
 } from 'react-icons/fi';
-import api from '../api'; // your axios instance
+import api from '../api';
 import { toast } from 'react-toastify';
 
 export default function OrderTop() {
-  const [orders, setOrders] = useState([]);
+  const [orders, setOrders]   = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 1. Fetch all orders (admin endpoint)
+  // 1. Fetch all orders
   useEffect(() => {
     const fetchOrders = async () => {
       try {
@@ -29,58 +29,70 @@ export default function OrderTop() {
     fetchOrders();
   }, []);
 
-  // 2. Compute stats
-  const stats = useMemo(() => {
-    const totalCount = orders.length;
-    const totalValue = orders.reduce((sum, o) => sum + o.totalPrice, 0);
+  // helper: compute a single order’s real total
+  const computeTotal = o => {
+    const itemsSum = o.orderItems.reduce(
+      (sum, i) => sum + i.qty * i.price,
+      0
+    );
+    const shipping = o.shippingPrice || 0;
+    const tax      = o.taxPrice      || 0;
+    const discount = o.discount      || 0; // if you add discounts in future
+    return itemsSum + shipping + tax - discount;
+  };
 
-    const fulfilled = orders.filter(o => o.status === 'Delivered');
-    const inTransit = orders.filter(o => o.status === 'In Transit');
+  // 2. Compute all stats in one pass
+  const stats = useMemo(() => {
+    let totalValue     = 0;
+    let fulfilledValue = 0;
+    let inTransitValue = 0;
+
+    orders.forEach(o => {
+      const ordTotal = computeTotal(o);
+      totalValue += ordTotal;
+      if (o.status === 'Delivered') {
+        fulfilledValue += ordTotal;
+      } else if (o.status === 'Shipped') {
+        inTransitValue += ordTotal;
+      }
+    });
 
     return {
-      total: { count: totalCount, value: totalValue },
-      fulfilled: {
-        count: fulfilled.length,
-        value: fulfilled.reduce((sum, o) => sum + o.totalPrice, 0),
-      },
-      inTransit: {
-        count: inTransit.length,
-        value: inTransit.reduce((sum, o) => sum + o.totalPrice, 0),
-      },
+      total:     { count: orders.length,       value: totalValue     },
+      fulfilled: { count: orders.filter(o => o.status === 'Delivered').length,
+                   value: fulfilledValue                         },
+      inTransit: { count: orders.filter(o => o.status === 'Shipped').length,
+                   value: inTransitValue                         },
     };
   }, [orders]);
 
-  // 3. Export CSV
+  // 3. Export CSV (same as before)
   const handleExport = () => {
     if (!orders.length) return toast.info('No orders to export');
 
-    // define your CSV headers
     const headers = [
       'Order ID',
       'User',
       'Status',
       'Payment Method',
-      'Total Price',
+      'Computed Total',
       'Created At',
     ];
 
-    // build rows
     const rows = orders.map(o => [
       o._id,
       `${o.user.firstName} ${o.user.lastName}`,
       o.status,
       o.paymentMethod,
-      o.totalPrice,
+      computeTotal(o),
       new Date(o.createdAt).toLocaleString(),
     ]);
 
-    // serialize
     const csvContent = [
       headers.join(','),
       ...rows.map(r => r.map(cell => `"${cell}"`).join(',')),
     ].join('\n');
 
-    // trigger download
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
@@ -94,22 +106,21 @@ export default function OrderTop() {
     return <p className="text-center py-8">Loading statistics…</p>;
   }
 
-  // Stat cards configuration
   const cards = [
     {
-      title: 'Total Orders',
+      title: 'Total Orders Value',
       value: stats.total.value.toLocaleString(),
-      icon: <FiBox className="h-6 w-6 text-gray-400" />,
+      icon:  <FiBox className="h-6 w-6 text-gray-400" />,
     },
     {
-      title: 'Orders Fulfilled',
+      title: 'Orders Fulfilled Value',
       value: stats.fulfilled.value.toLocaleString(),
-      icon: <FiShoppingBag className="h-6 w-6 text-gray-400" />,
+      icon:  <FiShoppingBag className="h-6 w-6 text-gray-400" />,
     },
     {
-      title: 'Orders In Transit',
+      title: 'Orders In Transit Value',
       value: stats.inTransit.value.toLocaleString(),
-      icon: <FiTruck className="h-6 w-6 text-gray-400" />,
+      icon:  <FiTruck className="h-6 w-6 text-gray-400" />,
     },
   ];
 
@@ -122,10 +133,9 @@ export default function OrderTop() {
             Order Management
           </h2>
           <p className="mt-1 text-sm text-gray-500">
-            Showing data over the last 30 days
+            Showing live totals across all orders
           </p>
         </div>
-
         <div className="mt-4 sm:mt-0 flex space-x-2">
           <button
             onClick={handleExport}

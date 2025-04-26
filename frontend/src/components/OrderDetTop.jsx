@@ -6,7 +6,7 @@ import { FiArrowLeft } from "react-icons/fi";
 export default function OrderDetTop({ order }) {
   return (
     <div className="bg-white px-4 py-6 sm:px-6 sm:py-8 space-y-2">
-      <Link to="/orders" className="inline-flex items-center text-sm text-gray-600 hover:text-gray-800">
+      <Link to="/inventory/orders" className="inline-flex items-center text-sm text-gray-600 hover:text-gray-800">
         <FiArrowLeft className="mr-2" /> Back to orders
       </Link>
 
