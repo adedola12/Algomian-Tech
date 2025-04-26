@@ -1,149 +1,95 @@
-import React, { useState } from "react";
-import { FiMoreVertical, FiChevronLeft, FiChevronRight } from "react-icons/fi";
+// src/components/OrderTable.jsx
+import React, { useState, useEffect } from "react";
+import {
+  FiMoreVertical,
+  FiChevronLeft,
+  FiChevronRight,
+} from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
+import api from "../api";
+import dayjs from "dayjs";
 
-const tabs = [
-  { label: "All orders", count: 429 },
-  { label: "Orders Pending", count: 2 },
-  { label: "Orders In Transit" },
-  { label: "Orders Fulfilled" },
-];
-
-const data = [
-  {
-    id: "#KD1890",
-    customer: "Kyle Reynolds",
-    date: "May 11, 2023",
-    source: "Website",
-    quantity: "20 Items",
-    payment: "Paid",
-    status: "Delivered",
-  },
-  {
-    id: "#KM4668",
-    customer: "Kyle Reynolds",
-    date: "May 11, 2023",
-    source: "Walk-in",
-    quantity: "10 Items",
-    payment: "Pending",
-    status: "Delivered",
-  },
-  {
-    id: "#SC4068",
-    customer: "Kyle Reynolds",
-    date: "May 11, 2023",
-    source: "WhatsApp",
-    quantity: "10 Items",
-    payment: "Paid",
-    status: "Delivered",
-  },
-  {
-    id: "#AE1668",
-    customer: "Kyle Reynolds",
-    date: "May 11, 2023",
-    source: "Others",
-    quantity: "10 Items",
-    payment: "Pending",
-    status: "Delivered",
-  },
-  {
-    id: "#JO5342",
-    customer: "Kyle Reynolds",
-    date: "May 11, 2023",
-    source: "Website",
-    quantity: "10 Items",
-    payment: "Paid",
-    status: "In Transit",
-  },
-  {
-    id: "#OP0982",
-    customer: "Kyle Reynolds",
-    date: "May 11, 2023",
-    source: "Walk-in",
-    quantity: "10 Items",
-    payment: "Paid",
-    status: "In Transit",
-  },
-  {
-    id: "#UY9120",
-    customer: "Kyle Reynolds",
-    date: "May 11, 2023",
-    source: "WhatsApp",
-    quantity: "10 Items",
-    payment: "Paid",
-    status: "Pending",
-  },
+const TABS = [
+  { key: "all",      label: "All orders"        },
+  { key: "pending",  label: "Orders Pending"    },
+  { key: "transit",  label: "Orders In Transit" },
+  { key: "delivered",label: "Orders Fulfilled"  },
 ];
 
 export default function OrderTable() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
-  const totalPages = 30;
+  const [orders, setOrders]       = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState();
+  const [activeTab, setActiveTab] = useState("all");
+  const [page, setPage]           = useState(1);
+  const perPage = 10; // or whatever
 
-  const paymentClass = (p) =>
-    p === "Paid" ? "text-green-600" : "text-red-600";
+  // fetch all orders (admin)
+  useEffect(() => {
+    const fetch = async () => {
+      try {
+        const { data } = await api.get("/api/orders");
+        setOrders(data);
+      } catch (err) {
+        setError(err.response?.data?.message || err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetch();
+  }, []);
 
-  const statusClass = (s) =>
-    s === "Delivered"
-      ? "bg-green-100 text-green-700"
-      : s === "In Transit"
-      ? "bg-blue-100 text-blue-700"
-      : "bg-gray-100 text-gray-700";
+  // filter orders by tab
+  const filtered = orders.filter(o => {
+    if (activeTab === "all") return true;
+    if (activeTab === "pending")   return o.status === "Pending";
+    if (activeTab === "transit")   return o.status === "In Transit";
+    if (activeTab === "delivered") return o.status === "Delivered";
+    return true;
+  });
 
-  // build page list with ellipses
-  const pages = [];
-  if (totalPages <= 7) {
-    for (let i = 1; i <= totalPages; i++) pages.push(i);
-  } else {
-    if (currentPage <= 4) {
-      pages.push(1, 2, 3, 4, "...", totalPages - 1, totalPages);
-    } else if (currentPage > totalPages - 4) {
-      pages.push(
-        1,
-        2,
-        "...",
-        totalPages - 3,
-        totalPages - 2,
-        totalPages - 1,
-        totalPages
-      );
-    } else {
-      pages.push(
-        1,
-        2,
-        "...",
-        currentPage - 1,
-        currentPage,
-        currentPage + 1,
-        "...",
-        totalPages - 1,
-        totalPages
-      );
-    }
-  }
+  // page count
+  const totalPages = Math.ceil(filtered.length / perPage);
+  const pageData   = filtered.slice((page-1)*perPage, page*perPage);
+
+  const paymentClass = (o) => o.isPaid ? "text-green-600" : "text-red-600";
+  const statusClass  = (s) =>
+    s === "Delivered"   ? "bg-green-100 text-green-700"
+  : s === "In Transit" ? "bg-blue-100 text-blue-700"
+  :                       "bg-gray-100 text-gray-700";
+
+  if (loading) return <p>Loading orders…</p>;
+  if (error)   return <p className="text-red-500">Error: {error}</p>;
 
   return (
     <div className="space-y-6">
       {/* ── Tabs ── */}
       <div className="overflow-x-auto">
-        <nav className="flex space-x-6 px-4 sm:px-0 border-b text-sm font-medium whitespace-nowrap">
-          {tabs.map(({ label, count }, i) => (
-            <button
-              key={i}
-              onClick={() => setActiveTab(i)}
-              className={`pb-3 ${
-                activeTab === i
-                  ? "text-orange-600 border-b-2 border-orange-600"
-                  : "text-gray-600 hover:text-gray-800"
-              }`}
-            >
-              {label}
-              {count != null && (
+        <nav className="flex space-x-8 border-b text-sm font-medium">
+          {TABS.map(({ key, label }) => {
+            // count for label
+            const count = orders.filter(o => {
+              if (key==="all") return true;
+              if (key==="pending")   return o.status==="Pending";
+              if (key==="transit")   return o.status==="In Transit";
+              if (key==="delivered") return o.status==="Delivered";
+            }).length;
+            return (
+              <button
+                key={key}
+                onClick={()=>{ setActiveTab(key); setPage(1); }}
+                className={`pb-3 ${
+                  activeTab===key
+                    ? "text-orange-600 border-b-2 border-orange-600"
+                    : "text-gray-600 hover:text-gray-800"
+                }`}
+              >
+                {label}{" "}
                 <span className="ml-1 text-gray-500">{count}</span>
-              )}
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </nav>
       </div>
 
@@ -152,74 +98,57 @@ export default function OrderTable() {
         <table className="min-w-full divide-y divide-gray-200 table-auto">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-2 py-2 sm:px-4 sm:py-3">
-                <input type="checkbox" />
-              </th>
-              <th className="px-2 py-2 sm:px-4 sm:py-3 text-xs font-semibold text-gray-600 uppercase">
-                Order ID/ Customer
-              </th>
-              <th className="px-2 py-2 sm:px-4 sm:py-3 text-xs font-semibold text-gray-600 uppercase">
-                Customer
-              </th>
-              <th className="hidden sm:table-cell px-2 py-2 sm:px-4 sm:py-3 text-xs font-semibold text-gray-600 uppercase">
-                Date
-              </th>
-              <th className="hidden sm:table-cell px-2 py-2 sm:px-4 sm:py-3 text-xs font-semibold text-gray-600 uppercase">
-                Source
-              </th>
-              <th className="hidden sm:table-cell px-2 py-2 sm:px-4 sm:py-3 text-xs font-semibold text-gray-600 uppercase">
-                Quantity
-              </th>
-              <th className="hidden md:table-cell px-2 py-2 sm:px-4 sm:py-3 text-xs font-semibold text-gray-600 uppercase">
-                Payment Status
-              </th>
-              <th className="px-2 py-2 sm:px-4 sm:py-3 text-xs font-semibold text-gray-600 uppercase">
-                Order Status
-              </th>
-              <th className="px-2 py-2 sm:px-4 sm:py-3" />
+              <th className="px-4 py-3"><input type="checkbox"/></th>
+              {[
+                "Order ID/ Customer",
+                "Customer",
+                "Date",
+                "Quantity",
+                "Payment Status",
+                "Order Status",
+                "",
+              ].map((h,i)=>(
+                <th
+                  key={i}
+                  className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase"
+                >{h}</th>
+              ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {data.map((row) => (
-              <tr key={row.id}>
-                <td className="px-2 py-2 sm:px-4 sm:py-3">
+            {pageData.map(o=>(
+              <tr key={o._id}>
+                <td className="px-4 py-3">
                   <input type="checkbox" />
                 </td>
-                <td className="px-2 py-2 sm:px-4 sm:py-3">{row.id}</td>
-                <td className="px-2 py-2 sm:px-4 sm:py-3">{row.customer}</td>
-                <td className="hidden sm:table-cell px-2 py-2 sm:px-4 sm:py-3">
-                  {row.date}
-                </td>
-                <td className="hidden sm:table-cell px-2 py-2 sm:px-4 sm:py-3">
-                  {row.source}
-                </td>
-                <td className="hidden sm:table-cell px-2 py-2 sm:px-4 sm:py-3">
-                  {row.quantity}
-                </td>
-                <td
-                  className={`hidden md:table-cell px-2 py-2 sm:px-4 sm:py-3 font-medium ${paymentClass(
-                    row.payment
-                  )}`}
+                <td className="px-4 py-3 text-gray-800 cursor-pointer"
+                    onClick={()=>navigate(`/customer-order-details/${o._id}`)}
                 >
-                  {row.payment}
+                  {o._id.slice(-8)} {/* last 8 chars */}
                 </td>
-                <td className="px-2 py-2 sm:px-4 sm:py-3">
+                <td className="px-4 py-3 text-gray-800">
+                  {o.user.firstName} {o.user.lastName}
+                </td>
+                <td className="px-4 py-3 text-gray-800">
+                  {dayjs(o.createdAt).format("MMM D, YYYY")}
+                </td>
+                <td className="px-4 py-3 text-gray-800">
+                  {o.orderItems.reduce((sum,i)=>sum+i.qty,0)} Items
+                </td>
+                <td className={`px-4 py-3 font-medium ${paymentClass(o)}`}>
+                  {o.isPaid ? "Paid" : "Pending"}
+                </td>
+                <td className="px-4 py-3">
                   <span
-                    className={`px-2 py-0.5 text-xs font-medium rounded-full ${statusClass(
-                      row.status
-                    )}`}
+                    className={`px-2 py-0.5 text-xs font-medium rounded-full ${statusClass(o.status)}`}
                   >
-                    {row.status}
+                    {o.status}
                   </span>
                 </td>
-                <td className="px-2 py-2 sm:px-4 sm:py-3 text-right">
+                <td className="px-4 py-3 text-right">
                   <FiMoreVertical
                     className="text-gray-400 hover:text-gray-600 cursor-pointer"
-                    onClick={() =>
-                      navigate(
-                        `/customer-order-details/${encodeURIComponent(row.id)}`
-                      )
-                    }
+                    onClick={()=>navigate(`/customer-order-details/${o._id}`)}
                   />
                 </td>
               </tr>
@@ -229,62 +158,32 @@ export default function OrderTable() {
       </div>
 
       {/* ── Pagination ── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-3 sm:space-y-0">
+      <div className="flex items-center justify-between">
         <p className="text-sm text-gray-600">
-          Page {currentPage} of {totalPages}
+          Page {page} of {totalPages}
         </p>
-        <div className="flex flex-wrap items-center space-x-2">
+        <div className="flex items-center space-x-2">
           <button
-            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            disabled={currentPage === 1}
+            onClick={()=>setPage(p=>Math.max(1,p-1))}
+            disabled={page===1}
             className="p-2 rounded bg-white border hover:bg-gray-50 disabled:opacity-50"
-          >
-            <FiChevronLeft />
-          </button>
-
-          {pages.map((p, idx) =>
-            p === "..." ? (
-              <span key={idx} className="px-2 text-gray-400">
-                …
-              </span>
-            ) : (
-              <button
-                key={idx}
-                onClick={() => setCurrentPage(p)}
-                className={`px-3 py-1 rounded ${
-                  p === currentPage
-                    ? "bg-orange-100 text-orange-600"
-                    : "hover:bg-gray-100 text-gray-700"
-                }`}
-              >
-                {p}
-              </button>
-            )
-          )}
-
+          ><FiChevronLeft/></button>
+          {[...Array(totalPages)].map((_,i)=>(
+            <button
+              key={i}
+              onClick={()=>setPage(i+1)}
+              className={`px-3 py-1 rounded text-sm ${
+                page===i+1
+                  ? "bg-orange-100 text-orange-600"
+                  : "hover:bg-gray-100 text-gray-700"
+              }`}
+            >{i+1}</button>
+          ))}
           <button
-            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            disabled={currentPage === totalPages}
+            onClick={()=>setPage(p=>Math.min(totalPages,p+1))}
+            disabled={page===totalPages}
             className="p-2 rounded bg-white border hover:bg-gray-50 disabled:opacity-50"
-          >
-            <FiChevronRight />
-          </button>
-
-          <div className="flex items-center space-x-1 ml-4">
-            <span className="text-sm text-gray-600">Go to page</span>
-            <input
-              type="number"
-              min={1}
-              max={totalPages}
-              value={currentPage}
-              onChange={(e) =>
-                setCurrentPage(
-                  Math.min(totalPages, Math.max(1, Number(e.target.value)))
-                )
-              }
-              className="w-12 text-sm text-center border rounded px-1 py-1"
-            />
-          </div>
+          ><FiChevronRight/></button>
         </div>
       </div>
     </div>

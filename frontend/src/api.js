@@ -5,6 +5,24 @@ const api = axios.create({
   withCredentials: true,                      // <- receive httpOnly cookie too
 });
 
+// at top of your existing axios setup
+export const createOrder = (orderData) =>
+  api.post("/api/orders", orderData).then(res => res.data);
+
+export const fetchMyOrders = () =>
+  api.get("/api/orders/myorders").then(res => res.data);
+
+export const fetchOrderById = (id) =>
+  api.get(`/api/orders/${id}`).then(res => res.data);
+
+export const updateOrderStatus = (id, statusData) =>
+  api.put(`/api/orders/${id}/status`, statusData).then(res => res.data);
+
+// admin
+export const fetchAllOrders = () =>
+  api.get("/api/orders").then(res => res.data);
+
+
 // 🔹 PRODUCTS
 export const fetchProducts = (params = {}) =>
   api.get("/api/products", { params }).then((r) => r.data);

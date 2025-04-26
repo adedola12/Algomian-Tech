@@ -6,47 +6,42 @@ import {
   FiChevronDown,
   FiChevronUp,
 } from 'react-icons/fi';
+import api from '../api';
+import { toast } from 'react-toastify';
 
-export default function OrderItemDet() {
-  // toggle for summary collapse
-  const [open, setOpen] = useState(true);
+export default function OrderItemDet({ order, onStatusChange }) {
+  const [open, setOpen]         = useState(true);
+  const [processing, setProcessing] = useState(false);
 
-  // sample items matching your design
-  const items = [
-    {
-      id: 1,
-      title: 'Macbook Pro M4Pro Chip',
-      specs: '24gb ram, 512gb ssd, 12C CPU, 16C GPU',
-      sn: 'WRT648CG',
-      qty: 2,
-      price: 1200000,
-      img: 'https://via.placeholder.com/64', // replace with real URL
-    },
-    {
-      id: 2,
-      title: 'Macbook Pro M3Pro Chip',
-      specs: '16gb ram, 512gb ssd, 12C CPU, 16C GPU',
-      sn: 'WRT648CG',
-      qty: 1,
-      price: 1200000,
-      img: 'https://via.placeholder.com/64',
-    },
-  ];
+  const handleMarkProcessed = async () => {
+    setProcessing(true);
+    try {
+      // hit your backend PUT /api/orders/:id/status
+      await api.put(`/api/orders/${order._id}/status`, {
+        status: 'Processing',
+      });
+      toast.success('Order marked as Processing');
+      onStatusChange(); // refetch parent
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
 
-  // simple formatter
-  const fmt = (n) => n.toLocaleString();
-
-  // compute summary
-  const subtotal = items.reduce((sum, i) => sum + i.qty * i.price, 0);
-  const discount = 0;
-  const total    = subtotal - discount + 5; // +5 to match your $205 example
+  // compute summary values
+  const subtotal      = order.itemsPrice;
+  const discount      = 0;             // or order.discount?
+  const shipping      = order.shippingPrice;
+  const tax           = order.taxPrice;
+  const total         = order.totalPrice;
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm max-w-2xl mx-auto">
+    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
       {/* header */}
       <div className="flex justify-between items-center px-6 py-4 border-b">
         <h2 className="text-lg font-semibold text-gray-900">
-          Order Item - {items.length}
+          Order Item – {order.orderItems.length}
         </h2>
         <button className="flex items-center text-orange-500 hover:text-orange-600">
           <FiEdit2 className="mr-1" /> Edit
@@ -55,23 +50,28 @@ export default function OrderItemDet() {
 
       {/* items list */}
       <div className="divide-y divide-gray-200">
-        {items.map(({ id, title, specs, sn, qty, price, img }) => (
-          <div key={id} className="flex flex-col sm:flex-row items-start sm:items-center px-6 py-4">
-            {/* image */}
-            <img src={img} alt={title} className="w-16 h-16 rounded object-cover flex-shrink-0"/>
-            {/* details */}
+        {order.orderItems.map((i, idx) => (
+          <div
+            key={idx}
+            className="flex flex-col sm:flex-row items-start sm:items-center px-6 py-4"
+          >
+            <img
+              src={i.image}
+              alt={i.name}
+              className="w-16 h-16 rounded object-cover flex-shrink-0"
+            />
             <div className="mt-3 sm:mt-0 sm:ml-4 flex-1">
-              <p className="font-medium text-gray-900">{title}</p>
-              <p className="text-sm text-gray-500 mt-1">{specs}</p>
-              <p className="text-xs text-gray-400 mt-1">SN: {sn}</p>
+              <p className="font-medium text-gray-900">{i.name}</p>
+              <p className="text-sm text-gray-500 mt-1">
+                SN: {i.product}
+              </p>
             </div>
-            {/* qty × price and total */}
             <div className="mt-3 sm:mt-0 sm:ml-4 flex items-center space-x-4">
               <div className="px-3 py-1 border border-gray-300 rounded text-sm">
-                {qty} × {fmt(price)}
+                {i.qty} × ₦{i.price.toLocaleString()}
               </div>
               <div className="text-gray-900 font-medium">
-                {fmt(qty * price)}
+                ₦{(i.qty * i.price).toLocaleString()}
               </div>
               <button className="text-gray-400 hover:text-gray-600 ml-4">
                 <FiTrash2 />
@@ -95,31 +95,46 @@ export default function OrderItemDet() {
           <div className="mt-4 space-y-3">
             <div className="flex justify-between">
               <span className="text-gray-600">Subtotal</span>
-              <span className="text-gray-900">${subtotal.toFixed(0)}</span>
+              <span className="text-gray-900">₦{subtotal.toLocaleString()}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Discount</span>
-              <span className="text-gray-900">${discount.toFixed(1)}</span>
+              <span className="text-gray-900">₦{discount.toLocaleString()}</span>
             </div>
-            <div className="flex justify-between font-semibold">
-              <span>Total</span>
-              <span>${total.toFixed(0)}</span>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Tax</span>
+              <span className="text-gray-900">₦{tax.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Shipping</span>
+              <span className="text-gray-900">₦{shipping.toLocaleString()}</span>
             </div>
 
-            <div className="pt-4 border-t">
+            <div className="flex justify-between font-semibold">
+              <span>Total</span>
+              <span>₦{total.toLocaleString()}</span>
+            </div>
+
+            <div className="pt-4 border-t space-y-2">
               <div className="flex justify-between">
                 <span className="text-gray-600">Delivery Mode</span>
-                <span className="text-gray-900">Bus Park - Ojota, Lagos</span>
+                <span className="text-gray-900">
+                  {order.shippingAddress.address}
+                </span>
               </div>
-              <div className="flex justify-between mt-1">
+              <div className="flex justify-between">
                 <span className="text-gray-600">Payment Mode</span>
-                <span className="text-gray-900">Bank Transfer</span>
+                <span className="text-gray-900">{order.paymentMethod}</span>
               </div>
             </div>
 
             <div className="mt-6 text-right">
-              <button className="bg-orange-500 hover:bg-orange-600 text-white px-5 py-2 rounded">
-                Mark as Processed
+              <button
+                disabled={processing || order.status !== 'Pending'}
+                onClick={handleMarkProcessed}
+                className="bg-orange-500 hover:bg-orange-600 text-white px-5 py-2 rounded disabled:opacity-50"
+              >
+                {processing ? 'Processing…' : 'Mark as Processed'}
               </button>
             </div>
           </div>
