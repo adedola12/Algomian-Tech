@@ -34,6 +34,7 @@ import PrivateRoute from "./routes/PrivateRoute";      // ✅ correct
 import EditProduct from "./pages/Inventory/EditProduct";
 import InventoryOrder from "./pages/InventoryOrder";
 import CustomerOrderDetails from "./pages/CustomerOrderDetails";
+import SalesManage from "./pages/Inventory/SalesManage";
 
 
 
@@ -71,7 +72,7 @@ export default function App() {
           <Route path="dashboard"               element={<Dashboard />} />
           <Route path="customer-order-details/:id" element={<CustomerOrderDetails />} />
           <Route path="/inventory/orders"               element={<InventoryOrder />} />
-          <Route path="sales"                   element={<div>Sales Management</div>} />
+          <Route path="sales"                   element={<SalesManage />} />
           <Route path="logistics"               element={<div>Logistics</div>} />
           <Route path="customers"               element={<div>Customers</div>} />
           <Route path="settings"                element={<div>Settings</div>} />
