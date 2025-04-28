@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+// src/components/SalesPaymentInfo.jsx
+import React, { useState, useMemo } from 'react'
 import {
   FiChevronRight,
   FiTrash2,
@@ -7,36 +8,82 @@ import {
   FiPhone,
   FiMapPin,
 } from 'react-icons/fi'
+import { toast } from 'react-toastify'
+import { createOrder } from '../../api'
 import SalesComplete from './SalesComplete'
 import SalesPrintPreview from './SalesPrintPreview'
 
 export default function SalesPaymentInfo({
   items = [],
-  recipient = { name: 'Ire David', phone: '+234 809 205 4532' },
-  pointOfSale = 'Walk-In',
-  deliveryInfo = 'Logistics - 124, Oyediran Estate, Lagos, Nigeria, 5432',
+  customerName,
+  customerPhone,
+  pointOfSale,
+  deliveryMethod,
+  shippingAddress,
+  parkLocation,
+  summary = { subtotal: 0, tax: 0, total: 0 },
   onBack,
   onDone,
 }) {
-  // payment and modal state
-  const [method, setMethod] = useState('bank')
+  const [method, setMethod] = useState('cash')
   const [bankAccount, setBankAccount] = useState('Moniepoint - Alogoman 2')
-  const [date, setDate] = useState('2025-02-13')
-  const [accountName, setAccountName] = useState('Olumide Oyeleye')
-  const [amountTransferred, setAmountTransferred] = useState('3200000')
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
+  const [accountName, setAccountName] = useState('')
+  const [amountTransferred, setAmountTransferred] = useState(summary.total)
 
-  // totals
-  const subtotal = items.reduce((sum) => sum + 3150000, 0) // stub per item
-  const tax = 0
-  const total = subtotal + tax
-  const change = parseFloat(amountTransferred) - total
-
-  // modals
+  const [loading, setLoading] = useState(false)
   const [showComplete, setShowComplete] = useState(false)
   const [showPrint, setShowPrint] = useState(false)
 
-  // handlers
-  const handleDone = () => setShowComplete(true)
+  const change = useMemo(
+    () => parseFloat(amountTransferred || 0) - summary.total,
+    [amountTransferred, summary.total]
+  )
+
+  const handleDone = async () => {
+    setLoading(true)
+    try {
+      // Build a shippingAddress object that satisfies your schema:
+      const fullShipping = {
+        address:
+          deliveryMethod === 'park'
+            ? parkLocation
+            : deliveryMethod === 'self'
+            ? pointOfSale
+            : shippingAddress,
+        city: 'N/A',        // placeholder so required validator passes
+        postalCode: 'N/A',  // placeholder so required validator passes
+        country: 'N/A',     // placeholder so required validator passes
+      }
+
+      const payload = {
+        orderItems: items.map((it) => ({
+          product: it.id,
+          qty: it.qty,
+          price: it.price,
+        })),
+        shippingAddress: fullShipping,
+        paymentMethod: method,
+        shippingPrice: 0,
+        taxPrice: summary.tax,
+        itemsPrice: summary.subtotal,
+        paymentDetails: {
+          bankAccount,
+          date,
+          accountName,
+          amountTransferred: parseFloat(amountTransferred),
+        },
+      }
+
+      await createOrder(payload)
+      setShowComplete(true)
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleCloseComplete = () => {
     setShowComplete(false)
     onDone()
@@ -45,39 +92,46 @@ export default function SalesPaymentInfo({
     setShowComplete(false)
     setShowPrint(true)
   }
-  const handleClosePrint = () => setShowPrint(false)
-  const handleNewSale = () => {
+  const handleClosePrint = () => {
     setShowPrint(false)
     onDone()
   }
 
+  const details = [
+    { label: 'Recipient name', icon: <FiUser />, value: customerName },
+    { label: 'Phone number',   icon: <FiPhone />, value: customerPhone },
+    { label: 'Point of Sales', icon: <FiMapPin />, value: pointOfSale },
+    {
+      label: 'Delivery Method',
+      icon: <FiMapPin />,
+      value:
+        deliveryMethod === 'logistics'
+          ? `Logistics — ${shippingAddress}`
+          : deliveryMethod === 'park'
+          ? `Park Pick-Up — ${parkLocation}`
+          : 'Self Pick-Up',
+    },
+  ]
+
   return (
     <div className="relative">
-      {/* Main form (blur when modals open) */}
       <div
-        className={`bg-white rounded-2xl shadow p-4 sm:p-6 space-y-6 transition-filter duration-200 ${
-          showComplete || showPrint ? 'filter blur-sm' : ''
-        }`}
+        className={`bg-white rounded-2xl shadow p-4 sm:p-6 space-y-6
+          transition-filter duration-200 ${
+            showComplete || showPrint ? 'filter blur-sm' : ''
+          }`}
       >
-        {/* ── Header & Tabs */}
+        {/* Header */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <h2 className="text-xl font-semibold text-gray-800">
-              Sales Management
-            </h2>
-            <button className="px-4 py-2 bg-orange-100 text-orange-700 rounded-lg">
-              Sales
-            </button>
-            <button className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg">
-              Sales History
-            </button>
-          </div>
+          <h2 className="text-xl font-semibold text-gray-800">
+            Sales Management
+          </h2>
           <button className="flex items-center text-orange-600 hover:text-orange-700">
             <FiPlus className="mr-1" /> Add another order
           </button>
         </div>
 
-        {/* ── Order Summary */}
+        {/* Order Summary */}
         <div className="border border-gray-200 rounded-lg overflow-hidden">
           {items.map((it, i) => (
             <div
@@ -94,12 +148,12 @@ export default function SalesPaymentInfo({
                 <div>
                   <h3 className="text-gray-800 font-medium">{it.name}</h3>
                   <p className="text-gray-500 text-sm">{it.specs}</p>
-                  <p className="text-gray-600 text-sm">QTY: 1</p>
+                  <p className="text-gray-600 text-sm">QTY: {it.qty}</p>
                 </div>
               </div>
               <div className="flex items-center space-x-4">
                 <span className="text-gray-800 font-semibold">
-                  ₦{subtotal.toLocaleString()}
+                  ₦{(it.qty * it.price).toLocaleString()}
                 </span>
                 <FiTrash2 className="text-gray-400 hover:text-gray-600" />
               </div>
@@ -107,27 +161,20 @@ export default function SalesPaymentInfo({
           ))}
         </div>
 
-        {/* ── Details Bar */}
+        {/* Details Bar */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
-          <div className="text-sm">
-            <span className="font-medium text-gray-700">Recipient name</span>
-            <p className="text-gray-800">{recipient.name}</p>
-          </div>
-          <div className="text-sm">
-            <span className="font-medium text-gray-700">Phone number</span>
-            <p className="text-gray-800">{recipient.phone}</p>
-          </div>
-          <div className="text-sm">
-            <span className="font-medium text-gray-700">Point of Sales</span>
-            <p className="text-gray-800">{pointOfSale}</p>
-          </div>
-          <div className="text-sm">
-            <span className="font-medium text-gray-700">Delivery Method</span>
-            <p className="text-gray-800">{deliveryInfo}</p>
-          </div>
+          {details.map((d, i) => (
+            <div key={i} className="text-sm">
+              <span className="font-medium text-gray-700">{d.label}</span>
+              <p className="text-gray-800 flex items-center">
+                <span className="mr-2">{d.icon}</span>
+                {d.value}
+              </p>
+            </div>
+          ))}
         </div>
 
-        {/* ── Payment Box */}
+        {/* Payment Box */}
         <div className="border-2 border-purple-500 rounded-lg overflow-hidden">
           <div className="bg-purple-50 px-4 py-2">
             <span className="text-purple-700 font-semibold">
@@ -138,7 +185,7 @@ export default function SalesPaymentInfo({
             <span className="text-gray-700 font-medium">Amount To Pay</span>
             <div className="flex justify-end">
               <span className="bg-gray-100 px-3 py-1 rounded-lg font-semibold">
-                ₦{total.toLocaleString()}
+                ₦{summary.total.toLocaleString()}
               </span>
             </div>
           </div>
@@ -167,9 +214,10 @@ export default function SalesPaymentInfo({
             </div>
             {method === 'bank' && (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                {/* bank details */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Bank Payment was made to?
+                    Bank Account
                   </label>
                   <select
                     value={bankAccount}
@@ -213,7 +261,9 @@ export default function SalesPaymentInfo({
                     <input
                       type="number"
                       value={amountTransferred}
-                      onChange={(e) => setAmountTransferred(e.target.value)}
+                      onChange={(e) =>
+                        setAmountTransferred(e.target.value)
+                      }
                       className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500"
                     />
                   </div>
@@ -223,19 +273,23 @@ export default function SalesPaymentInfo({
           </div>
         </div>
 
-        {/* ── Actions */}
+        {/* Actions */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <button
             onClick={onBack}
+            disabled={loading}
             className="px-6 py-2 border border-gray-200 text-gray-700 rounded-lg"
           >
             Go back
           </button>
           <button
             onClick={handleDone}
-            className="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg"
+            disabled={loading}
+            className={`px-6 py-2 text-white rounded-lg ${
+              loading ? 'bg-gray-400' : 'bg-orange-600 hover:bg-orange-700'
+            }`}
           >
-            Done
+            {loading ? 'Processing…' : 'Done'}
           </button>
         </div>
       </div>
@@ -246,7 +300,6 @@ export default function SalesPaymentInfo({
           change={change}
           onClose={handleCloseComplete}
           onPrint={handlePrint}
-          onNewSale={handleCloseComplete}
         />
       )}
 
@@ -254,18 +307,24 @@ export default function SalesPaymentInfo({
       {showPrint && (
         <SalesPrintPreview
           onClose={handleClosePrint}
-          onPrintPDF={handleNewSale}
+          onPrintPDF={handleClosePrint}
           company={{
             name: 'Algorional Technologies',
             email: 'algorionaltechnologies@gmail.com',
           }}
-          billedTo={recipient.name}
-          date={'24th February, 2025'}
-          items={[
-            { sn: 1, name: 'iPhone AirPods', qty: 2, price: 5600 },
-            { sn: 2, name: 'PAX - PAC Charging cable', qty: 1, price: 1200 },
-          ]}
-          tax={0}
+          billedTo={customerName}
+          date={new Date().toLocaleDateString('en-GB', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+          })}
+          items={items.map((it, i) => ({
+            sn: i + 1,
+            name: it.name,
+            qty: it.qty,
+            price: it.price,
+          }))}
+          tax={summary.tax}
         />
       )}
     </div>

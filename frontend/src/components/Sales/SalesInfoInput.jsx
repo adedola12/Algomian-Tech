@@ -1,40 +1,115 @@
 // src/components/SalesInfoInput.jsx
-import React, { useState } from 'react'
-import { FiSearch } from 'react-icons/fi'
-import SelectedItemCard from './SelectedItemCard'
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import { FiSearch } from "react-icons/fi";
+import SelectedItemCard from "./SelectedItemCard";
 
-const SalesInfoInput = ({ items, setItems, onBack, onNext }) => {
-  const [query, setQuery] = useState('')
+export default function SalesInfoInput({ items, setItems, onBack, onNext }) {
+  const [query, setQuery]             = useState("");
+  const [allProducts, setAllProducts] = useState([]);
+  const [suggestions, setSuggestions] = useState([]);
+  const [loading, setLoading]         = useState(false);
+  const [focused, setFocused]         = useState(false);
+  const [taxPercent, setTaxPercent]   = useState(0);
 
-  // add new product stub on Enter
-  const handleSearchKey = (e) => {
-    if (e.key === 'Enter' && query.trim()) {
-      setItems((prev) => [
-        ...prev,
-        { ...prev[0], id: Date.now(), expanded: false },
-      ])
-      setQuery('')
+  // 1) Fetch entire catalog once
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      try {
+        const { data } = await axios.get(
+          "/api/products?search=&page=1&limit=100",
+          { withCredentials: true }
+        );
+        const list = Array.isArray(data)
+          ? data
+          : Array.isArray(data.products)
+          ? data.products
+          : [];
+        setAllProducts(list);
+        setSuggestions(list);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  // 2) Debounce + search on query
+  useEffect(() => {
+    if (!query.trim()) {
+      setSuggestions(allProducts);
+      return;
     }
-  }
+    const tid = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const { data } = await axios.get(
+          `/api/products?search=${encodeURIComponent(query)}&page=1&limit=50`
+        );
+        const list = Array.isArray(data)
+          ? data
+          : Array.isArray(data.products)
+          ? data.products
+          : [];
+        setSuggestions(list);
+      } catch {
+        setSuggestions([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 300);
+    return () => clearTimeout(tid);
+  }, [query, allProducts]);
 
-  // toggle expand/collapse
-  const toggleItem = (id) =>
-    setItems((prev) =>
-      prev.map((it) => (it.id === id ? { ...it, expanded: !it.expanded } : it))
-    )
+  // 3) Add a product to the order
+  const handleSelect = p => {
+    const newItem = {
+      id:          p._id,
+      image:       p.images?.[0] || "",
+      name:        p.productName,
+      baseRam:     p.baseRam,
+      baseStorage: p.baseStorage,
+      baseCPU:     p.baseCPU,
+      price:       p.sellingPrice,
+      qty:         1,
+      maxQty:      p.quantity,
+      expanded:    false,
+    };
+    setItems(items => [...items, newItem]);
+    setQuery("");
+    setSuggestions(allProducts);
+    setFocused(true);
+  };
 
-  // summary calculation (stub)
-  const subtotal = 0
-  const tax = 0
-  const total = subtotal + tax
+  // helpers to update/remove one item
+  const updateItem = (id, changes) =>
+    setItems(items =>
+      items.map(x =>
+        x.id === id
+          ? { ...x, ...changes }
+          : x
+      )
+    );
+  const removeItem = id =>
+    setItems(items =>
+      items.filter(x => x.id !== id)
+    );
+
+  // compute totals
+  const subtotal = items.reduce((sum, it) => sum + it.price * it.qty, 0);
+  const taxTotal = (subtotal * taxPercent) / 100;
+  const total    = subtotal + taxTotal;
 
   return (
     <div className="bg-white rounded-2xl shadow p-4 sm:p-6 space-y-6">
-      {/* ── Header & Search */}
+      {/* Header & Search */}
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-        {/* Title & Tabs */}
         <div className="flex items-center gap-6">
-          <h2 className="text-xl font-semibold text-gray-800">Sales Management</h2>
+          <h2 className="text-xl font-semibold text-gray-800">
+            Sales Management
+          </h2>
           <div className="flex space-x-2">
             <button className="px-4 py-2 bg-orange-100 text-orange-700 rounded-lg">
               Sales
@@ -45,54 +120,97 @@ const SalesInfoInput = ({ items, setItems, onBack, onNext }) => {
           </div>
         </div>
 
-        {/* Search input */}
-        <div className="w-full lg:w-1/3">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Search for products to enter sale
-          </label>
-          <div className="relative">
-            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={handleSearchKey}
-              placeholder="Search by name or product ID"
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-            />
-          </div>
+        {/* Search Box */}
+        <div className="w-full lg:w-1/3 relative">
+          <FiSearch className="absolute left-3 top-12 text-gray-400" />
+          <input
+            type="text"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setTimeout(() => setFocused(false), 150)}
+            placeholder="Search products by name / brand…"
+            className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+          />
+          {loading && (
+            <div className="absolute right-3 top-12 text-gray-500">…</div>
+          )}
+
+          {/* Suggestions Dropdown */}
+          {focused && suggestions.length > 0 && (
+            <ul className="absolute z-10 bg-white border border-gray-200 w-full mt-1 rounded-lg max-h-64 overflow-auto">
+              {suggestions.map(p => (
+                <li
+                  key={p._id}
+                  onClick={() => handleSelect(p)}
+                  className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex items-center space-x-3"
+                >
+                  <img
+                    src={p.images?.[0] || "https://via.placeholder.com/40"}
+                    alt={p.productName}
+                    className="w-8 h-8 rounded"
+                  />
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-800">
+                      {p.productName}
+                    </div>
+                    <div className="text-gray-600 text-xs">
+                      {p.brand} — ₦{p.costPrice.toLocaleString()}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
 
-      {/* ── Selected Items */}
+      {/* Selected Items */}
       <div className="space-y-4">
-        {items.map((item) => (
+        {items.map(item => (
           <SelectedItemCard
             key={item.id}
-            product={item}
             expanded={item.expanded}
-            onToggle={() => toggleItem(item.id)}
+            product={item}
+            onToggle={() =>
+              updateItem(item.id, { expanded: !item.expanded })
+            }
+            onQtyChange={(id, qty) =>
+              updateItem(id, { qty })
+            }
+            onSpecChange={(id, field, value) =>
+              updateItem(id, { [field]: value })
+            }
+            onRemove={removeItem}
           />
         ))}
       </div>
 
-      {/* ── Summary */}
-      <div className="max-w-md ml-auto space-y-2">
+      {/* Summary & Tax */}
+      <div className="max-w-md ml-auto space-y-4">
         <div className="flex justify-between text-gray-600">
           <span>Subtotal</span>
-          <span>NGN {subtotal.toFixed(2)}</span>
+          <span>NGN {subtotal.toLocaleString()}</span>
         </div>
-        <div className="flex justify-between text-gray-600">
-          <span>Tax</span>
-          <span>NGN {tax.toFixed(2)}</span>
+        <div className="flex items-center space-x-2">
+          <label className="text-gray-600">Tax %</label>
+          <input
+            type="number"
+            value={taxPercent}
+            onChange={e => setTaxPercent(Number(e.target.value))}
+            className="w-16 px-2 py-1 border rounded-lg"
+          />
+          <span className="flex-1 text-right text-gray-600">
+            = NGN {taxTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+          </span>
         </div>
         <div className="flex justify-between font-semibold text-gray-800">
           <span>Total</span>
-          <span>NGN {total.toFixed(2)}</span>
+          <span>NGN {total.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
         </div>
       </div>
 
-      {/* ── Actions */}
+      {/* Actions */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <button
           onClick={onBack}
@@ -108,7 +226,5 @@ const SalesInfoInput = ({ items, setItems, onBack, onNext }) => {
         </button>
       </div>
     </div>
-  )
+  );
 }
-
-export default SalesInfoInput

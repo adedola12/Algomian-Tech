@@ -7,10 +7,18 @@ import Product      from "../models/productModel.js";
  * @route  POST /api/orders
  * @access Private
  */
+
+
+/**
+ * @desc   Create new order
+ * @route  POST /api/orders
+ * @access Private
+ */
 export const addOrderItems = asyncHandler(async (req, res) => {
   const {
-    orderItems, shippingAddress, paymentMethod,
-    itemsPrice, shippingPrice, taxPrice, totalPrice,
+    orderItems, shippingAddress,
+    paymentMethod, shippingPrice = 0,
+    taxPrice = 0,
   } = req.body;
 
   if (!orderItems || orderItems.length === 0) {
@@ -18,19 +26,35 @@ export const addOrderItems = asyncHandler(async (req, res) => {
     throw new Error("No order items");
   }
 
-  // ensure products exist & fetch details
-  const detailedItems = await Promise.all(orderItems.map(async item => {
-    const prod = await Product.findById(item.product);
-    if (!prod) throw new Error(`Product not found: ${item.product}`);
-    return {
-      product: prod._id,
-      name:    prod.productName,
-      qty:     item.qty,
-      price:   item.price,
-      image:   prod.images[0] || "",
-    };
-  }));
+  // 1) look up each product & build full line item
+  const detailedItems = await Promise.all(
+    orderItems.map(async (item) => {
+      const prod = await Product.findById(item.product);
+      if (!prod) {
+        res.status(400);
+        throw new Error(`Product not found: ${item.product}`);
+      }
+      return {
+        product: prod._id,
+        name:    prod.productName,
+        qty:     item.qty,
+        price:   item.price,
+        image:   prod.images[0] || "",
+        maxQty:  prod.quantity,              // ← NEW
+      };
+    })
+  );
 
+  // 2) itemsPrice = sum(qty * price)
+  const itemsPrice = detailedItems.reduce(
+    (sum, line) => sum + line.qty * line.price,
+    0
+  );
+
+  // 3) totalPrice = items + shipping + tax
+  const totalPrice = itemsPrice + Number(shippingPrice) + Number(taxPrice);
+
+  // 4) create & save
   const order = new Order({
     user:            req.user._id,
     orderItems:      detailedItems,
@@ -46,15 +70,22 @@ export const addOrderItems = asyncHandler(async (req, res) => {
   res.status(201).json(createdOrder);
 });
 
+
 /**
  * @desc   Get logged in user's orders
  * @route  GET /api/orders/myorders
  * @access Private
  */
+
+
+
 export const getMyOrders = asyncHandler(async (req, res) => {
-  const orders = await Order.find({ user: req.user._id }).sort("-createdAt");
-  res.json(orders);
-});
+  const orders = await Order
+    .find({ user: req.user._id })
+    .populate("user","firstName lastName")
+  res.json(orders)
+})
+
 
 /**
  * @desc   Get order by ID
@@ -104,8 +135,9 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
  * @access Private/Admin
  */
 export const getOrders = asyncHandler(async (req, res) => {
-  const orders = await Order.find()
-    .populate("user", "firstName lastName email")
-    .sort("-createdAt");
+  const orders = await Order
+    .find({})
+    .populate('user', 'firstName lastName');
   res.json(orders);
 });
+

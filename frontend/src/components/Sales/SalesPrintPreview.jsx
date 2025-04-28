@@ -1,7 +1,8 @@
-import React, { useRef } from 'react'
-import { FiX, FiPrinter, FiLock } from 'react-icons/fi'
-import html2canvas from 'html2canvas'
-import jsPDF from 'jspdf'
+// src/components/SalesPrintPreview.jsx
+import React, { useRef } from "react"
+import { FiX, FiPrinter } from "react-icons/fi"
+import html2canvas from "html2canvas"
+import jsPDF from "jspdf"
 
 export default function SalesPrintPreview({
   onClose,
@@ -15,32 +16,91 @@ export default function SalesPrintPreview({
   const ref = useRef()
 
   const handlePrintPDF = async () => {
-    const canvas = await html2canvas(ref.current, { scale: 2 })
-    const imgData = canvas.toDataURL('image/png')
-    const pdf = new jsPDF('p', 'pt', 'a4')
-    const pdfWidth = pdf.internal.pageSize.getWidth()
-    const pdfHeight = (canvas.height * pdfWidth) / canvas.width
-    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
-    pdf.save('receipt.pdf')
-    onPrintPDF()
+    console.group("📄 Print to PDF")
+    try {
+      // 1) Clone
+      const original = ref.current
+      console.log("1) original element:", original)
+      const clone = original.cloneNode(true)
+      clone.style.position = "absolute"
+      clone.style.top = "-9999px"
+      clone.style.left = "-9999px"
+      document.body.appendChild(clone)
+      console.log("   ↳ clone appended offscreen")
+
+      // 2) Inline *only* supported computed styles
+      console.log("2) inlining safe computed styles")
+      const els = [...clone.querySelectorAll("*"), clone]
+      els.forEach((el, i) => {
+        const cs = window.getComputedStyle(el)
+        // only copy the properties html2canvas can handle:
+        el.style.color = cs.color
+        el.style.backgroundColor = cs.backgroundColor
+        el.style.borderColor = cs.borderColor
+        el.style.borderRadius = cs.borderRadius
+        el.style.boxShadow = cs.boxShadow
+        el.style.font = cs.font
+        el.style.textShadow = cs.textShadow
+        if (i < 5) {
+          console.log(
+            `   • ${el.tagName}:`,
+            {
+              color: cs.color,
+              backgroundColor: cs.backgroundColor,
+              borderColor: cs.borderColor,
+            }
+          )
+        }
+      })
+      console.log("   ↳ inlining complete")
+
+      // 3) Render to canvas
+      console.log("3) calling html2canvas()…")
+      const canvas = await html2canvas(clone, {
+        scale: 2,
+        useCORS: true,
+      })
+      console.log("   ↳ html2canvas finished")
+
+      // 4) Clean up
+      document.body.removeChild(clone)
+      console.log("4) removed offscreen clone")
+
+      // 5) Build & save PDF
+      console.log("5) generating PDF")
+      const imgData   = canvas.toDataURL("image/png")
+      const pdf       = new jsPDF("p", "pt", "a4")
+      const pdfWidth  = pdf.internal.pageSize.getWidth()
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight)
+      pdf.save("receipt.pdf")
+      console.log("   ↳ PDF saved")
+
+      onPrintPDF()
+      console.log("✅ Done")
+    } catch (err) {
+      console.error("❌ Print to PDF failed:", err)
+    } finally {
+      console.groupEnd()
+    }
   }
 
   const subTotal = items.reduce((sum, i) => sum + i.qty * i.price, 0)
-  const total = subTotal + tax
+  const total    = subTotal + tax
 
   return (
     <div
       className="fixed inset-0 flex items-center justify-center z-50 p-4"
       style={{
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        WebkitBackdropFilter: 'blur(8px)',
-        backdropFilter: 'blur(8px)',
+        backgroundColor: "rgba(255,255,255,0.2)",
+        WebkitBackdropFilter: "blur(8px)",
+        backdropFilter: "blur(8px)",
       }}
     >
       <div
         ref={ref}
         className="rounded-2xl shadow-lg w-full max-w-2xl overflow-hidden"
-        style={{ backgroundColor: 'white' }}
+        style={{ backgroundColor: "white" }}
       >
         {/* Top bar */}
         <div className="flex items-center justify-between px-6 py-4 border-b">
@@ -76,7 +136,7 @@ export default function SalesPrintPreview({
           <table className="min-w-full text-left text-sm">
             <thead>
               <tr className="border-b border-gray-200">
-                {['S/N','Item','Quantity','Price','Total Price'].map((h) => (
+                {["S/N", "Item", "Quantity", "Price", "Total Price"].map((h) => (
                   <th key={h} className="py-2 px-3 text-gray-600 font-medium">
                     {h}
                   </th>
@@ -103,7 +163,7 @@ export default function SalesPrintPreview({
 
         {/* Summary */}
         <div className="px-6 py-4 grid grid-cols-1 sm:grid-cols-2">
-          <div></div>
+          <div />
           <div className="space-y-1 text-right">
             <div className="flex justify-between text-gray-600">
               <span>Sub Total:</span>
