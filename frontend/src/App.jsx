@@ -36,6 +36,8 @@ import PrivateRoute from "./routes/PrivateRoute"
 
 import { ToastContainer } from "react-toastify"
 import "react-toastify/dist/ReactToastify.css"
+import Logistics from "./pages/Inventory/Logistics"
+import CreateShipment from "./components/Logistics/CreatShipment"
 
 export default function App() {
   return (
@@ -73,7 +75,10 @@ export default function App() {
             <Route path="customer-order-details/:id"    element={<CustomerOrderDetails />} />
             <Route path="inventory/orders"              element={<InventoryOrder />} />
             <Route path="sales"                         element={<SalesManage />} />
-            <Route path="logistics"                     element={<div>Logistics</div>} />
+            <Route path="logistics">
+            <Route index element={<Logistics />} />
+            <Route path="create-shipment" element={<CreateShipment />} />
+          </Route>
             <Route path="customers"                     element={<div>Customers</div>} />
             <Route path="settings"                      element={<div>Settings</div>} />
             <Route path="inventory/add-product"         element={<AddProduct />} />

@@ -40,7 +40,7 @@ const InventSideBar = ({ isOpen, setIsOpen }) => {
               flex flex-col justify-between border-r bg-white
               transition-transform duration-300 ease-in-out
               ${isOpen ? "translate-x-0" : "-translate-x-full"}
-              md:static md:translate-x-0`}
+              md:translate-x-0`}
       >
         {/* Logo & Close Button */}
         <div className="flex items-center justify-between px-4 pt-6 pb-4">
@@ -58,19 +58,19 @@ const InventSideBar = ({ isOpen, setIsOpen }) => {
         {/* Nav Links */}
         <nav className="px-4 flex-1 space-y-2">
           {navLinks.map(({ path, label, icon }) => (
-          <NavLink
-            to={path}
-            key={path}
-            end        // ← ADD THIS
-            onClick={() => setIsOpen(false)}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-2 rounded-md text-sm font-medium transition ${
-                isActive
-                  ? "bg-orange-100 text-orange-500"
-                  : "text-gray-600 hover:bg-gray-100"
-              }`
-            }
-          >
+            <NavLink
+              to={path}
+              key={path}
+              end
+              onClick={() => setIsOpen(false)}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-2 rounded-md text-sm font-medium transition ${
+                  isActive
+                    ? "bg-orange-100 text-orange-500"
+                    : "text-gray-600 hover:bg-gray-100"
+                }`
+              }
+            >
               <span className="text-lg">{icon}</span>
               {label}
             </NavLink>
