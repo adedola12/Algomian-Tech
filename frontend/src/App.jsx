@@ -40,6 +40,7 @@ import Logistics from "./pages/Inventory/Logistics";
 import CreateShipment from "./components/Logistics/CreatShipment";
 import CustomerInventoryOrderDetails from "./pages/Inventory/CustomerInventoryOrderDetails";
 import CustomerAccountDetails from "./pages/Inventory/CustomerAccountDetails";
+import Settings from "./pages/Inventory/Settings";
 
 export default function App() {
   return (
@@ -94,7 +95,7 @@ export default function App() {
                 path=":customerId"
                 element={<CustomerAccountDetails />}/>
               </Route>
-            <Route path="settings" element={<div>Settings</div>} />
+            <Route path="settings" element={<Settings />} />
             <Route path="inventory/add-product" element={<AddProduct />} />
             <Route
               path="inventory/edit-product/:id"
