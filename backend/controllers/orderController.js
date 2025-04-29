@@ -18,7 +18,7 @@ export const addOrderItems = asyncHandler(async (req, res) => {
   const {
     orderItems, shippingAddress,
     paymentMethod, shippingPrice = 0,
-    taxPrice = 0,
+    taxPrice = 0, pointOfSale ,
   } = req.body;
 
   if (!orderItems || orderItems.length === 0) {
@@ -56,7 +56,9 @@ export const addOrderItems = asyncHandler(async (req, res) => {
 
   // 4) create & save
   const order = new Order({
+    trackingId,
     user:            req.user._id,
+    pointOfSale,
     orderItems:      detailedItems,
     shippingAddress,
     paymentMethod,

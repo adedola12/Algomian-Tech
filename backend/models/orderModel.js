@@ -17,11 +17,13 @@ const orderItemSchema = new mongoose.Schema(
 );
 const orderSchema = new mongoose.Schema(
   {
+    trackingId:     { type: String, required: true, unique: true },
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
+    pointOfSale: {type: String},
     orderItems:      [orderItemSchema],
 
     shippingAddress: {
