@@ -11,9 +11,13 @@ import {
 const router = express.Router();
 
 /*──── roles ────*/
-router.route('/roles')
-  .post(protect, authorize(PERM.ROLE_MANAGE), createRole)
-  .get (protect, authorize(PERM.ROLE_MANAGE), getRoles);
+// router.route('/roles')
+//   .post(protect, authorize(PERM.ROLE_MANAGE), createRole)
+//   .get (protect, authorize(PERM.ROLE_MANAGE), getRoles);
+  
+  router.route('/roles')
+  .post(protect, createRole)
+  .get (protect, getRoles);
 
 router.route('/roles/:id')
   .patch(protect, authorize(PERM.ROLE_MANAGE), updateRole)

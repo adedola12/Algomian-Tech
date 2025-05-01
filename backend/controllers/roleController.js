@@ -2,15 +2,18 @@ import asyncH from 'express-async-handler';
 import Role   from '../models/roleModel.js';
 
 /* POST /api/roles  { name, permissions[] }  */
-export const createRole = asyncH(async (req,res) => {
-  const { name, permissions } = req.body;
+export const createRole = asyncH(async (req, res) => {
+  const { name, permissions, store } = req.body;
+
   const role = await Role.create({
-    store       : req.user.roles[0].store,   // all roles reside in one store
+    store, // from request body
     name,
     permissions,
   });
+
   res.status(201).json(role);
 });
+
 
 /* GET /api/roles */
 export const getRoles = asyncH(async (req,res) => {

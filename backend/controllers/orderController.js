@@ -1,6 +1,7 @@
 import asyncHandler from "express-async-handler";
 import Order        from '../models/orderModel.js';
 import Product      from "../models/productModel.js";
+import crypto       from "crypto";
 
 /**
  * @desc   Create new order
@@ -25,6 +26,8 @@ export const addOrderItems = asyncHandler(async (req, res) => {
     res.status(400);
     throw new Error("No order items");
   }
+
+  const trackingId = crypto.randomBytes(4).toString("hex").toUpperCase(); // e.g. A3F9B8C1
 
   // 1) look up each product & build full line item
   const detailedItems = await Promise.all(
@@ -53,6 +56,8 @@ export const addOrderItems = asyncHandler(async (req, res) => {
 
   // 3) totalPrice = items + shipping + tax
   const totalPrice = itemsPrice + Number(shippingPrice) + Number(taxPrice);
+
+
 
   // 4) create & save
   const order = new Order({

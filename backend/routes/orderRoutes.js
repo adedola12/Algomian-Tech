@@ -1,29 +1,21 @@
-import express from "express";
+import express from 'express';
 import {
+  getOrders,
   addOrderItems,
-  getMyOrders,
   getOrderById,
+  getMyOrders,
   updateOrderStatus,
   deleteOrder,
-  getOrders,
-} from "../controllers/orderController.js";
-
-import { protect, authorize } from "../middleware/authMiddleware.js";
-import PERM from "../models/permissionEnum.js";
+} from '../controllers/orderController.js';
+import { protect, isAdmin, isSalesTeam } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-router.route("/")
-  .get(protect, authorize(PERM.ORDER_MANAGE), getOrders)
-  .post(protect, addOrderItems);
-
-router.route("/myorders").get(protect, getMyOrders);
-
-router.route("/:id")
-  .get(protect, getOrderById)
-  .delete(protect, authorize(PERM.ORDER_MANAGE), deleteOrder);
-
-router.route("/:id/status")
-  .put(protect, authorize(PERM.ORDER_MANAGE), updateOrderStatus);
+router.route('/').get(protect, isSalesTeam, getOrders); // SalesRep + Admin
+router.route('/myorders').get(protect, getMyOrders);
+router.route('/:id').get(protect, getOrderById);
+router.route('/:id/status').put(protect, isAdmin, updateOrderStatus); // Admin only
+router.route('/:id').delete(protect, isAdmin, deleteOrder);
+router.route('/').post(protect, isSalesTeam, addOrderItems); // Admin + SalesRep
 
 export default router;

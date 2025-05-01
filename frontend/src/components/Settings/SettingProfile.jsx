@@ -1,4 +1,3 @@
-/*  src/components/Settings/SettingProfile.jsx  */
 import React, { useEffect, useState } from 'react';
 import { Toaster, toast }             from 'react-hot-toast';
 import api                             from '../../api';
@@ -6,62 +5,48 @@ import api                             from '../../api';
 /* ───────────────── helpers ───────────────── */
 const fetchProfile = () => api.get('/api/users/profile').then(r => r.data);
 const saveProfile  = p   => api.put('/api/users/profile', p).then(r => r.data);
-const fetchRoles = () => api.get('/api/admin/roles').then(r => r.data);
 
 /* ───────────────── component ─────────────── */
 export default function SettingProfile() {
-  /* server copies */
-  const [me,        setMe]        = useState(null);
-  const [rolesList, setRolesList] = useState(null);             // ← all roles
-
-  /* editable form snapshot */
+  const [me,   setMe]   = useState(null);
   const [form, setForm] = useState({
-    firstName:'', lastName:'', email:'', jobTitle:'', roleId:'',
+    firstName: '',
+    lastName: '',
+    email: '',
+    jobTitle: '',
+    userType: '',
   });
   const [saving, setSaving] = useState(false);
 
-  /* load profile + roles in parallel */
   useEffect(() => {
-    Promise.allSettled([fetchProfile(), fetchRoles()])
-      .then(([pRes, rRes]) => {
-        if (pRes.status === 'fulfilled') {
-          const u = pRes.value;
-          setMe(u);
-          setForm(f => ({
-            ...f,
-            firstName : u.firstName,
-            lastName  : u.lastName,
-            email     : u.email,
-            jobTitle  : u.jobTitle ?? '',
-            roleId    : u.roles?.[0]?._id || '',
-          }));
-        }
-        if (rRes.status === 'fulfilled') {
-          setRolesList(rRes.value);            // array of {_id,name}
-          /* auto-pick first role if user has none yet */
-          if (!form.roleId && rRes.value.length)
-            setForm(f => ({ ...f, roleId:rRes.value[0]._id }));
-        }
+    fetchProfile()
+      .then((u) => {
+        setMe(u);
+        setForm(f => ({
+          ...f,
+          firstName : u.firstName,
+          lastName  : u.lastName,
+          email     : u.email,
+          jobTitle  : u.jobTitle ?? '',
+          userType  : u.userType ?? 'Customer',
+        }));
       })
-      .catch(() => toast.error('Unable to load profile / roles'));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+      .catch(() => toast.error('Unable to load profile'));
   }, []);
 
-  if (!me || rolesList === null)
-    return <p className="text-sm text-gray-500 px-4 py-6">Loading…</p>;
+  if (!me) return <p className="text-sm text-gray-500 px-4 py-6">Loading…</p>;
 
-  /* handlers */
   const change = key => e => setForm(f => ({ ...f, [key]: e.target.value }));
 
   const submit = async e => {
     e.preventDefault();
     setSaving(true);
     const payload = {
-      firstName : form.firstName.trim(),
-      lastName  : form.lastName.trim(),
-      email     : form.email.trim(),
-      jobTitle  : form.jobTitle.trim(),
-      roleIds   : form.roleId ? [form.roleId] : [],   // backend expects array
+      firstName: form.firstName.trim(),
+      lastName : form.lastName.trim(),
+      email    : form.email.trim(),
+      jobTitle : form.jobTitle.trim(),
+      userType : form.userType,
     };
     try {
       const updated = await saveProfile(payload);
@@ -69,9 +54,10 @@ export default function SettingProfile() {
       toast.success('Profile updated successfully ✅');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Save failed');
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+    }
   };
-
   /* ───────── JSX ───────── */
   return (
     <>
@@ -107,16 +93,12 @@ export default function SettingProfile() {
           <Input label="Email"      type="email" value={form.email} onChange={change('email')} />
           <Input label="Job description" value={form.jobTitle} onChange={change('jobTitle')} />
 
-          {/* Role select */}
-          <Select
-            label="Role"
-            value={form.roleId}
-            onChange={change('roleId')}
-            options={
-              rolesList.length
-                ? rolesList.map(r => ({ value:r._id, label:r.name }))
-                : [{ value:'', label:'No roles yet – create one first' }]
-            }
+            {/* User Type dropdown */}
+            <Select
+            label="User Type"
+            value={form.userType}
+            onChange={change('userType')}
+            options={["Admin", "Manager", "SalesRep", "Customer"]}
           />
         </div>
 

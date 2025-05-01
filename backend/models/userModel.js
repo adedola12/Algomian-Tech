@@ -12,8 +12,12 @@ const userSchema = new mongoose.Schema(
     profileImage: { type: String, default: "" },
     jobTitle: { type: String, default: "" },
 
-    //  ➜ one or many role-ids – that’s our only source-of-truth
-    roles: [{ type: mongoose.Schema.Types.ObjectId, ref: "Role" }],
+    // NEW — simplified role management
+    userType: {
+      type: String,
+      enum: ["Admin", "Manager", "SalesRep", "Customer"],
+      default: "Customer", // Default on registration
+    },
   },
   { timestamps: true }
 );
