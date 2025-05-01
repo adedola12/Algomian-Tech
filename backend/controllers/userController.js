@@ -39,6 +39,10 @@ export const registerUser = asyncHandler(async (req, res) => {
       `https://api.dicebear.com/7.x/personas/svg?seed=${encodeURIComponent(firstName + lastName)}`,
   });
 
+  const adminRole = await Role.findOne({ name: "Admin" });
+  if (adminRole) user.roles.push(adminRole._id);
+  await user.save();
+
   const token = generateToken(user._id);
   res
     .status(201)

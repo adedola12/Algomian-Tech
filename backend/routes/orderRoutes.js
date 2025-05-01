@@ -8,21 +8,22 @@ import {
   getOrders,
 } from "../controllers/orderController.js";
 
-import { protect, admin } from "../middleware/authMiddleware.js";
+import { protect, authorize } from "../middleware/authMiddleware.js";
+import PERM from "../models/permissionEnum.js";
 
 const router = express.Router();
 
-router
-  .route("/")
-  .get(protect, admin, getOrders) // admin only
-  .post(protect, addOrderItems); // create order
+router.route("/")
+  .get(protect, authorize(PERM.ORDER_MANAGE), getOrders)
+  .post(protect, addOrderItems);
 
 router.route("/myorders").get(protect, getMyOrders);
 
-router
-  .route("/:id")
+router.route("/:id")
   .get(protect, getOrderById)
-  .delete(protect, admin, deleteOrder);
-router.route("/:id/status").put(protect, admin, updateOrderStatus); // admin can change status
+  .delete(protect, authorize(PERM.ORDER_MANAGE), deleteOrder);
+
+router.route("/:id/status")
+  .put(protect, authorize(PERM.ORDER_MANAGE), updateOrderStatus);
 
 export default router;

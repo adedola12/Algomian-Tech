@@ -6,7 +6,7 @@ import api                             from '../../api';
 /* ───────────────── helpers ───────────────── */
 const fetchProfile = () => api.get('/api/users/profile').then(r => r.data);
 const saveProfile  = p   => api.put('/api/users/profile', p).then(r => r.data);
-const fetchRoles   = ()  => api.get('/api/roles').then(r => r.data);
+const fetchRoles = () => api.get('/api/admin/roles').then(r => r.data);
 
 /* ───────────────── component ─────────────── */
 export default function SettingProfile() {
