@@ -1,5 +1,6 @@
 import asyncHandler from "express-async-handler";
 import Order        from '../models/orderModel.js';
+import User from "../models/userModel.js"; // ✅ Add this
 import Product      from "../models/productModel.js";
 import crypto       from "crypto";
 
@@ -15,21 +16,131 @@ import crypto       from "crypto";
  * @route  POST /api/orders
  * @access Private
  */
+
+
+
+// export const addOrderItems = asyncHandler(async (req, res) => {
+//   const {
+//     orderItems,
+//     shippingAddress,
+//     paymentMethod,
+//     shippingPrice = 0,
+//     taxPrice = 0,
+//     pointOfSale,
+//     selectedCustomerId,
+//     customerName,
+//     customerPhone,
+//   } = req.body;
+
+//   if (!orderItems || orderItems.length === 0) {
+//     res.status(400);
+//     throw new Error("No order items");
+//   }
+
+//   const trackingId = crypto.randomBytes(4).toString("hex").toUpperCase();
+
+//   // 1) Build product lines
+//   const detailedItems = await Promise.all(
+//     orderItems.map(async (item) => {
+//       const prod = await Product.findById(item.product);
+//       if (!prod) {
+//         res.status(400);
+//         throw new Error(`Product not found: ${item.product}`);
+//       }
+//       return {
+//         product: prod._id,
+//         name: prod.productName,
+//         qty: item.qty,
+//         price: item.price,
+//         image: prod.images?.[0] || "",
+//         maxQty: prod.quantity,
+//       };
+//     })
+//   );
+
+//   // 2) Resolve or create customer user
+//   let userId = req.user._id;
+
+//   if (selectedCustomerId) {
+//     const customer = await User.findById(selectedCustomerId);
+//     if (!customer || customer.userType !== "Customer") {
+//       res.status(400);
+//       throw new Error("Invalid selected customer ID");
+//     }
+//     userId = customer._id;
+//   } else if (customerName && customerPhone) {
+//     const [firstName, ...rest] = customerName.trim().split(" ");
+//     const lastName = rest.join(" ") || "-";
+
+//     const existingUser = await User.findOne({ whatAppNumber: customerPhone });
+
+//     if (existingUser) {
+//       userId = existingUser._id;
+//     } else {
+//       const newCustomer = await User.create({
+//         firstName,
+//         lastName,
+//         whatAppNumber: customerPhone,
+//         email: `${customerPhone}@generated.com`,
+//         password: customerPhone + "123",
+//         userType: "Customer",
+//       });
+//       userId = newCustomer._id;
+//     }
+//   }
+
+//   // 3) Price calculations
+//   const itemsPrice = detailedItems.reduce(
+//     (sum, item) => sum + item.qty * item.price,
+//     0
+//   );
+//   const totalPrice = itemsPrice + Number(shippingPrice) + Number(taxPrice);
+
+//   // 4) Create order
+//   const order = new Order({
+//     trackingId,
+//     user: userId,
+//     pointOfSale,
+//     orderItems: detailedItems,
+//     shippingAddress,
+//     paymentMethod,
+//     itemsPrice,
+//     shippingPrice,
+//     taxPrice,
+//     totalPrice,
+//   });
+
+//   const createdOrder = await order.save();
+
+//   // 5) Link order to user's orders list
+//   await User.findByIdAndUpdate(userId, {
+//     $push: { orders: createdOrder._id },
+//   });
+
+//   res.status(201).json(createdOrder);
+// });
+
 export const addOrderItems = asyncHandler(async (req, res) => {
   const {
-    orderItems, shippingAddress,
-    paymentMethod, shippingPrice = 0,
-    taxPrice = 0, pointOfSale ,
+    orderItems,
+    shippingAddress,
+    paymentMethod,
+    shippingPrice = 0,
+    taxPrice = 0,
+    pointOfSale,
+    selectedCustomerId,
+    customerName,
+    customerPhone,
   } = req.body;
 
   if (!orderItems || orderItems.length === 0) {
     res.status(400);
-    throw new Error("No order items");
+    throw new Error("No order items provided");
   }
 
-  const trackingId = crypto.randomBytes(4).toString("hex").toUpperCase(); // e.g. A3F9B8C1
+  const trackingId = crypto.randomBytes(4).toString("hex").toUpperCase();
 
-  // 1) look up each product & build full line item
+  // Build the detailed item list
   const detailedItems = await Promise.all(
     orderItems.map(async (item) => {
       const prod = await Product.findById(item.product);
@@ -39,32 +150,58 @@ export const addOrderItems = asyncHandler(async (req, res) => {
       }
       return {
         product: prod._id,
-        name:    prod.productName,
-        qty:     item.qty,
-        price:   item.price,
-        image:   prod.images[0] || "",
-        maxQty:  prod.quantity,              // ← NEW
+        name: prod.productName,
+        qty: item.qty,
+        price: item.price,
+        image: prod.images?.[0] || "",
+        maxQty: prod.quantity,
       };
     })
   );
 
-  // 2) itemsPrice = sum(qty * price)
+  // Determine user (customer)
+  let userId = req.user._id;
+
+  if (selectedCustomerId) {
+    const customer = await User.findById(selectedCustomerId);
+    if (!customer || customer.userType !== "Customer") {
+      res.status(400);
+      throw new Error("Invalid customer ID");
+    }
+    userId = customer._id;
+  } else if (customerName && customerPhone) {
+    const existingUser = await User.findOne({ whatAppNumber: customerPhone });
+
+    if (existingUser) {
+      userId = existingUser._id;
+    } else {
+      const [firstName, ...rest] = customerName.trim().split(" ");
+      const lastName = rest.join(" ") || "-";
+
+      const newCustomer = await User.create({
+        firstName: firstName || "Unnamed",
+        lastName: lastName || "-",
+        whatAppNumber: customerPhone,
+        email: `${customerPhone}@generated.com`,
+        password: customerPhone + "123",
+        userType: "Customer",
+      });
+
+      userId = newCustomer._id;
+    }
+  }
+
   const itemsPrice = detailedItems.reduce(
-    (sum, line) => sum + line.qty * line.price,
+    (sum, item) => sum + item.qty * item.price,
     0
   );
-
-  // 3) totalPrice = items + shipping + tax
   const totalPrice = itemsPrice + Number(shippingPrice) + Number(taxPrice);
 
-
-
-  // 4) create & save
   const order = new Order({
     trackingId,
-    user:            req.user._id,
+    user: userId,
     pointOfSale,
-    orderItems:      detailedItems,
+    orderItems: detailedItems,
     shippingAddress,
     paymentMethod,
     itemsPrice,
@@ -74,6 +211,14 @@ export const addOrderItems = asyncHandler(async (req, res) => {
   });
 
   const createdOrder = await order.save();
+
+  // Add order to user.orders array if field exists
+  const linkedUser = await User.findById(userId);
+  if (linkedUser && Array.isArray(linkedUser.orders)) {
+    linkedUser.orders.push(createdOrder._id);
+    await linkedUser.save();
+  }
+
   res.status(201).json(createdOrder);
 });
 

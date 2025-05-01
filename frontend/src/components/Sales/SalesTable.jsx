@@ -50,24 +50,42 @@ export default function SalesTable() {
     if (step === 0) fetchOrders()
   }, [step])
 
+  // async function fetchOrders() {
+  //   setLoading(true)
+  //   try {
+  //     const res = await api.get("/api/orders/myorders", {
+  //       withCredentials: true,
+  //     })
+  //     const list = Array.isArray(res.data)
+  //       ? res.data
+  //       : Array.isArray(res.data.orders)
+  //       ? res.data.orders
+  //       : []
+  //     setOrders(list)
+  //   } catch (err) {
+  //     setError(err.response?.data?.message || err.message)
+  //   } finally {
+  //     setLoading(false)
+  //   }
+  // }
+
   async function fetchOrders() {
-    setLoading(true)
+    setLoading(true);
     try {
-      const res = await api.get("/api/orders/myorders", {
+      const res = await api.get("/api/orders", {
         withCredentials: true,
-      })
-      const list = Array.isArray(res.data)
-        ? res.data
-        : Array.isArray(res.data.orders)
-        ? res.data.orders
-        : []
-      setOrders(list)
+      });
+  
+      // assuming the response is a list of orders
+      const list = Array.isArray(res.data) ? res.data : [];
+      setOrders(list);
     } catch (err) {
-      setError(err.response?.data?.message || err.message)
+      setError(err.response?.data?.message || err.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
+  
 
   // filter the rows based on search box + dropdown filter
   const filtered = orders
@@ -142,22 +160,31 @@ export default function SalesTable() {
   if (step === 3) {
     return (
       <SalesPaymentInfo
-        items={items}
-        {...deliveryData}
-        onBack={()=>setStep(2)}
-        onDone={()=>{
-          setStep(0)
-          setDeliveryData({
-            customerName: "",
-            customerPhone: "",
-            pointOfSale: "",
-            deliveryMethod: "",
-            shippingAddress: "",
-            parkLocation: "",
-            summary: { subtotal: 0, tax: 0, total: 0 },
-          })
-        }}
-      />
+      items={items}
+      customerName={deliveryData.customerName}
+      customerPhone={deliveryData.customerPhone}
+      pointOfSale={deliveryData.pointOfSale}
+      deliveryMethod={deliveryData.deliveryMethod}
+      shippingAddress={deliveryData.shippingAddress}
+      parkLocation={deliveryData.parkLocation}
+      selectedCustomerId={deliveryData.selectedCustomerId}
+      summary={deliveryData.summary}
+      onBack={() => setStep(2)}
+      onDone={() => {
+        setStep(0);
+        setDeliveryData({
+          customerName: "",
+          customerPhone: "",
+          pointOfSale: "",
+          deliveryMethod: "",
+          shippingAddress: "",
+          parkLocation: "",
+          selectedCustomerId: null,
+          summary: { subtotal: 0, tax: 0, total: 0 },
+        });
+      }}
+    />
+    
     )
   }
 

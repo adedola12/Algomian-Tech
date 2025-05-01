@@ -17,5 +17,8 @@ router.route('/:id').get(protect, getOrderById);
 router.route('/:id/status').put(protect, isAdmin, updateOrderStatus); // Admin only
 router.route('/:id').delete(protect, isAdmin, deleteOrder);
 router.route('/').post(protect, isSalesTeam, addOrderItems); // Admin + SalesRep
+// routes/orderRoutes.js
+// router.get("/", protect, isAdmin, getOrders);
+
 
 export default router;

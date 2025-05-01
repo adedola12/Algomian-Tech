@@ -1,6 +1,7 @@
 // backend/controllers/userController.js
 import asyncHandler from "express-async-handler";
 import User from "../models/userModel.js";
+import Order from '../models/orderModel.js';
 import generateToken from "../utils/generateToken.js";
 
 /* ─────────────────────────────────────────────
@@ -106,6 +107,78 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
   res.cookie("algomianToken", generateToken(saved._id), cookieOpts);
   res.json(safeUser(saved));
 });
+
+export const getCustomersList = asyncHandler(async (req, res) => {
+  const customers = await User.find({ userType: 'Customer' })
+    .select('-password'); // exclude password
+  res.json(customers);
+});
+
+// export const getCustomers = asyncHandler(async (req, res) => {
+//   const customers = await User.find({ userType: 'Customer' })
+//     .populate({
+//       path: 'orders',
+//       select: 'createdAt status',
+//       options: { sort: { createdAt: -1 } }, // Sort orders by creation date descending
+//     });
+
+//   const customerSummaries = customers.map((customer) => {
+//     const totalOrders = customer.orders.length;
+//     const lastOrder = customer.orders[0]; // Since orders are sorted descending
+//     return {
+//       _id: customer._id,
+//       firstName: customer.firstName,
+//       lastName: customer.lastName,
+//       email: customer.email,
+//       whatAppNumber: customer.whatAppNumber,
+//       totalOrders,
+//       lastOrderDate: lastOrder ? lastOrder.createdAt : null,
+//       status: lastOrder ? lastOrder.status : null,
+//     };
+//   });
+
+//   res.json(customerSummaries);
+
+//   const enriched = customers.map((c) => {
+//     const sortedOrders = [...(c.orders || [])].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+//     return {
+//       ...c,
+//       totalOrders: c.orders?.length || 0,
+//       lastOrderDate: sortedOrders[0]?.createdAt || null,
+//       status: sortedOrders[0]?.status || null,
+//     };
+//   });
+
+//   res.json(enriched);
+// });
+
+export const getCustomers = asyncHandler(async (req, res) => {
+  const customers = await User.find({ userType: "Customer" })
+    .populate({
+      path: "orders",
+      select: "createdAt status",
+      options: { sort: { createdAt: -1 } }, // latest order first
+    });
+
+  const customerSummaries = customers.map((customer) => {
+    const totalOrders = customer.orders?.length || 0;
+    const lastOrder = customer.orders?.[0];
+
+    return {
+      _id: customer._id,
+      firstName: customer.firstName || "Unnamed",
+      lastName: customer.lastName || "-",
+      email: customer.email || "N/A",
+      whatAppNumber: customer.whatAppNumber || "N/A",
+      totalOrders,
+      lastOrderDate: lastOrder?.createdAt || null,
+      status: lastOrder?.status || null,
+    };
+  });
+
+  res.status(200).json(customerSummaries);
+});
+
 
 /* ─────────────────────────────────────────────
    helpers

@@ -1,6 +1,6 @@
 // src/components/customers/CustomerTable.jsx
-import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   FiSearch,
   FiFilter,
@@ -8,23 +8,32 @@ import {
   FiChevronLeft,
   FiChevronRight,
   FiMoreVertical,
-} from 'react-icons/fi'
+} from "react-icons/fi";
+import api from "../../api";
 
 export default function CustomerTable() {
-  const [page, setPage] = useState(1)
-  const totalPages = 30
-  const navigate = useNavigate()
+  const [page, setPage] = useState(1);
+  const totalPages = 30;
+  const navigate = useNavigate();
 
   // placeholder data; replace with real API
-  const customers = Array.from({ length: 7 }).map((_, i) => ({
-    id:              `CUS_000${i+1}`, // <-- unique customer id
-    name:            'Sarah Johnson',
-    email:           'sarahjohnson@gmail.com',
-    phone:           '08134552349',
-    totalOrders:     4,
-    lastOrderDate:   'May 11, 2023',
-    status:          ['Processing','Delivered','No Active Order','Processing','Processing','Pending','Processing'][i],
-  }))
+  const [customers, setCustomers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      try {
+        const { data } = await api.get("/api/users/customers");
+        setCustomers(data);
+      } catch (err) {
+        setError(err.response?.data?.message || "Failed to load customers");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCustomers();
+  }, []);
 
   return (
     <section className="bg-white rounded-2xl shadow p-6">
@@ -50,13 +59,13 @@ export default function CustomerTable() {
           <thead className="bg-gray-50">
             <tr>
               {[
-                'Customer Name',
-                'Email',
-                'Phone Number',
-                'Total Orders',
-                'Last Order Date',
-                'Current Order Status',
-                'Action',
+                "Customer Name",
+                "Email",
+                "Phone Number",
+                "Total Orders",
+                "Last Order Date",
+                "Current Order Status",
+                "Action",
               ].map((h) => (
                 <th
                   key={h}
@@ -71,29 +80,54 @@ export default function CustomerTable() {
             {customers.map((c, idx) => (
               <tr key={idx}>
                 <td className="px-4 py-4 whitespace-nowrap">
-                  <input type="checkbox" className="form-checkbox h-4 w-4 text-orange-600" />
-                  <span className="ml-3 text-gray-800">{c.name}</span>
+                  <input
+                    type="checkbox"
+                    className="form-checkbox h-4 w-4 text-orange-600"
+                  />
+                  <span className="ml-3 text-gray-800">
+                    {`${c.firstName} ${c.lastName}`}
+                  </span>
                 </td>
-                <td className="px-4 py-4 whitespace-nowrap text-gray-700">{c.email}</td>
-                <td className="px-4 py-4 whitespace-nowrap text-gray-700">{c.phone}</td>
-                <td className="px-4 py-4 whitespace-nowrap text-gray-700">{c.totalOrders}</td>
-                <td className="px-4 py-4 whitespace-nowrap text-gray-700">{c.lastOrderDate}</td>
+
+                <td className="px-4 py-4 whitespace-nowrap text-gray-700">
+                  {c.email}
+                </td>
+
+                <td className="px-4 py-4 whitespace-nowrap text-gray-700">
+                  {c.whatAppNumber}
+                </td>
+
+                <td className="px-4 py-4 whitespace-nowrap text-gray-700">
+                  {c.totalOrders > 0 ? c.totalOrders : "No Order Found"}
+                </td>
+
+                <td className="px-4 py-4 whitespace-nowrap text-gray-700">
+                  {c.lastOrderDate
+                    ? new Date(c.lastOrderDate).toLocaleDateString("en-GB", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })
+                    : "Yet to order"}
+                </td>
+
                 <td className="px-4 py-4 whitespace-nowrap">
                   <span
                     className={`px-2 inline-flex text-xs font-semibold rounded-full ${
-                      c.status === 'Pending'
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : c.status === 'Delivered'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-gray-100 text-gray-800'
+                      c.status === "Pending"
+                        ? "bg-yellow-100 text-yellow-800"
+                        : c.status === "Delivered"
+                        ? "bg-green-100 text-green-800"
+                        : "bg-gray-100 text-gray-800"
                     }`}
                   >
-                    {c.status}
+                    {c.status || "No Order Found"}
                   </span>
                 </td>
+
                 <td className="px-4 py-4 whitespace-nowrap text-right">
                   <button
-                    onClick={() => navigate(`/customers/${c.id}`)}
+                    onClick={() => navigate(`/customers/${c._id}`)}
                     className="text-gray-400 hover:text-gray-800"
                   >
                     <FiMoreVertical />
@@ -160,5 +194,5 @@ export default function CustomerTable() {
         </div>
       </div>
     </section>
-  )
+  );
 }

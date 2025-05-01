@@ -21,6 +21,7 @@ export default function SalesPaymentInfo({
   deliveryMethod,
   shippingAddress,
   parkLocation,
+  selectedCustomerId, // ✅ add this line
   summary = { subtotal: 0, tax: 0, total: 0 },
   onBack,
   onDone,
@@ -40,49 +41,98 @@ export default function SalesPaymentInfo({
     [amountTransferred, summary.total]
   )
 
-  const handleDone = async () => {
-    setLoading(true)
-    try {
-      // Build a shippingAddress object that satisfies your schema:
-      const fullShipping = {
-        address:
-          deliveryMethod === 'park'
-            ? parkLocation
-            : deliveryMethod === 'self'
-            ? pointOfSale
-            : shippingAddress,
-        city: 'N/A',        // placeholder so required validator passes
-        postalCode: 'N/A',  // placeholder so required validator passes
-        country: 'N/A',     // placeholder so required validator passes
-      }
+  // const handleDone = async () => {
+  //   setLoading(true)
+  //   try {
+  //     // Build a shippingAddress object that satisfies your schema:
+  //     const fullShipping = {
+  //       address:
+  //         deliveryMethod === 'park'
+  //           ? parkLocation
+  //           : deliveryMethod === 'self'
+  //           ? pointOfSale
+  //           : shippingAddress,
+  //       city: 'N/A',        // placeholder so required validator passes
+  //       postalCode: 'N/A',  // placeholder so required validator passes
+  //       country: 'N/A',     // placeholder so required validator passes
+  //     }
 
-      const payload = {
-        orderItems: items.map((it) => ({
-          product: it.id,
-          qty: it.qty,
-          price: it.price,
-        })),
-        shippingAddress: fullShipping,
-        paymentMethod: method,
-        shippingPrice: 0,
-        taxPrice: summary.tax,
-        itemsPrice: summary.subtotal,
-        paymentDetails: {
-          bankAccount,
-          date,
-          accountName,
-          amountTransferred: parseFloat(amountTransferred),
-        },
-      }
+  //     const payload = {
+  //       orderItems: items.map((it) => ({
+  //         product: it.id,
+  //         qty: it.qty,
+  //         price: it.price,
+  //       })),
+  //       shippingAddress: fullShipping,
+  //       paymentMethod: method,
+  //       shippingPrice: 0,
+  //       taxPrice: summary.tax,
+  //       itemsPrice: summary.subtotal,
+  //       paymentDetails: {
+  //         bankAccount,
+  //         date,
+  //         accountName,
+  //         amountTransferred: parseFloat(amountTransferred),
+  //       },
+  //     }
 
-      await createOrder(payload)
-      setShowComplete(true)
-    } catch (err) {
-      toast.error(err.response?.data?.message || err.message)
-    } finally {
-      setLoading(false)
-    }
+  //     await createOrder(payload)
+  //     setShowComplete(true)
+  //   } catch (err) {
+  //     toast.error(err.response?.data?.message || err.message)
+  //   } finally {
+  //     setLoading(false)
+  //   }
+  // }
+
+  
+// only the handleDone() function needs to be updated:
+const handleDone = async () => {
+  setLoading(true);
+  try {
+    const fullShipping = {
+      address:
+        deliveryMethod === 'park'
+          ? parkLocation
+          : deliveryMethod === 'self'
+          ? pointOfSale
+          : shippingAddress,
+      city: 'N/A',
+      postalCode: 'N/A',
+      country: 'N/A',
+    };
+
+    const payload = {
+      orderItems: items.map((it) => ({
+        product: it.id,
+        qty: it.qty,
+        price: it.price,
+      })),
+      shippingAddress: fullShipping,
+      paymentMethod: method,
+      shippingPrice: 0,
+      taxPrice: summary.tax,
+      itemsPrice: summary.subtotal,
+      selectedCustomerId, // pass this from props
+      customerName,
+      customerPhone,
+      paymentDetails: {
+        bankAccount,
+        date,
+        accountName,
+        amountTransferred: parseFloat(amountTransferred),
+      },
+    };
+
+    await createOrder(payload);
+    setShowComplete(true);
+  } catch (err) {
+    toast.error(err.response?.data?.message || err.message);
+  } finally {
+    setLoading(false);
   }
+};
+
 
   const handleCloseComplete = () => {
     setShowComplete(false)

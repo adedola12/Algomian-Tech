@@ -7,8 +7,10 @@ import {
   authUser,
   getUserProfile,
   updateUserProfile,
+  getCustomersList,
+  getCustomers
 } from "../controllers/userController.js";
-import { protect } from "../middleware/authMiddleware.js";
+import { protect, isAdmin } from "../middleware/authMiddleware.js";
 import { upload } from "../middleware/uploadMiddleware.js";
 import { uploadBufferToCloudinary } from "../utils/cloudinaryUpload.js";
 import { v4 as uuid } from "uuid";
@@ -31,6 +33,9 @@ const uploadProfileImage = async (req, res, next) => {
 
 router.post("/register", registerUser);
 router.post("/login", authUser);
+router.get("/customers", protect, isAdmin, getCustomers);
+router.get("/customerlist", protect, isAdmin, getCustomersList);
+
 router.post("/logout", (_, res) => {
   res.clearCookie("algomianToken").json({ message: "Logged out" });
 });
