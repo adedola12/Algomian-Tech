@@ -1,6 +1,6 @@
 import asyncHandler from "express-async-handler";
 import Product      from "../models/productModel.js";
-import { uploadBufferToDrive } from "../utils/driveUpload.js";
+import { uploadBufferToCloudinary } from "../utils/cloudinaryUpload.js";
 import { v4 as uuid } from "uuid";
 
 /* ─ helpers ─ */
@@ -23,8 +23,8 @@ export const createProduct = asyncHandler(async (req, res) => {
   const imageLinks = [];
   if (req.files?.length) {
     for (const f of req.files) {
-      const fileName = `${uuid()}.${f.originalname.split(".").pop()}`;
-      imageLinks.push(await uploadBufferToDrive(f.buffer, fileName));
+      const fileName = `${uuid()}`;
+      imageLinks.push(await uploadBufferToCloudinary(f.buffer, fileName));
     }
   }
 
@@ -57,8 +57,8 @@ export const updateProduct = asyncHandler(async (req, res) => {
   /* ─ upload any new images ─ */
   if (req.files?.length) {
     for (const f of req.files) {
-      const fileName = `${uuid()}.${f.originalname.split(".").pop()}`;
-      const link = await uploadBufferToDrive(f.buffer, fileName);
+      const fileName = `${uuid()}`;
+      const link = await uploadBufferToCloudinary(f.buffer, fileName);
       product.images.push(link);
     }
   }

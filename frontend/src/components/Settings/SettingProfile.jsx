@@ -1,132 +1,171 @@
-// src/components/Settings/SettingProfile.jsx
-import React from 'react'
+/*  src/components/Settings/SettingProfile.jsx  */
+import React, { useEffect, useState } from 'react';
+import { Toaster, toast }             from 'react-hot-toast';
+import api                             from '../../api';
 
+/* ───────────────── helpers ───────────────── */
+const fetchProfile = () => api.get('/api/users/profile').then(r => r.data);
+const saveProfile  = p   => api.put('/api/users/profile', p).then(r => r.data);
+const fetchRoles   = ()  => api.get('/api/roles').then(r => r.data);
+
+/* ───────────────── component ─────────────── */
 export default function SettingProfile() {
+  /* server copies */
+  const [me,        setMe]        = useState(null);
+  const [rolesList, setRolesList] = useState(null);             // ← all roles
+
+  /* editable form snapshot */
+  const [form, setForm] = useState({
+    firstName:'', lastName:'', email:'', jobTitle:'', roleId:'',
+  });
+  const [saving, setSaving] = useState(false);
+
+  /* load profile + roles in parallel */
+  useEffect(() => {
+    Promise.allSettled([fetchProfile(), fetchRoles()])
+      .then(([pRes, rRes]) => {
+        if (pRes.status === 'fulfilled') {
+          const u = pRes.value;
+          setMe(u);
+          setForm(f => ({
+            ...f,
+            firstName : u.firstName,
+            lastName  : u.lastName,
+            email     : u.email,
+            jobTitle  : u.jobTitle ?? '',
+            roleId    : u.roles?.[0]?._id || '',
+          }));
+        }
+        if (rRes.status === 'fulfilled') {
+          setRolesList(rRes.value);            // array of {_id,name}
+          /* auto-pick first role if user has none yet */
+          if (!form.roleId && rRes.value.length)
+            setForm(f => ({ ...f, roleId:rRes.value[0]._id }));
+        }
+      })
+      .catch(() => toast.error('Unable to load profile / roles'));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (!me || rolesList === null)
+    return <p className="text-sm text-gray-500 px-4 py-6">Loading…</p>;
+
+  /* handlers */
+  const change = key => e => setForm(f => ({ ...f, [key]: e.target.value }));
+
+  const submit = async e => {
+    e.preventDefault();
+    setSaving(true);
+    const payload = {
+      firstName : form.firstName.trim(),
+      lastName  : form.lastName.trim(),
+      email     : form.email.trim(),
+      jobTitle  : form.jobTitle.trim(),
+      roleIds   : form.roleId ? [form.roleId] : [],   // backend expects array
+    };
+    try {
+      const updated = await saveProfile(payload);
+      setMe(updated);
+      toast.success('Profile updated successfully ✅');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Save failed');
+    } finally { setSaving(false); }
+  };
+
+  /* ───────── JSX ───────── */
   return (
-    <section className="space-y-10">
-      {/* ─────────────────────────────────────────────────── */}
-      {/* BUSINESS INFORMATION                               */}
-      {/* ─────────────────────────────────────────────────── */}
-      <header className="space-y-1">
-        <h2 className="text-lg font-semibold text-gray-800">
-          Business Information
-        </h2>
-        <p className="text-sm text-gray-500">
-          Edit general information about your business
-        </p>
-      </header>
+    <>
+      <Toaster position="top-right" />
+      <form onSubmit={submit} className="space-y-10">
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Business Name */}
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">
-            Business Name
-          </label>
-          <input
-            type="text"
-            defaultValue="Algomian Technologies"
-            className="w-full rounded-md border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500"
+        <SectionHeader
+          title="Business Information"
+          desc="Edit general information about your business"
+        />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Input  label="Business Name"     defaultValue="Algomian Technologies" readOnly />
+          <Select label="Business Industry"
+                  disabled
+                  defaultValue="Laptops & Electronics"
+                  options={['Laptops & Electronics','Fashion','Groceries']} />
+          <Input  label="Business Email" type="email"
+                  defaultValue="algomiantechnologies@gmail.com" readOnly />
+          <Input  label="Business Phone" type="tel"
+                  defaultValue="+2348123435668" readOnly />
+        </div>
+
+        <SectionHeader
+          className="pt-4"
+          title="Personal Information"
+          desc="Edit administrative information about your business"
+        />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Input label="First name" value={form.firstName} onChange={change('firstName')} />
+          <Input label="Last name"  value={form.lastName}  onChange={change('lastName')}  />
+          <Input label="Email"      type="email" value={form.email} onChange={change('email')} />
+          <Input label="Job description" value={form.jobTitle} onChange={change('jobTitle')} />
+
+          {/* Role select */}
+          <Select
+            label="Role"
+            value={form.roleId}
+            onChange={change('roleId')}
+            options={
+              rolesList.length
+                ? rolesList.map(r => ({ value:r._id, label:r.name }))
+                : [{ value:'', label:'No roles yet – create one first' }]
+            }
           />
         </div>
 
-        {/* Business Industry */}
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">
-            Business Industry
-          </label>
-          <select className="w-full rounded-md border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500">
-            <option>Laptops &amp; Electronics</option>
-            <option>Fashion</option>
-            <option>Groceries</option>
-          </select>
-        </div>
-
-        {/* Email */}
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">
-            Email
-          </label>
-          <input
-            type="email"
-            defaultValue="algomiantechnologies@gmail.com"
-            className="w-full rounded-md border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500"
-          />
-        </div>
-
-        {/* Phone */}
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">
-            Phone Number
-          </label>
-          <input
-            type="tel"
-            defaultValue="+2348123435668"
-            className="w-full rounded-md border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500"
-          />
-        </div>
-      </div>
-
-      {/* ─────────────────────────────────────────────────── */}
-      {/* PERSONAL INFORMATION                               */}
-      {/* ─────────────────────────────────────────────────── */}
-      <header className="space-y-1 pt-4">
-        <h2 className="text-lg font-semibold text-gray-800">
-          Personal Information
-        </h2>
-        <p className="text-sm text-gray-500">
-          Edit administrative information about your business
-        </p>
-      </header>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Full Name */}
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">
-            Full Name
-          </label>
-          <input
-            type="text"
-            defaultValue="Boluwatife Ajibade"
-            className="w-full rounded-md border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500"
-          />
-        </div>
-
-        {/* Email */}
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">
-            Email
-          </label>
-          <input
-            type="email"
-            defaultValue="boluatalgomiantechnologies@gmail.com"
-            className="w-full rounded-md border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500"
-          />
-        </div>
-
-        {/* Job Description */}
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">
-            Job description
-          </label>
-          <select className="w-full rounded-md border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500">
-            <option>Manager</option>
-            <option>Sales Lead</option>
-            <option>Accountant</option>
-          </select>
-        </div>
-
-        {/* Team Role */}
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">
-            Team Role
-          </label>
-          <select className="w-full rounded-md border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500">
-            <option>Owner</option>
-            <option>Administrator</option>
-            <option>Editor</option>
-          </select>
-        </div>
-      </div>
-    </section>
-  )
+        <button
+          type="submit"
+          disabled={saving}
+          className="rounded-md bg-orange-600 text-white px-6 py-3
+                     hover:bg-orange-700 disabled:opacity-50"
+        >
+          {saving ? 'Saving…' : 'Save changes'}
+        </button>
+      </form>
+    </>
+  );
 }
+
+/* ───────── helpers / atoms ───────── */
+const SectionHeader = ({ title, desc, className='' }) => (
+  <header className={`space-y-1 ${className}`}>
+    <h2 className="text-lg font-semibold text-gray-800">{title}</h2>
+    <p  className="text-sm text-gray-500">{desc}</p>
+  </header>
+);
+
+const Input = ({ label, className='', ...rest }) => (
+  <div className="space-y-1">
+    <label className="text-sm font-medium text-gray-700">{label}</label>
+    <input
+      {...rest}
+      className={`w-full rounded-md border-gray-300 shadow-sm
+                  focus:ring-orange-500 focus:border-orange-500 ${className}`}
+    />
+  </div>
+);
+
+const Select = ({ label, options=[], className='', ...rest }) => (
+  <div className="space-y-1">
+    <label className="text-sm font-medium text-gray-700">{label}</label>
+    <select
+      {...rest}
+      className={`w-full rounded-md border-gray-300 shadow-sm
+                  focus:ring-orange-500 focus:border-orange-500 ${className}`}
+    >
+      <option value="">— choose —</option>
+      {options.map(o =>
+        typeof o === 'string'
+          ? <option key={o} value={o}>{o}</option>
+          : <option key={o.value} value={o.value}>{o.label}</option>
+      )}
+    </select>
+  </div>
+);

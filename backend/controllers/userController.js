@@ -33,7 +33,7 @@ export const registerUser = asyncHandler(async (req, res) => {
     whatAppNumber,
     email: email.toLowerCase(),
     password,
-    userType, 
+    userType,
     profileImage:
       req.body.profileImage ||
       `https://api.dicebear.com/7.x/personas/svg?seed=${encodeURIComponent(firstName + lastName)}`,
@@ -63,11 +63,21 @@ export const authUser = asyncHandler(async (req, res) => {
   res
     .cookie("algomianToken", token, cookieOpts)
     .json({ ...safeUser(user), token });
+
+  const populated = await user.populate("roles", "name permissions");
+  res.cookie("algomianToken", token, cookieOpts).json({
+    ...safeUser(populated),
+    token,
+    roles: populated.roles,
+    perms: [...new Set(populated.roles.flatMap((r) => r.permissions))],
+  });
 });
 
-/* ─────────────  PROFILE  ───────────── */
+/* ————————————————— GET PROFILE ———————————————— */
 export const getUserProfile = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id).select("-password");
+  const user = await User.findById(req.user._id)
+    .select("-password")
+    .populate("roles", "name permissions");
   if (!user) {
     res.status(404);
     throw new Error("User not found");
@@ -75,7 +85,7 @@ export const getUserProfile = asyncHandler(async (req, res) => {
   res.json(user);
 });
 
-/* ─────────────  UPDATE PROFILE  ───────────── */
+/* ————————————————— UPDATE PROFILE ————————————— */
 export const updateUserProfile = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id);
   if (!user) {
@@ -83,30 +93,37 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
     throw new Error("User not found");
   }
 
-  user.firstName = req.body.firstName || user.firstName;
-  user.lastName = req.body.lastName || user.lastName;
-  user.whatAppNumber = req.body.whatAppNumber || user.whatAppNumber;
-  user.email = req.body.email?.toLowerCase() || user.email;
-  user.profileImage = req.body.profileImage || user.profileImage;
+  Object.assign(user, {
+    firstName: req.body.firstName ?? user.firstName,
+    lastName: req.body.lastName ?? user.lastName,
+    whatAppNumber: req.body.whatAppNumber ?? user.whatAppNumber,
+    email: req.body.email?.toLowerCase() ?? user.email,
+    profileImage: req.body.profileImage ?? user.profileImage,
+    jobTitle: req.body.jobTitle ?? user.jobTitle,
+    roles: req.body.roleIds ?? user.roles, // ← keep roles
+  });
 
   if (req.body.password) {
-    if (!strongPassword(req.body.password)) {
+    if (!/^(?=.*\d).{6,}$/.test(req.body.password)) {
       res.status(400);
-      throw new Error(
-        "Password must be at least 6 characters and contain at least 1 number"
-      );
+      throw new Error("Weak password");
     }
     user.password = req.body.password;
   }
 
-  const updated = await user.save();
-  const token = generateToken(updated._id);
+  const saved = await user.save();
+  const full = await saved.populate("roles", "name permissions");
 
-  res
-    .cookie("algomianToken", token, cookieOpts)
-    .json({ ...safeUser(updated), token });
+  /* refresh cookie token (optional) */
+  res.cookie("algomianToken", generateToken(full._id), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 30 * 24 * 60 * 60 * 1000,
+  });
+
+  res.json(full); // ← only ONE response
 });
-
 /* ─────────────────────────────────────────────
       helpers
    ──────────────────────────────────────────── */
