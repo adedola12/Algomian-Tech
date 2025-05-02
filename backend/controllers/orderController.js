@@ -10,116 +10,6 @@ import crypto       from "crypto";
  * @access Private
  */
 
-
-/**
- * @desc   Create new order
- * @route  POST /api/orders
- * @access Private
- */
-
-
-
-// export const addOrderItems = asyncHandler(async (req, res) => {
-//   const {
-//     orderItems,
-//     shippingAddress,
-//     paymentMethod,
-//     shippingPrice = 0,
-//     taxPrice = 0,
-//     pointOfSale,
-//     selectedCustomerId,
-//     customerName,
-//     customerPhone,
-//   } = req.body;
-
-//   if (!orderItems || orderItems.length === 0) {
-//     res.status(400);
-//     throw new Error("No order items");
-//   }
-
-//   const trackingId = crypto.randomBytes(4).toString("hex").toUpperCase();
-
-//   // 1) Build product lines
-//   const detailedItems = await Promise.all(
-//     orderItems.map(async (item) => {
-//       const prod = await Product.findById(item.product);
-//       if (!prod) {
-//         res.status(400);
-//         throw new Error(`Product not found: ${item.product}`);
-//       }
-//       return {
-//         product: prod._id,
-//         name: prod.productName,
-//         qty: item.qty,
-//         price: item.price,
-//         image: prod.images?.[0] || "",
-//         maxQty: prod.quantity,
-//       };
-//     })
-//   );
-
-//   // 2) Resolve or create customer user
-//   let userId = req.user._id;
-
-//   if (selectedCustomerId) {
-//     const customer = await User.findById(selectedCustomerId);
-//     if (!customer || customer.userType !== "Customer") {
-//       res.status(400);
-//       throw new Error("Invalid selected customer ID");
-//     }
-//     userId = customer._id;
-//   } else if (customerName && customerPhone) {
-//     const [firstName, ...rest] = customerName.trim().split(" ");
-//     const lastName = rest.join(" ") || "-";
-
-//     const existingUser = await User.findOne({ whatAppNumber: customerPhone });
-
-//     if (existingUser) {
-//       userId = existingUser._id;
-//     } else {
-//       const newCustomer = await User.create({
-//         firstName,
-//         lastName,
-//         whatAppNumber: customerPhone,
-//         email: `${customerPhone}@generated.com`,
-//         password: customerPhone + "123",
-//         userType: "Customer",
-//       });
-//       userId = newCustomer._id;
-//     }
-//   }
-
-//   // 3) Price calculations
-//   const itemsPrice = detailedItems.reduce(
-//     (sum, item) => sum + item.qty * item.price,
-//     0
-//   );
-//   const totalPrice = itemsPrice + Number(shippingPrice) + Number(taxPrice);
-
-//   // 4) Create order
-//   const order = new Order({
-//     trackingId,
-//     user: userId,
-//     pointOfSale,
-//     orderItems: detailedItems,
-//     shippingAddress,
-//     paymentMethod,
-//     itemsPrice,
-//     shippingPrice,
-//     taxPrice,
-//     totalPrice,
-//   });
-
-//   const createdOrder = await order.save();
-
-//   // 5) Link order to user's orders list
-//   await User.findByIdAndUpdate(userId, {
-//     $push: { orders: createdOrder._id },
-//   });
-
-//   res.status(201).json(createdOrder);
-// });
-
 export const addOrderItems = asyncHandler(async (req, res) => {
   const {
     orderItems,
@@ -140,13 +30,18 @@ export const addOrderItems = asyncHandler(async (req, res) => {
 
   const trackingId = crypto.randomBytes(4).toString("hex").toUpperCase();
 
-  // Build the detailed item list
   const detailedItems = await Promise.all(
     orderItems.map(async (item) => {
       const prod = await Product.findById(item.product);
       if (!prod) {
         res.status(400);
         throw new Error(`Product not found: ${item.product}`);
+      }
+      if (prod.quantity < item.qty) {
+        res.status(400);
+        throw new Error(
+          `Insufficient stock for ${prod.productName}. Available: ${prod.quantity}, Requested: ${item.qty}`
+        );
       }
       return {
         product: prod._id,
@@ -159,9 +54,7 @@ export const addOrderItems = asyncHandler(async (req, res) => {
     })
   );
 
-  // Determine user (customer)
   let userId = req.user._id;
-
   if (selectedCustomerId) {
     const customer = await User.findById(selectedCustomerId);
     if (!customer || customer.userType !== "Customer") {
@@ -212,14 +105,37 @@ export const addOrderItems = asyncHandler(async (req, res) => {
 
   const createdOrder = await order.save();
 
-  // Add order to user.orders array if field exists
+  // Link to user
   const linkedUser = await User.findById(userId);
   if (linkedUser && Array.isArray(linkedUser.orders)) {
     linkedUser.orders.push(createdOrder._id);
     await linkedUser.save();
   }
 
-  res.status(201).json(createdOrder);
+  // Reduce stock and collect low stock warnings
+  const lowStockWarnings = [];
+
+  await Promise.all(
+    detailedItems.map(async (item) => {
+      const product = await Product.findById(item.product);
+      product.quantity -= item.qty;
+
+      if (product.quantity <= product.reorderLevel) {
+        product.availability = "restocking";
+        lowStockWarnings.push(
+          `⚠️ ${product.productName} is low on stock (${product.quantity} left)`
+        );
+      }
+
+      await product.save();
+    })
+  );
+
+  res.status(201).json({
+    message: "Order placed successfully",
+    order: createdOrder,
+    lowStockWarnings,
+  });
 });
 
 
@@ -294,12 +210,16 @@ export const getOrders = asyncHandler(async (req, res) => {
   res.json(orders);
 });
 
-export const deleteOrder = asyncHandler(async (req, res) => {
-  const order = await Order.findById(req.params.id);
-  if (!order) {
-    res.status(404);
-    throw new Error("Order not found");
+export const deleteOrder = async (id) => {
+  const confirmed = window.confirm("Really delete this order?");
+  if (!confirmed) return;
+
+  try {
+    await api.delete(`/api/orders/${id}`, { withCredentials: true });
+    setOrders((prev) => prev.filter((order) => order._id !== id));
+  } catch (err) {
+    alert("Failed to delete order: " + (err.response?.data?.message || err.message));
+  } finally {
+    setActionsOpenFor(null);  // close dropdown after action
   }
-  await order.remove();
-  res.json({ message: "Order removed" });
-});
+};

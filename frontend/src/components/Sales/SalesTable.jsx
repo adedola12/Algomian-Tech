@@ -50,25 +50,6 @@ export default function SalesTable() {
     if (step === 0) fetchOrders()
   }, [step])
 
-  // async function fetchOrders() {
-  //   setLoading(true)
-  //   try {
-  //     const res = await api.get("/api/orders/myorders", {
-  //       withCredentials: true,
-  //     })
-  //     const list = Array.isArray(res.data)
-  //       ? res.data
-  //       : Array.isArray(res.data.orders)
-  //       ? res.data.orders
-  //       : []
-  //     setOrders(list)
-  //   } catch (err) {
-  //     setError(err.response?.data?.message || err.message)
-  //   } finally {
-  //     setLoading(false)
-  //   }
-  // }
-
   async function fetchOrders() {
     setLoading(true);
     try {
@@ -86,7 +67,6 @@ export default function SalesTable() {
     }
   }
   
-
   // filter the rows based on search box + dropdown filter
   const filtered = orders
     .filter(o => 

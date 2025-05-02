@@ -124,7 +124,19 @@ const handleDone = async () => {
       },
     };
 
-    await createOrder(payload);
+    const res = await createOrder(payload);
+
+
+    // ✅ Trigger toast for low stock
+    if (res.data.lowStockWarnings?.length) {
+      res.data.lowStockWarnings.forEach((msg) => {
+        toast.warn(msg);
+      });
+    }
+
+    toast.success("Order placed successfully!");
+
+
     setShowComplete(true);
   } catch (err) {
     toast.error(err.response?.data?.message || err.message);

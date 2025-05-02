@@ -2,42 +2,42 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { FiDownload, FiBox } from "react-icons/fi";
-import api from "../api";    // ← your axios/fetch wrapper
+import api from "../api";
 
 const InventTop = () => {
   const [totalValue, setTotalValue] = useState(null);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState();
-
-  // other summary cards remain static for now
-  const summaryData = [
-    { label: "Sold Products",    value: "93,342,705" },
-    { label: "Refunded Items",   value: "93,342,705" },
-    { label: "Enroute Items",    value: "93,342,705" },
-  ];
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState();
+  const [stats, setStats] = useState({
+    soldProducts: 0,
+    percentage: 0,
+    shippedRevenue: 0,
+    shippedChange: 0,
+  });
 
   useEffect(() => {
-    const fetchAndSum = async () => {
+    const fetchStats = async () => {
       try {
-        const { data } = await api.get("/api/products"); 
-        // assuming your GET /api/products returns { products: [...], total, ... }
-        const sum = data.products.reduce(
-          (acc, prod) => acc + Number(prod.sellingPrice || 0),
-          0
-        );
-        setTotalValue(sum);
+        const { data } = await api.get("/api/admin/stats", {
+          withCredentials: true,
+        });
+        setTotalValue(data.productTotal);
+        setStats({
+          soldProducts: data.todayRevenue,
+          percentage: data.salesChange.toFixed(1),
+          shippedRevenue: data.shippedRevenue,
+          shippedChange: data.shippedChange.toFixed(1),
+        });
       } catch (err) {
         console.error(err);
-        setError("Could not load products");
+        setError("Could not load inventory stats");
       } finally {
         setLoading(false);
       }
     };
-
-    fetchAndSum();
+    fetchStats();
   }, []);
 
-  // formatting helper
   const formatNGN = (n) =>
     "NGN " +
     n.toLocaleString("en-NG", {
@@ -66,7 +66,7 @@ const InventTop = () => {
 
       {/* Stats cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* 1st card: dynamic totalValue */}
+        {/* Total Product Value */}
         <div className="bg-white shadow-sm border rounded-lg p-4 flex justify-between items-center">
           <div>
             <p className="text-sm text-gray-500">Total Products</p>
@@ -79,29 +79,58 @@ const InventTop = () => {
                 {formatNGN(totalValue)}
               </h3>
             )}
-            <p className="text-xs text-green-500 mt-1">↑ 5% high today</p>
+            <p className="text-xs text-green-500 mt-1">
+              ↑ {stats.percentage}% high today
+            </p>
           </div>
           <div className="text-gray-400 text-2xl">
             <FiBox />
           </div>
         </div>
 
-        {/* the rest remain static */}
-        {summaryData.map((item, idx) => (
-          <div
-            key={idx}
-            className="bg-white shadow-sm border rounded-lg p-4 flex justify-between items-center"
-          >
-            <div>
-              <p className="text-sm text-gray-500">{item.label}</p>
-              <h3 className="text-xl font-bold text-gray-800">{item.value}</h3>
-              <p className="text-xs text-green-500 mt-1">↑ 5% high today</p>
-            </div>
-            <div className="text-gray-400 text-2xl">
-              <FiBox />
-            </div>
+        {/* Sold Products */}
+        <div className="bg-white shadow-sm border rounded-lg p-4 flex justify-between items-center">
+          <div>
+            <p className="text-sm text-gray-500">Sold Products</p>
+            <h3 className="text-xl font-bold text-gray-800">
+              {formatNGN(stats.soldProducts)}
+            </h3>
+            <p className="text-xs text-green-500 mt-1">
+              ↑ {stats.percentage}% high today
+            </p>
           </div>
-        ))}
+          <div className="text-gray-400 text-2xl">
+            <FiBox />
+          </div>
+        </div>
+
+        {/* Refunded Items Placeholder */}
+        <div className="bg-white shadow-sm border rounded-lg p-4 flex justify-between items-center">
+          <div>
+            <p className="text-sm text-gray-500">Refunded Items</p>
+            <h3 className="text-xl font-bold text-gray-800">—</h3>
+            <p className="text-xs text-gray-400 mt-1">No data yet</p>
+          </div>
+          <div className="text-gray-400 text-2xl">
+            <FiBox />
+          </div>
+        </div>
+
+        {/* Enroute Items (Shipped Orders) */}
+        <div className="bg-white shadow-sm border rounded-lg p-4 flex justify-between items-center">
+          <div>
+            <p className="text-sm text-gray-500">Enroute Items</p>
+            <h3 className="text-xl font-bold text-gray-800">
+              {formatNGN(stats.shippedRevenue)}
+            </h3>
+            <p className="text-xs text-green-500 mt-1">
+              ↑ {stats.shippedChange}% shipped today
+            </p>
+          </div>
+          <div className="text-gray-400 text-2xl">
+            <FiBox />
+          </div>
+        </div>
       </div>
     </div>
   );

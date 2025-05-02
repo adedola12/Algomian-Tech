@@ -23,7 +23,9 @@ const navLinks = [
   { path: "/settings", label: "Settings", icon: <FiSettings /> },
 ];
 
-const InventSideBar = ({ isOpen, setIsOpen }) => {
+
+
+const InventSideBar = ({ isOpen, setIsOpen, user, onLogout }) => {
   return (
     <>
       {/* Dark overlay for mobile */}
@@ -77,25 +79,31 @@ const InventSideBar = ({ isOpen, setIsOpen }) => {
           ))}
         </nav>
 
-        {/* Footer */}
-        <div className="p-4 border-t mt-auto">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <img
-                src="https://randomuser.me/api/portraits/women/44.jpg"
-                alt="user"
-                className="w-9 h-9 rounded-full object-cover"
-              />
-              <div>
-                <p className="text-sm font-semibold text-gray-800">
-                  Alison Eyo
-                </p>
-                <p className="text-xs text-gray-500">@thealisoneyo</p>
+        {/* Footer (User Info + Logout) */}
+        {user && (
+          <div className="p-4 border-t mt-auto">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <img
+                  src={user.profileImage || "https://i.pravatar.cc/100"} // fallback avatar
+                  alt="user"
+                  className="w-9 h-9 rounded-full object-cover"
+                />
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">
+                    {user.firstName} {user.lastName}
+                  </p>
+                  <p className="text-xs text-gray-500">{user.email}</p>
+                </div>
               </div>
+              <FiLogOut
+                className="text-xl text-gray-400 hover:text-gray-700 cursor-pointer"
+                onClick={onLogout}
+                title="Logout"
+              />
             </div>
-            <FiLogOut className="text-xl text-gray-400 hover:text-gray-700 cursor-pointer" />
           </div>
-        </div>
+        )}
       </aside>
     </>
   );
