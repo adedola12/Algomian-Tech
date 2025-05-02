@@ -16,18 +16,7 @@ const PIE_DATA = [
   { name: "Canceled", value: 30, colour: "#F55F16" },
 ];
 
-export default function CustomerReportCard({
-  /* fallback values for quick mock-ups */
-  name = "Olamide Akintan",
-  stats = {
-    spent: "$ 93,342",
-    profit: "$ 342",
-    items: "3,132",
-    orders: "429",
-    delta: "5 %",
-  },
-  onBack,
-}) {
+export default function CustomerReportCard({ name, stats, onBack }) {
   /* utility to render one metric card */
   const Metric = ({ icon, label, value, showDelta = false }) => (
     <div className="relative bg-white border border-gray-200 rounded-lg p-4 h-full">
@@ -45,9 +34,8 @@ export default function CustomerReportCard({
     </div>
   );
 
-  const navigate = useNavigate()
-  const handleBack = onBack || (() => navigate('/customers'))
- 
+  const navigate = useNavigate();
+  const handleBack = onBack || (() => navigate("/customers"));
 
   return (
     <section className="space-y-6">

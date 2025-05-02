@@ -2,22 +2,12 @@
 import React, { useState } from 'react'
 import { FiCopy } from 'react-icons/fi'
 
-export default function CustomerSideBar({ className = '' }) {
+export default function CustomerSideBar({ user, className = '' }) {
   const [blacklisted, setBlacklisted] = useState(false)
 
-  /* demo payload – swap with live data later */
-  const user = {
-    name:        'Olamide Akintan',
-    added:       '2023-07-11',
-    id:          'CUS_i2khfmvg3bz7q5r',
-    email:       'olamide.akintan@emailprovider.com',
-    phone:       '(+234) 809 205 4532',
-    address:     '124, Oyediran Estate, Lagos, Nigeria, 5432',
-    lastVisited: '2023-07-11',
-    status:      'Subscribed',
-  }
 
-  const initials = user.name.split(' ').map(w => w[0]).join('')
+  const initials = (user.name || "NA").split(" ").map(w => w[0]).join("")
+
   const fmtDate  = iso =>
     new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
 

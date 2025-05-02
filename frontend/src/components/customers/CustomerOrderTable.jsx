@@ -5,11 +5,11 @@ import {
 } from 'react-icons/fi'
 
 /* sample row – replace with API data */
-const MOCK_ROWS = [
-  { id: 'KD1890', customerId: 'CUS_i2khfmvg3bz7q5r', amount: 'N 2,310,000', date: 'Nov 21, 2011', status: 'Successful' },
-]
+// const MOCK_ROWS = [
+//   { id: 'KD1890', customerId: 'CUS_i2khfmvg3bz7q5r', amount: 'N 2,310,000', date: 'Nov 21, 2011', status: 'Successful' },
+// ]
 
-export default function CustomerOrderTable () {
+export default function CustomerOrderTable ({ orders = []}) {
   const [selected, setSelected] = useState({})
   const navigate = useNavigate()
 
@@ -20,7 +20,7 @@ export default function CustomerOrderTable () {
       {/* tab bar */}
       <nav className="border-b border-gray-200">
         <button className="inline-flex items-center pb-2 text-sm font-medium text-orange-600 border-b-2 border-orange-500">
-          All orders <span className="ml-1 text-gray-500">(0)</span>
+          All orders <span className="ml-1 text-gray-500">({orders.length})</span>
         </button>
       </nav>
 
@@ -61,34 +61,30 @@ export default function CustomerOrderTable () {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 text-sm">
-            {MOCK_ROWS.map(r => (
-              <tr key={r.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3">
-                  <input
-                    type="checkbox"
-                    checked={!!selected[r.id]}
-                    onChange={() => toggleOne(r.id)}
-                    className="h-4 w-4 text-orange-600 form-checkbox"
-                  />
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap"># {r.id}</td>
-                <td className="px-4 py-3 whitespace-nowrap">{r.amount}</td>
-                <td className="px-4 py-3 whitespace-nowrap">{r.date}</td>
-                <td className="px-4 py-3">
-                  <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-semibold">
-                    {r.status}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => navigate(`/customers/${r.customerId}`)}
-                    className="text-gray-500 hover:text-gray-800"
-                  >
-                    <FiMoreVertical />
-                  </button>
-                </td>
-              </tr>
-            ))}
+          {orders.map(o => (
+          <tr key={o._id} className="hover:bg-gray-50">
+            <td className="px-4 py-3">
+              <input type="checkbox" className="h-4 w-4 text-orange-600 form-checkbox" />
+            </td>
+            <td className="px-4 py-3 whitespace-nowrap"># {o._id.slice(-6).toUpperCase()}</td>
+            <td className="px-4 py-3 whitespace-nowrap">
+              NGN {o.totalPrice.toLocaleString()}
+            </td>
+            <td className="px-4 py-3 whitespace-nowrap">
+              {new Date(o.createdAt).toLocaleDateString("en-GB")}
+            </td>
+            <td className="px-4 py-3">
+              <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-semibold">
+                {o.status}
+              </span>
+            </td>
+            <td className="px-4 py-3 text-right">
+              <button className="text-gray-500 hover:text-gray-800">
+                <FiMoreVertical />
+              </button>
+            </td>
+          </tr>
+        ))}
           </tbody>
         </table>
       </div>

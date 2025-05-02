@@ -68,6 +68,12 @@ export const authUser = asyncHandler(async (req, res) => {
 
 /* ————————————————— GET PROFILE ———————————————— */
 export const getUserProfile = asyncHandler(async (req, res) => {
+  if (!req.user?._id) {
+    res.status(401);
+    throw new Error("Unauthorized");
+  }
+
+  
   const user = await User.findById(req.user._id).select("-password");
   if (!user) {
     res.status(404);
@@ -179,7 +185,16 @@ export const getCustomers = asyncHandler(async (req, res) => {
   res.status(200).json(customerSummaries);
 });
 
+export const getUserById = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (!user) throw new Error("User not found");
+  res.json(user);
+});
 
+export const getUserOrders = asyncHandler(async (req, res) => {
+  const orders = await Order.find({ user: req.params.id });
+  res.json(orders);
+});
 /* ─────────────────────────────────────────────
    helpers
 ──────────────────────────────────────────── */

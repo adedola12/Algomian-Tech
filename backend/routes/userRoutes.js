@@ -1,6 +1,3 @@
-// ---------------------------------------------
-//  backend/routes/userRoutes.js
-// ---------------------------------------------
 import express from "express";
 import {
   registerUser,
@@ -8,7 +5,9 @@ import {
   getUserProfile,
   updateUserProfile,
   getCustomersList,
-  getCustomers
+  getCustomers,
+  getUserById,
+  getUserOrders,
 } from "../controllers/userController.js";
 import { protect, isAdmin } from "../middleware/authMiddleware.js";
 import { upload } from "../middleware/uploadMiddleware.js";
@@ -33,8 +32,6 @@ const uploadProfileImage = async (req, res, next) => {
 
 router.post("/register", registerUser);
 router.post("/login", authUser);
-router.get("/customers", protect, isAdmin, getCustomers);
-router.get("/customerlist", protect, isAdmin, getCustomersList);
 
 router.post("/logout", (_, res) => {
   res.clearCookie("algomianToken").json({ message: "Logged out" });
@@ -49,5 +46,11 @@ router
     uploadProfileImage,
     updateUserProfile
   );
+
+router.get("/customers", protect, isAdmin, getCustomers);
+router.get("/customerlist", protect, isAdmin, getCustomersList);
+
+router.get("/:id", getUserById);
+router.get("/:id/orders", getUserOrders);
 
 export default router;

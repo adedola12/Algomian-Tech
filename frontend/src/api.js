@@ -22,6 +22,13 @@ export const updateOrderStatus = (id, statusData) =>
 export const fetchAllOrders = () =>
   api.get("/api/orders").then(res => res.data);
 
+// 🔹 USERS
+export const fetchCustomerById = (id) =>
+  api.get(`/api/users/${id}`).then((res) => res.data);
+
+export const fetchCustomerOrders = (id) =>
+  api.get(`/api/users/${id}/orders`).then((res) => res.data);
+
 
 // 🔹 PRODUCTS
 export const fetchProducts = (params = {}) =>

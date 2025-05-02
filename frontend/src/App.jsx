@@ -30,23 +30,21 @@ import EditProduct from "./pages/Inventory/EditProduct";
 import InventoryOrder from "./pages/InventoryOrder";
 import CustomerOrderDetails from "./pages/CustomerOrderDetails";
 import SalesManage from "./pages/Inventory/SalesManage";
-
-/* ─ route guard ─ */
-import PrivateRoute from "./routes/PrivateRoute";
-
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 import Logistics from "./pages/Inventory/Logistics";
 import CreateShipment from "./components/Logistics/CreatShipment";
 import CustomerInventoryOrderDetails from "./pages/Inventory/CustomerInventoryOrderDetails";
 import CustomerAccountDetails from "./pages/Inventory/CustomerAccountDetails";
 import Settings from "./pages/Inventory/Settings";
 
+/* ─ route guard ─ */
+import PrivateRoute from "./routes/PrivateRoute";
+
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
 export default function App() {
   return (
     <>
-      {" "}
-      {/* ← top-level fragment */}
       <Routes>
         {/* ─ Public ─ */}
         <Route element={<MainLayout />}>
@@ -87,14 +85,13 @@ export default function App() {
               <Route index element={<Logistics />} />
               <Route path="create-shipment" element={<CreateShipment />} />
             </Route>
-            <Route
-              path="customers"
-              >
+
+            <Route path="customers">
               <Route index element={<CustomerInventoryOrderDetails />} />
-              <Route
-                path=":customerId"
-                element={<CustomerAccountDetails />}/>
-              </Route>
+              <Route path=":id" element={<CustomerAccountDetails />} />
+              {/* ☝️ Use ":id" to match useParams().id */}
+            </Route>
+
             <Route path="settings" element={<Settings />} />
             <Route path="inventory/add-product" element={<AddProduct />} />
             <Route
@@ -107,7 +104,7 @@ export default function App() {
         {/* ─ Fallback ─ */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-      {/* Toasts */}
+
       <ToastContainer
         position="top-right"
         autoClose={3000}
