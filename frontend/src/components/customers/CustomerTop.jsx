@@ -5,37 +5,65 @@ import {
   FiUserPlus,
   FiUserCheck,
   FiBarChart2,
+  FiArrowUpRight,
 } from 'react-icons/fi';
 import api from '../../api';
 
-export default function CustomerTop({ onExport }) {
+export default function CustomerTop() {
+  const [customers, setCustomers] = useState([]);
   const [totalCustomers, setTotalCustomers] = useState(0);
   const [newCustomers, setNewCustomers] = useState(0);
+  const [activeSubscribers, setActiveSubscribers] = useState(0);
 
   useEffect(() => {
     const fetchCustomers = async () => {
       try {
-        const { data } = await api.get('/api/users/customerlist'); // ✅ correct endpoint
-// adjust endpoint if needed
-        const customers = data.filter((u) => u.userType === 'Customer');
+        const { data } = await api.get('/api/users/customers');
+        setCustomers(data);
 
         const now = Date.now();
         const fortyNineHoursInMs = 49 * 60 * 60 * 1000;
 
-        const recentCustomers = customers.filter((u) => {
-          const created = new Date(u.createdAt).getTime();
+        const recent = data.filter((c) => {
+          const created = new Date(c.createdAt).getTime();
           return now - created <= fortyNineHoursInMs;
         });
 
-        setTotalCustomers(customers.length);
-        setNewCustomers(recentCustomers.length);
+        const active = data.filter((c) => c.totalOrders && c.totalOrders > 0);
+
+        setTotalCustomers(data.length);
+        setNewCustomers(recent.length);
+        setActiveSubscribers(active.length);
       } catch (err) {
-        console.error('Failed to fetch users:', err);
+        console.error('Failed to fetch customer data', err);
       }
     };
 
     fetchCustomers();
   }, []);
+
+  const exportToCSV = () => {
+    const headers = ['Name', 'Email', 'Phone', 'Total Orders', 'Last Order Date', 'Status'];
+    const rows = customers.map((c) => [
+      `${c.firstName} ${c.lastName}`,
+      c.email,
+      c.whatAppNumber || '',
+      c.totalOrders || '0',
+      c.lastOrderDate ? new Date(c.lastOrderDate).toLocaleDateString() : 'N/A',
+      c.status || 'N/A',
+    ]);
+
+    const csvContent = [headers, ...rows].map((row) => row.join(',')).join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'customer-data.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const stats = [
     {
@@ -50,12 +78,12 @@ export default function CustomerTop({ onExport }) {
     },
     {
       label: 'Active subscribers',
-      value: '—', // placeholder
+      value: activeSubscribers.toLocaleString(),
       icon: <FiUserCheck />,
     },
     {
       label: 'Return customer rate',
-      value: '—', // placeholder
+      value: '—',
       icon: <FiBarChart2 />,
     },
   ];
@@ -64,15 +92,11 @@ export default function CustomerTop({ onExport }) {
     <section className="bg-white rounded-2xl shadow p-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-800">
-            Customer Management
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Manage and view customer information
-          </p>
+          <h1 className="text-2xl font-semibold text-gray-800">Customer Management</h1>
+          <p className="text-sm text-gray-500 mt-1">Manage and view customer information</p>
         </div>
         <button
-          onClick={onExport}
+          onClick={exportToCSV}
           className="mt-4 md:mt-0 inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
         >
           <FiDownload className="mr-2 text-gray-500" /> Export CSV
@@ -87,12 +111,9 @@ export default function CustomerTop({ onExport }) {
           >
             <div>
               <p className="text-sm text-gray-500">{label}</p>
-              <p className="text-2xl font-semibold text-gray-800 mt-1">
-                {value}
-              </p>
+              <p className="text-2xl font-semibold text-gray-800 mt-1">{value}</p>
               <p className="inline-flex items-center text-sm text-green-600 mt-1">
-                <FiDownload className="transform rotate-90 mr-1" />
-                5% high today
+                <FiArrowUpRight className="mr-1" /> 5% high today
               </p>
             </div>
             <div className="text-4xl text-gray-300">{icon}</div>

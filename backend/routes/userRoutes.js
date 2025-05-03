@@ -8,6 +8,9 @@ import {
   getCustomers,
   getUserById,
   getUserOrders,
+  updateUserRole,
+  adminCreateUser,
+  deleteUser
 } from "../controllers/userController.js";
 import { protect, isAdmin } from "../middleware/authMiddleware.js";
 import { upload } from "../middleware/uploadMiddleware.js";
@@ -32,6 +35,8 @@ const uploadProfileImage = async (req, res, next) => {
 
 router.post("/register", registerUser);
 router.post("/login", authUser);
+router.post("/admin-create", protect, isAdmin, adminCreateUser);
+
 
 router.post("/logout", (_, res) => {
   res.clearCookie("algomianToken").json({ message: "Logged out" });
@@ -52,5 +57,9 @@ router.get("/customerlist", protect, isAdmin, getCustomersList);
 
 router.get("/:id", getUserById);
 router.get("/:id/orders", getUserOrders);
+
+router.put("/:id/role", protect, isAdmin, updateUserRole);
+
+router.delete('/:id', protect, isAdmin,deleteUser);
 
 export default router;

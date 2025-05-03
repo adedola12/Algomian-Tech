@@ -1,43 +1,75 @@
 /*  src/components/Settings/SettingUAC.jsx  */
-import React, { useState } from 'react'
-import { FiPlus }           from 'react-icons/fi'
-import SettingUser          from './SettingUser'
-import AddNewRoleModal      from './AddNewRoleModal'
-import AddNewUserModal      from './AddNewUserModal'
+import React, { useState } from "react";
+import { FiPlus } from "react-icons/fi";
+import SettingUser from "./SettingUser";
+import AddNewRoleModal from "./AddNewRoleModal";
+import AddNewUserModal from "./AddNewUserModal";
+import UserRoleManager from "./UserRoleManager";
 
 export default function SettingUAC() {
   /* which sub-page is visible */
-  const [activeTab, setActiveTab] = useState('roles')   // 'roles' | 'users'
+  const [activeTab, setActiveTab] = useState("roles"); // 'roles' | 'users'
+  const [editingRole, setEditingRole] = useState(null);
+
+  const handleAddUser = async (payload) => {
+    const userData = {
+      firstName: "Sales",
+      lastName: "User",
+      whatAppNumber: "0000000000",
+      email: payload.email,
+      password: "adminpass065",         // must meet regex
+      userType: payload.role,           // matches enum in model
+    };
+  
+    console.log("[ADD USER PAYLOAD]", userData); // debug full payload
+  
+    try {
+      const { data } = await api.post("/api/users/admin-create", userData);
+
+      console.log("[USER CREATED SUCCESSFULLY]", data);
+      alert("User created successfully!");
+      setShowUserModal(false);
+    } catch (err) {
+      console.error("[ADD USER FAILED]", err);
+      const msg = err?.response?.data?.message || "Failed to create user.";
+      alert(msg);
+    }
+  };
+  
+  
+  
+  
 
   /* modal controls */
-  const [showRoleModal, setShowRoleModal] = useState(false)
-  const [showUserModal, setShowUserModal] = useState(false)
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [showUserModal, setShowUserModal] = useState(false);
 
   /* demo payload – swap for API data later */
   const roles = [
-    { id: 1, name: 'Admin' },
-    { id: 2, name: 'Sales Representative' },
-    { id: 3, name: 'Accountant' },
-  ]
+    { id: 1, name: "Admin" },
+    { id: 2, name: "Manager" },
+    { id: 3, name: "SalesRep" },
+    { id: 4, name: "Customer" },
+  ];
 
   /* helpers */
   const headline =
-    activeTab === 'roles'
-      ? 'Define and manage different user roles'
-      : 'Define and manage users'
+    activeTab === "roles"
+      ? "Define and manage different user roles"
+      : "Define and manage users";
 
-  const ctaLabel = activeTab === 'roles' ? 'Create Role' : 'Add New User'
+  const ctaLabel = activeTab === "roles" ? "Create Role" : "Add New User";
 
   /* placeholder save handlers */
   const handleSaveRole = (name) => {
-    console.log('ROLE ADDED →', name)
-    setShowRoleModal(false)
-  }
+    console.log("ROLE ADDED →", name);
+    setShowRoleModal(false);
+  };
 
-  const handleAddUser = (payload) => {
-    console.log('USER ADDED →', payload)
-    setShowUserModal(false)
-  }
+  // const handleAddUser = (payload) => {
+  //   console.log("USER ADDED →", payload);
+  //   setShowUserModal(false);
+  // };
 
   /* ───────────────────────────────────────── */
   return (
@@ -56,7 +88,7 @@ export default function SettingUAC() {
           <button
             type="button"
             onClick={() =>
-              activeTab === 'roles'
+              activeTab === "roles"
                 ? setShowRoleModal(true)
                 : setShowUserModal(true)
             }
@@ -72,23 +104,28 @@ export default function SettingUAC() {
 
         {/* mini-tabs */}
         <div className="inline-flex rounded-md border border-gray-200 overflow-hidden">
-          {['roles', 'users'].map((key) => (
+          {["roles", "users"].map((key) => (
             <button
               key={key}
               onClick={() => setActiveTab(key)}
               className={
                 activeTab === key
-                  ? 'bg-orange-500/20 text-orange-600 px-5 py-1.5 text-sm font-medium'
-                  : 'px-5 py-1.5 text-sm text-gray-600 hover:bg-gray-50'
+                  ? "bg-orange-500/20 text-orange-600 px-5 py-1.5 text-sm font-medium"
+                  : "px-5 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
               }
             >
-              {key === 'roles' ? 'User Roles' : 'Users'}
+              {key === "roles" ? "User Roles" : "Users"}
             </button>
           ))}
         </div>
 
         {/* body */}
-        {activeTab === 'roles' ? (
+        {editingRole ? (
+          <UserRoleManager
+            role={editingRole}
+            onBack={() => setEditingRole(null)}
+          />
+        ) : activeTab === "roles" ? (
           <ul className="divide-y divide-gray-100 pt-6">
             {roles.map((r) => (
               <li
@@ -98,6 +135,7 @@ export default function SettingUAC() {
                 <span className="text-gray-800">{r.name}</span>
                 <button
                   type="button"
+                  onClick={() => setEditingRole(r.name)}
                   className="text-sm font-medium text-orange-600 hover:underline"
                 >
                   Edit&nbsp;User&nbsp;Role
@@ -124,5 +162,5 @@ export default function SettingUAC() {
         roles={roles.map((r) => r.name)}
       />
     </>
-  )
+  );
 }

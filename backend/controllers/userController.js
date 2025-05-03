@@ -9,9 +9,13 @@ import generateToken from "../utils/generateToken.js";
 ──────────────────────────────────────────── */
 const strongPassword = (pwd = "") => /^(?=.*\d).{6,}$/.test(pwd);
 
+
+
 /* ─────────────  REGISTER  ───────────── */
 export const registerUser = asyncHandler(async (req, res) => {
   const { firstName, lastName, whatAppNumber, email, password } = req.body;
+
+  console.log("[REQUEST BODY]", req.body); // 👈 debug line
 
   if (!strongPassword(password)) {
     res.status(400);
@@ -20,10 +24,13 @@ export const registerUser = asyncHandler(async (req, res) => {
     );
   }
 
-  if (await User.findOne({ email })) {
+  const existingUser = await User.findOne({ email: email.toLowerCase() });
+  if (existingUser) {
+    console.error("[USER EXISTS]");
     res.status(400);
     throw new Error("User already exists");
   }
+
 
   const user = await User.create({
     firstName,
@@ -31,7 +38,7 @@ export const registerUser = asyncHandler(async (req, res) => {
     whatAppNumber,
     email: email.toLowerCase(),
     password,
-    userType: "Customer", // ✅ default role
+    userType: "Customer",
     profileImage:
       req.body.profileImage ||
       `https://api.dicebear.com/7.x/personas/svg?seed=${encodeURIComponent(
@@ -65,6 +72,34 @@ export const authUser = asyncHandler(async (req, res) => {
     .cookie("algomianToken", token, cookieOpts)
     .json({ ...safeUser(user), token });
 });
+
+export const adminCreateUser = asyncHandler(async (req, res) => {
+  const { firstName, lastName, whatAppNumber, email, password, userType } = req.body;
+
+  const existingUser = await User.findOne({ email: email.toLowerCase() });
+  if (existingUser) {
+    res.status(400);
+    throw new Error("User already exists");
+  }
+
+  const user = await User.create({
+    firstName,
+    lastName,
+    whatAppNumber,
+    email: email.toLowerCase(),
+    password,
+    userType,
+    profileImage:
+      req.body.profileImage ||
+      `https://api.dicebear.com/7.x/personas/svg?seed=${encodeURIComponent(firstName + lastName)}`,
+  });
+
+  res.status(201).json({
+    message: "User created by admin",
+    user: safeUser(user),
+  });
+});
+
 
 /* ————————————————— GET PROFILE ———————————————— */
 export const getUserProfile = asyncHandler(async (req, res) => {
@@ -195,6 +230,30 @@ export const getUserOrders = asyncHandler(async (req, res) => {
   const orders = await Order.find({ user: req.params.id });
   res.json(orders);
 });
+
+
+// Add to backend/controllers/userController.js
+export const updateUserRole = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (!user) {
+    res.status(404);
+    throw new Error("User not found");
+  }
+  user.userType = req.body.userType;
+  await user.save();
+  res.status(200).json({ message: "User role updated successfully" });
+});
+
+export const deleteUser = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (!user) {
+    res.status(404);
+    throw new Error('User not found');
+  }
+  await user.deleteOne();
+  res.json({ message: 'User deleted' });
+});
+
 /* ─────────────────────────────────────────────
    helpers
 ──────────────────────────────────────────── */
