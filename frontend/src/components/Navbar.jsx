@@ -1,30 +1,30 @@
 // ---------------------------------------------
 //  frontend/src/components/Navbar.jsx
 // ---------------------------------------------
-import { useContext, useState }      from "react";
+import { useContext, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { toast }                     from "react-toastify";
+import { toast } from "react-toastify";
 
-import { assets }      from "../assets/assets";
-import { useSearch }   from "../context/SearchContext";
+import { assets } from "../assets/assets";
+import { useSearch } from "../context/SearchContext";
 import { ShopContext } from "../context/ShopContext";
-import { useAuth }     from "../context/AuthContext";
+import { useAuth } from "../context/AuthContext";
 
-import MyCart          from "./MyCart";
+import MyCart from "./MyCart";
 import UserProfileView from "./UserProfileView";
 
 export default function Navbar() {
-  const navigate                = useNavigate();
-  const { setFilters }          = useSearch();
-  const { cartItems }           = useContext(ShopContext);
+  const navigate = useNavigate();
+  const { setFilters } = useSearch();
+  const { cartItems } = useContext(ShopContext);
   const { user, logout, loading } = useAuth();
 
   /* ----- UI ----- */
-  const [search, setSearch]         = useState("");
-  const [showCart, setShowCart]     = useState(false);
+  const [search, setSearch] = useState("");
+  const [showCart, setShowCart] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const [drawer, setDrawer]         = useState(false);
-  const [mSearch, setMSearch]       = useState(false);
+  const [drawer, setDrawer] = useState(false);
+  const [mSearch, setMSearch] = useState(false);
 
   const totalItems = cartItems.reduce((t, i) => t + i.quantity, 0);
 
@@ -48,9 +48,12 @@ export default function Navbar() {
           <NavLink to="/new">New Arrivals</NavLink>
           <NavLink to="/affiliates">Affiliates</NavLink>
           <NavLink to="/track">Track Order</NavLink>
-          {user?.userType === "Admin" && (
-            <NavLink to="/inventory">Inventory</NavLink>
-          )}
+
+          {/* show only when auth finished and role allowed */}
+          {!loading &&
+            ["Admin", "Manager", "SalesRep"].includes(user?.userType) && (
+              <NavLink to="/inventory">Inventory</NavLink>
+            )}
         </nav>
 
         <div className="hidden md:flex flex-1 max-w-md">
@@ -84,10 +87,15 @@ export default function Navbar() {
           {/* profile */}
           <div className="relative">
             <img
-              src={(user && user?.profileImage) || "https://api.dicebear.com/7.x/personas/svg" }
+              src={
+                (user && user?.profileImage) ||
+                "https://api.dicebear.com/7.x/personas/svg"
+              }
               alt="profile"
               className="h-6 w-6 cursor-pointer rounded-full object-cover"
-              onClick={() => (user ? setShowProfile((p) => !p) : navigate("/login"))}
+              onClick={() =>
+                user ? setShowProfile((p) => !p) : navigate("/login")
+              }
             />
             {user && showProfile && (
               <div
@@ -150,11 +158,13 @@ export default function Navbar() {
           <NavLink to="/track" onClick={() => setDrawer(false)}>
             Track Order
           </NavLink>
-          {user?.userType === "Admin" && (
-            <NavLink to="/inventory" onClick={() => setDrawer(false)}>
-              Inventory
-            </NavLink>
-          )}
+          {!loading &&
+            ["Admin", "Manager", "SalesRep"].includes(user?.userType) && (
+              <NavLink to="/inventory" onClick={() => setDrawer(false)}>
+                Inventory
+              </NavLink>
+            )}
+
           {user && (
             <NavLink to="/profile" onClick={() => setDrawer(false)}>
               My Profile

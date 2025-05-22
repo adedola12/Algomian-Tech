@@ -1,16 +1,24 @@
-// ---------------------------------------------
-//  frontend/src/routes/PrivateRoute.jsx
-// ---------------------------------------------
-import { Navigate, Outlet } from "react-router-dom";
-import { useAuth }          from "../context/AuthContext";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
-export default function PrivateRoute({ adminOnly = false }) {
+/**
+ * @param {string[]} [roles] – optional array of allowed userType strings
+ */
+export default function PrivateRoute({ roles, children }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
-  if (loading) return <p className="text-center mt-10">Loading…</p>;
-  if (!user)    return <Navigate to="/login" replace />;
-  if (adminOnly && user.userType !== "Admin")
-      return <Navigate to="/" replace />;
+  /* still fetching session -> you can return null or a spinner */
+  if (loading) return null;
 
-  return <Outlet />;
+  /* not logged in -> kick to login */
+  if (!user)
+    return <Navigate to="/login" state={{ from: location }} replace />;
+
+  /* role provided but user not included -> kick home */
+  if (roles && !roles.includes(user.userType))
+    return <Navigate to="/" replace />;
+
+  /* allowed */
+  return children ? children : <Outlet />;
 }
