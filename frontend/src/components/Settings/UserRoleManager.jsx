@@ -4,7 +4,7 @@ import api from "../../api";
 export default function UserRoleManager({ role, onBack }) {
   const [users, setUsers] = useState([]);
   const [updatedRoles, setUpdatedRoles] = useState({});
-  const [roles, setRoles] = useState(["Admin", "Manager", "SalesRep", "Customer"]);
+  const [roles, setRoles] = useState(["Admin", "Manager", "SalesRep", "Customer", "Logistics"]);
 
   useEffect(() => {
     const fetchUsers = async () => {

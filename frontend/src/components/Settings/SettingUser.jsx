@@ -7,7 +7,7 @@ export default function SettingUser() {
   const [users, setUsers] = useState([]);
   const [editId, setEditId] = useState(null);
   const [newRole, setNewRole] = useState("");
-  const roles = ["Admin", "Manager", "SalesRep", "Customer"];
+  const roles = ["Admin", "Manager", "SalesRep", "Customer", "Logistics"];
 
   useEffect(() => {
     const fetchUsers = async () => {

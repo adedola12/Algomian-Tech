@@ -5,6 +5,7 @@ import SettingUser from "./SettingUser";
 import AddNewRoleModal from "./AddNewRoleModal";
 import AddNewUserModal from "./AddNewUserModal";
 import UserRoleManager from "./UserRoleManager";
+import api from "../../api";
 
 export default function SettingUAC() {
   /* which sub-page is visible */
@@ -50,6 +51,7 @@ export default function SettingUAC() {
     { id: 2, name: "Manager" },
     { id: 3, name: "SalesRep" },
     { id: 4, name: "Customer" },
+    { id: 5, name: "Logistics" },
   ];
 
   /* helpers */
