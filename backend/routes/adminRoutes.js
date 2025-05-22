@@ -1,7 +1,7 @@
 import express from 'express';
 import PERM    from '../models/permissionEnum.js';
 import { getAdminStats  } from "../controllers/adminStatsController.js";
-import { protect, authorize, isAdmin } from '../middleware/authMiddleware.js';
+import { protect, authorize, isAdmin, adminOrManager } from '../middleware/authMiddleware.js';
 import {
   createRole, getRoles, updateRole, deleteRole
 } from '../controllers/roleController.js';
@@ -32,6 +32,6 @@ router.route('/users')
 router.patch('/users/:id/roles',
   protect, authorize(PERM.USER_MANAGE), updateUserRoles);
 
-  router.get("/stats", protect, isAdmin, getAdminStats );
+  router.get("/stats", protect, adminOrManager, getAdminStats );
 
 export default router;

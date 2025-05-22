@@ -269,7 +269,7 @@
                <button type="button"
                        onClick={()=>addVariant({ attribute:"", value:"", inputCost:"" })}
                        className="text-sm font-medium text-orange-500">
-                 Add Variants
+                + Add Variants
                </button>
              )}
            </div>

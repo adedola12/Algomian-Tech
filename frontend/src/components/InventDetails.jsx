@@ -45,8 +45,13 @@ export default function InventDetails({ product, onClose }) {
       : url;
   };
 
+  const serials = Array.isArray(product.serialNumbers)
+    ? product.serialNumbers
+    : product.serialNumbers
+        ? product.serialNumbers.split(/[\s,]+/).filter(Boolean)
+        : [];   // ← now always an array
+
   const variants = product.variants?.length ? product.variants : [];
-  const serials = product.serialNumbers?.length ? product.serialNumbers : [];
   const features = product.features?.length ? product.features : [];
 
   return (
