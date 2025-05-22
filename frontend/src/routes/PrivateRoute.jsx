@@ -1,24 +1,22 @@
+// routes/PrivateRoute.jsx
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
-/**
- * @param {string[]} [roles] – optional array of allowed userType strings
- */
+/** @param {string[]|true} [roles]
+ *  - pass TRUE to mean “anyone that is NOT Customer”                             */
 export default function PrivateRoute({ roles, children }) {
   const { user, loading } = useAuth();
   const location = useLocation();
 
-  /* still fetching session -> you can return null or a spinner */
-  if (loading) return null;
+  if (loading) return null;                        // still fetching session
+  if (!user)   return <Navigate to="/login" state={{ from: location }} replace />;
 
-  /* not logged in -> kick to login */
-  if (!user)
-    return <Navigate to="/login" state={{ from: location }} replace />;
-
-  /* role provided but user not included -> kick home */
-  if (roles && !roles.includes(user.userType))
+  /* ─ role check ────────────────────────────────────────────────── */
+  if (roles === true && user.userType === "Customer")
     return <Navigate to="/" replace />;
 
-  /* allowed */
-  return children ? children : <Outlet />;
+  if (Array.isArray(roles) && !roles.includes(user.userType))
+    return <Navigate to="/" replace />;
+
+  return children ?? <Outlet />;
 }

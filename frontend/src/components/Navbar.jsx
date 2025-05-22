@@ -27,6 +27,7 @@ export default function Navbar() {
   const [mSearch, setMSearch] = useState(false);
 
   const totalItems = cartItems.reduce((t, i) => t + i.quantity, 0);
+  const allowInventory = !loading && user && user.userType !== "Customer";
 
   const doSearch = () => {
     if (!search.trim()) return;
@@ -50,10 +51,9 @@ export default function Navbar() {
           <NavLink to="/track">Track Order</NavLink>
 
           {/* show only when auth finished and role allowed */}
-          {!loading &&
-            ["Admin", "Manager", "SalesRep"].includes(user?.userType) && (
-              <NavLink to="/inventory">Inventory</NavLink>
-            )}
+          {!loading && allowInventory && (
+    <NavLink to="/inventory">Inventory</NavLink>
+  )}
         </nav>
 
         <div className="hidden md:flex flex-1 max-w-md">
@@ -165,11 +165,11 @@ export default function Navbar() {
               </NavLink>
             )}
 
-          {user && (
-            <NavLink to="/profile" onClick={() => setDrawer(false)}>
-              My Profile
-            </NavLink>
-          )}
+{!loading && allowInventory && (
+    <NavLink to="/inventory" onClick={() => setDrawer(false)}>
+      Inventory
+    </NavLink>
+  )}
         </nav>
       </aside>
 

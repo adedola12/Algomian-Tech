@@ -12,7 +12,7 @@ const userSchema = new mongoose.Schema({
   jobTitle: { type: String, default: "" },
   userType: {
     type: String,
-    enum: ["Admin", "Manager", "SalesRep", "Customer"],
+    enum: ["Admin", "Manager", "SalesRep", "Customer", "Logistics"],
     default: "Customer",
   },
   orders: [

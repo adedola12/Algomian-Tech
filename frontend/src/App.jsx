@@ -70,7 +70,7 @@ export default function App() {
         </Route>
 
         {/* ─ Admin only ─ */}
-        <Route element={<PrivateRoute roles={['Admin','Manager','SalesRep']} />}>
+        <Route element={<PrivateRoute roles={true} />}>
           <Route element={<InventoryLayout />}>
             <Route path="inventory" element={<Inventory />} />
             <Route path="dashboard" element={<Dashboard />} />
