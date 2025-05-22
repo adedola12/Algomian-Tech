@@ -14,7 +14,7 @@ const router = express.Router();
 router.route('/').get(protect, canViewOrders, getOrders); // SalesRep + Admin
 router.route('/myorders').get(protect, getMyOrders);
 router.route('/:id').get(protect, getOrderById);
-router.route('/:id/status').put(protect, isAdmin, updateOrderStatus); // Admin only
+router.route('/:id/status').put(protect, isSalesTeam, updateOrderStatus); // Admin only
 router.route('/:id').delete(protect, deleteOrder);
 
 router.route('/').post(protect, isSalesTeam, addOrderItems); // Admin + SalesRep

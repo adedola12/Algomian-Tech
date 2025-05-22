@@ -1,4 +1,6 @@
 import React, { useState } from 'react'
+import api from '../../api'
+import { toast } from 'react-toastify'
 import { FiEye, FiEyeOff, FiInfo } from 'react-icons/fi'
 
 export default function SettingSecurity() {
@@ -21,11 +23,34 @@ export default function SettingSecurity() {
 
   const toggle = key => setShow(s => ({ ...s, [key]: !s[key] }))
 
-  /* fake submit */
-  const submit = e => {
-    e.preventDefault()
-    /* call your API here */
-  }
+  const submit = async (e) => {
+      e.preventDefault();
+    
+      // basic front-end checks
+      if (form.next !== form.confirm) {
+        toast.error("New passwords don’t match");
+        return;
+      }
+      if (!/^(?=.*\\d).{6,}$/.test(form.next)) {
+        toast.error("Password must be ≥ 6 chars and contain a digit");
+        return;
+      }
+    
+      try {
+        await api.put(
+          "/api/users/change-password",
+          {
+            currentPassword: form.current,
+            newPassword: form.next,
+          },
+          { withCredentials: true }
+        );
+        toast.success("Password changed ✔");
+        setForm({ current: "", next: "", confirm: "" });
+      } catch (err) {
+        toast.error(err.response?.data?.message || err.message);
+      }
+    };
 
   return (
     <section className="space-y-6">

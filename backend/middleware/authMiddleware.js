@@ -100,6 +100,7 @@ export const isAdmin          = allowRoles("Admin");
 export const isSalesTeam      = allowRoles("Admin", "SalesRep", "Manager");
 export const adminOrManager   = allowRoles("Admin", "Manager");
 export const canViewOrders    = allowRoles("Admin", "Manager", "SalesRep", "Logistics");
+export const canUpdateSale  = allowRoles('Admin', 'Manager', "SalesRep");  
 
 
 export const admin = (req, _res, next) => {

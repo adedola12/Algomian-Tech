@@ -6,7 +6,7 @@ const SalesManage = () => {
     <div>
         <SalesTable />
     </div>
-  )
+  ) 
 }
 
 export default SalesManage

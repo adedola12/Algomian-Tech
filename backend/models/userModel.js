@@ -20,7 +20,15 @@ const userSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: "Order",
     }
-  ]
+  ],
+   preferences: {
+       timeZone:         { type: String,  default: "Africa/Lagos" },
+       autoTimeZone:     { type: Boolean, default: false },
+       productIdMode:    { type: String,  enum: ["auto", "manual"], default: "auto" },
+       lowStockAlert:    { type: Boolean, default: true },
+       includeTax:       { type: Boolean, default: true },
+       emailNotification:{ type: Boolean, default: false },
+     },
 }, { timestamps: true });
 
 

@@ -155,43 +155,6 @@ export const getCustomersList = asyncHandler(async (req, res) => {
   res.json(customers);
 });
 
-// export const getCustomers = asyncHandler(async (req, res) => {
-//   const customers = await User.find({ userType: 'Customer' })
-//     .populate({
-//       path: 'orders',
-//       select: 'createdAt status',
-//       options: { sort: { createdAt: -1 } }, // Sort orders by creation date descending
-//     });
-
-//   const customerSummaries = customers.map((customer) => {
-//     const totalOrders = customer.orders.length;
-//     const lastOrder = customer.orders[0]; // Since orders are sorted descending
-//     return {
-//       _id: customer._id,
-//       firstName: customer.firstName,
-//       lastName: customer.lastName,
-//       email: customer.email,
-//       whatAppNumber: customer.whatAppNumber,
-//       totalOrders,
-//       lastOrderDate: lastOrder ? lastOrder.createdAt : null,
-//       status: lastOrder ? lastOrder.status : null,
-//     };
-//   });
-
-//   res.json(customerSummaries);
-
-//   const enriched = customers.map((c) => {
-//     const sortedOrders = [...(c.orders || [])].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-//     return {
-//       ...c,
-//       totalOrders: c.orders?.length || 0,
-//       lastOrderDate: sortedOrders[0]?.createdAt || null,
-//       status: sortedOrders[0]?.status || null,
-//     };
-//   });
-
-//   res.json(enriched);
-// });
 
 export const getCustomers = asyncHandler(async (req, res) => {
   const customers = await User.find({ userType: "Customer" })
@@ -231,6 +194,27 @@ export const getUserOrders = asyncHandler(async (req, res) => {
   res.json(orders);
 });
 
+export const getPreferences = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id).select("preferences")
+  if (!user) { res.status(404); throw new Error("User not found") }
+  res.json(user.preferences)
+})
+
+export const updatePreferences = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id)
+  if (!user) { res.status(404); throw new Error("User not found") }
+
+  user.preferences = { ...user.preferences.toObject(), ...req.body }
+  await user.save()
+  res.status(200).json(user.preferences)
+})
+
+export const getAllUsers = asyncHandler(async (req, res) => {
+  const users = await User.find().select("-password");   // strip hashes
+  res.status(200).json(users);
+});
+
+
 
 // Add to backend/controllers/userController.js
 export const updateUserRole = asyncHandler(async (req, res) => {
@@ -253,6 +237,43 @@ export const deleteUser = asyncHandler(async (req, res) => {
   await user.deleteOne();
   res.json({ message: 'User deleted' });
 });
+
+
+export const changePassword = asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    res.status(400);
+    throw new Error("Both current & new passwords are required");
+  }
+
+  if (!strongPassword(newPassword)) {
+    res.status(400);
+    throw new Error(
+      "New password must be ≥ 6 chars and contain at least one digit"
+    );
+  }
+
+  const user = await User.findById(req.user._id);
+  if (!user) {
+    res.status(404);
+    throw new Error("User not found");
+  }
+
+  const ok = await user.matchPassword(currentPassword);
+  if (!ok) {
+    res.status(401);
+    throw new Error("Current password is incorrect");
+  }
+
+  user.password = newPassword;
+  await user.save();
+
+  // refresh JWT so the user stays logged-in
+  res.cookie("algomianToken", generateToken(user._id), cookieOpts);
+  res.status(200).json({ message: "Password updated" });
+});
+
 
 /* ─────────────────────────────────────────────
    helpers
