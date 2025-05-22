@@ -56,18 +56,17 @@ export default function App() {
           <Route path="collection/:id" element={<Collection />} />
           <Route path="content" element={<Content />} />
           <Route path="product/:productId" element={<Product />} />
+          <Route path="orders" element={<Orders />} />
+          <Route path="shipping" element={<Shipping />} />
+          <Route path="place-order" element={<PlaceOrder />} />
+          <Route path="order-success" element={<OrderSuccess />} />
           <Route path="login" element={<Login />} />
           <Route path="signup" element={<SignUp />} />
         </Route>
 
         {/* ─ Logged-in users ─ */}
         <Route element={<PrivateRoute />}>
-          <Route element={<MainLayout />}>
-            <Route path="orders" element={<Orders />} />
-            <Route path="shipping" element={<Shipping />} />
-            <Route path="place-order" element={<PlaceOrder />} />
-            <Route path="order-success" element={<OrderSuccess />} />
-          </Route>
+          <Route element={<MainLayout />}></Route>
         </Route>
 
         {/* ─ Admin only ─ */}

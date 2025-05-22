@@ -2,54 +2,56 @@ import mongoose from "mongoose";
 
 const variantSchema = new mongoose.Schema(
   {
-    attribute : { type: String, required: true },
-    value     : { type: String, required: true },
-    inputCost : { type: Number, default: 0 },
-  },
-  { _id: false }
-);
-
-const specSchema = new mongoose.Schema(
-  {
-    key   : { type: String, required: true },
-    value : { type: String, required: true },
+    attribute: { type: String},
+    value: { type: String},
+    inputCost: { type: Number, default: 0 },
   },
   { _id: false }
 );
 
 const productSchema = new mongoose.Schema(
   {
-    productName     : { type: String, required: true },
-    productCategory : { type: String, required: true },
-    brand           : { type: String, required: true },
+    productName: { type: String, required: true },
+    productCondition: {
+      type: String,
+      enum: ["New", "UK Used", "Fairly Used"],
+      required: true,
+    },
+    productCategory: { type: String, required: true },
+    brand: { type: String, required: true },
 
     /* base specs */
-    baseRam     : String,
-    baseStorage : String,
-    baseCPU     : String,
+    baseRam: String,
+    baseStorage: String,
+    baseCPU: String,
+    serialNumbers: String,
+
 
     /* pricing & qty */
-    costPrice    : { type: Number, required: true },
-    sellingPrice : { type: Number, required: true },
-    quantity     : { type: Number, default: 1 },
-    serialNumbers: [String],
+    quantity: { type: Number, default: 1 },
+    costPrice: { type: Number, required: true },
+    stockLocation: String,
+    supplier: String,
+
+    storageRam: String,
+    Storage: String,
+    sellingPrice: { type: Number, required: true },
+    variants: [variantSchema],
 
     /* stock info */
-    availability : {
-      type   : String,
-      enum   : ["inStock", "restocking", "inactive"],
+    availability: {
+      type: String,
+      enum: ["inStock", "restocking", "inactive"],
       default: "inStock",
     },
-    status       : String,
-    reorderLevel : { type: Number, default: 0 },
-    stockLocation: String,
+    status: String,
+    reorderLevel: { type: Number, default: 0 },
 
-    productId : { type: String, unique: true },
+    productId: { type: String, unique: true },
 
     /* arrays */
-    variants : [variantSchema],
-    features : [specSchema],
-    images   : [String],              // Drive links
+    // features: [specSchema],
+    images: [String], // Drive links
 
     description: String,
   },

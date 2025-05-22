@@ -4,16 +4,20 @@ import { uploadBufferToCloudinary } from "../utils/cloudinaryUpload.js";
 import { v4 as uuid } from "uuid";
 
 /* ─ helpers ─ */
-const parseMaybeJSON = (val, fallback) => {
+export const parseMaybeJSON = (val, fallback = null) => {
+  if (typeof val !== "string") return fallback;
   try   { return JSON.parse(val); }
-  catch { return fallback; }
+  catch { return fallback ?? val; }   // ← if it’s plain text just return it
 };
 
 /* ─────────────  CREATE  ───────────── */
 export const createProduct = asyncHandler(async (req, res) => {
   const {
-    productName, productCategory, brand,
+    productName, productCondition, 
+    productCategory, brand,
     baseRam, baseStorage, baseCPU,
+    storageRam, Storage,
+    serialNumbers,supplier,
     costPrice, sellingPrice, quantity,
     availability, status, reorderLevel, stockLocation,
     productId, description,
@@ -29,19 +33,35 @@ export const createProduct = asyncHandler(async (req, res) => {
   }
 
   /* - parse arrays that came as JSON strings - */
-  const serialNumbers = parseMaybeJSON(req.body.serialNumbers, []);
+  // const serialNumbers = parseMaybeJSON(req.body.serialNumbers, []);
   const variants      = parseMaybeJSON(req.body.variants, []);
   const features      = parseMaybeJSON(req.body.features, []);
 
   const product = await Product.create({
-    productName, productCategory, brand,
-    baseRam, baseStorage, baseCPU,
-    costPrice, sellingPrice, quantity,
-    availability, status, reorderLevel, stockLocation,
-    productId, description,
-    serialNumbers, variants, features,
-    images: imageLinks,
-  });
+       productName,
+       productCondition,              // ⭐ REQUIRED field now included
+       productCategory,
+       brand,
+       baseRam,
+       baseStorage,
+       baseCPU,
+       storageRam,                    // ⭐
+       Storage,                       // ⭐
+       serialNumbers,
+       supplier,                      // ⭐
+       costPrice:    Number(costPrice),
+       sellingPrice: Number(sellingPrice),
+       quantity:     Number(quantity),
+       availability,
+       status,
+       reorderLevel: Number(reorderLevel),
+       stockLocation,
+       productId,
+       description,
+       variants,
+       features,
+       images: imageLinks,
+     });
 
   res.status(201).json(product);
 });
@@ -75,8 +95,16 @@ export const updateProduct = asyncHandler(async (req, res) => {
   });
 
   /* arrays */
-  if (req.body.serialNumbers)
-    product.serialNumbers = parseMaybeJSON(req.body.serialNumbers, []);
+  if (req.body.serialNumbers !== undefined)
+    product.serialNumbers = req.body.serialNumbers;
+  if (req.body.productCondition !== undefined)
+    product.productCondition = req.body.productCondition;
+  
+  if (req.body.storageRam !== undefined)
+    product.storageRam = req.body.storageRam;
+  
+  if (req.body.Storage !== undefined)
+    product.Storage = req.body.Storage;
   if (req.body.variants)
     product.variants      = parseMaybeJSON(req.body.variants, []);
   if (req.body.features)
