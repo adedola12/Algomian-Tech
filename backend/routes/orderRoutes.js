@@ -7,11 +7,11 @@ import {
   updateOrderStatus,
   deleteOrder,
 } from '../controllers/orderController.js';
-import { protect, isAdmin, isSalesTeam } from '../middleware/authMiddleware.js';
+import { protect, isAdmin, isSalesTeam, canViewOrders } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-router.route('/').get(protect, isSalesTeam, getOrders); // SalesRep + Admin
+router.route('/').get(protect, canViewOrders, getOrders); // SalesRep + Admin
 router.route('/myorders').get(protect, getMyOrders);
 router.route('/:id').get(protect, getOrderById);
 router.route('/:id/status').put(protect, isAdmin, updateOrderStatus); // Admin only

@@ -18,7 +18,6 @@ export const authUser = asyncHandler(async (req, res, next) => {
     return res.json({ message: "Invalid credentials" }); // ✅ stops here
   }
 
-  // await user.populate("roles", "name permissions");
 
   const token = generateToken(user._id); // <- ensure you have this util
   const safeUser = {
@@ -37,13 +36,6 @@ export const authUser = asyncHandler(async (req, res, next) => {
     maxAge: 30 * 24 * 60 * 60 * 1000,
   };
 
-  // ✅ only one response sent here
-  // res.cookie("algomianToken", token, cookieOpts).status(200).json({
-  //   ...safeUser,
-  //   token,
-
-  //   perms: [...new Set(user.roles.flatMap(r => r.permissions))],
-  // });
 
   res.cookie("algomianToken", token, {
     httpOnly: true,
@@ -102,34 +94,13 @@ export const allowRoles =
     throw err;
   };
 
-// export const isAdmin = (req, res, next) => {
-//   if (req.user?.userType === "Admin") return next();
-//   res.status(403);
-//   throw new Error("Access denied: Admin only");
-// };
 
-// // Example: allow Admin or SalesRep
-// export const isSalesTeam = (req, res, next) => {
-//   const allowed = ["Admin", "SalesRep"];
-//   if (allowed.includes(req.user?.userType)) return next();
-//   res.status(403);
-//   throw new Error("Access denied: Sales team only");
 // };
 export const isAdmin          = allowRoles("Admin");
-export const isSalesTeam      = allowRoles("Admin", "SalesRep");
+export const isSalesTeam      = allowRoles("Admin", "SalesRep", "Manager");
 export const adminOrManager   = allowRoles("Admin", "Manager");
+export const canViewOrders    = allowRoles("Admin", "Manager", "SalesRep", "Logistics");
 
-
-/* ──────────────────────────────────────────────────────────
-   legacy “admin-only” helper – keep if you still need it
-───────────────────────────────────────────────────────────*/
-// export const admin = (req, res, next) => {
-//   if (req.user && req.user.roles.some(r => r.name === 'Admin')) {
-//     return next();
-//   }
-//   res.status(403);
-//   throw new Error('Not authorized as admin');
-// };
 
 export const admin = (req, _res, next) => {
   if (req.user && req.user.roles?.some(r => r.name === "Admin")) return next();

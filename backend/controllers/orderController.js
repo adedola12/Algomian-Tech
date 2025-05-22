@@ -167,8 +167,13 @@ export const getOrderById = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error("Order not found");
   }
+
+    const canSee =
+       req.user._id.equals(order.user) ||
+       ['Admin', 'Manager', 'SalesRep', 'Logistics'].includes(req.user.userType);
+
   // enforce ownership
-  if (order.user._id.toString() !== req.user._id.toString() && !req.perms?.includes(PERM.ORDER_MANAGE)
+  if (order.user._id.toString() !== req.user._id.toString() && !req.perms?.includes(PERM.ORDER_MANAGE) && !canSee
   ) {
     res.status(403);
     throw new Error("Not allowed");
