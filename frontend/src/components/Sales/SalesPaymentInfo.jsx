@@ -14,7 +14,7 @@ import SalesComplete from './SalesComplete'
 import SalesPrintPreview from './SalesPrintPreview'
 
 export default function SalesPaymentInfo({
-  items = [],
+  items: initialItems  = [],
   customerName,
   customerPhone,
   pointOfSale,
@@ -26,6 +26,8 @@ export default function SalesPaymentInfo({
   onBack,
   onDone,
 }) {
+  const [items, setItems] = useState(initialItems);
+
   const [method, setMethod] = useState('cash')
   const [bankAccount, setBankAccount] = useState('Moniepoint - Alogoman 2')
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
@@ -40,6 +42,8 @@ export default function SalesPaymentInfo({
     () => parseFloat(amountTransferred || 0) - summary.total,
     [amountTransferred, summary.total]
   )
+
+  const removeLine = (id) => setItems((prev) => prev.filter((x) => x.id !== id));
 
   // const handleDone = async () => {
   //   setLoading(true)
@@ -113,6 +117,7 @@ const handleDone = async () => {
       shippingPrice: 0,
       taxPrice: summary.tax,
       itemsPrice: summary.subtotal,
+
       selectedCustomerId, // pass this from props
       customerName,
       customerPhone,
@@ -124,15 +129,9 @@ const handleDone = async () => {
       },
     };
 
-    const res = await createOrder(payload);
+       const res = await createOrder(payload);      // res === pure JSON
 
-
-    // ✅ Trigger toast for low stock
-    if (res.data.lowStockWarnings?.length) {
-      res.data.lowStockWarnings.forEach((msg) => {
-        toast.warn(msg);
-      });
-    }
+    (res.lowStockWarnings ?? []).forEach((msg) => toast.warn(msg));
 
     toast.success("Order placed successfully!");
 
@@ -158,6 +157,11 @@ const handleDone = async () => {
     setShowPrint(false)
     onDone()
   }
+
+    const handleNewSale = () => {
+        setShowComplete(false)
+        onDone()                // parent (SalesTable) already resets state & step
+      }
 
   const details = [
     { label: 'Recipient name', icon: <FiUser />, value: customerName },
@@ -217,7 +221,10 @@ const handleDone = async () => {
                 <span className="text-gray-800 font-semibold">
                   ₦{(it.qty * it.price).toLocaleString()}
                 </span>
-                <FiTrash2 className="text-gray-400 hover:text-gray-600" />
+                  <FiTrash2
+                  className="text-gray-400 hover:text-gray-600 cursor-pointer"
+                  onClick={() => removeLine(it.id)}
+                />
               </div>
             </div>
           ))}
@@ -362,6 +369,7 @@ const handleDone = async () => {
           change={change}
           onClose={handleCloseComplete}
           onPrint={handlePrint}
+          onNewSale={handleNewSale} 
         />
       )}
 

@@ -43,7 +43,7 @@ export default function SalesComplete({
           <FiPrinter className="mr-2" /> Print Receipt
         </button>
         <button
-          onClick={onNewSale}
+          onClick={onNewSale ?? onClose} 
           className="w-full bg-orange-600 hover:bg-orange-700 text-white font-medium py-2 rounded-lg"
         >
           Start A New Sale

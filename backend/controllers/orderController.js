@@ -1,9 +1,14 @@
 import asyncHandler from "express-async-handler";
-import Order        from '../models/orderModel.js';
+import Order from "../models/orderModel.js";
 import User from "../models/userModel.js"; // ✅ Add this
-import Product      from "../models/productModel.js";
-import crypto       from "crypto";
+import Product from "../models/productModel.js";
+import crypto from "crypto";
+import { PassThrough } from "stream";
 
+const hasChangeStream = () => {
+  // mongoose.connection.db.topology.s.hosts exists only on repl-set
+  return !!mongoose.connection?.db?.topology?.s?.hosts;
+};
 /**
  * @desc   Create new order
  * @route  POST /api/orders
@@ -46,6 +51,9 @@ export const addOrderItems = asyncHandler(async (req, res) => {
       return {
         product: prod._id,
         name: prod.productName,
+        baseRam: prod.baseRam ?? "",
+        baseStorage: prod.baseStorage ?? "",
+        baseCPU: prod.baseCPU ?? "",
         qty: item.qty,
         price: item.price,
         image: prod.images?.[0] || "",
@@ -138,22 +146,19 @@ export const addOrderItems = asyncHandler(async (req, res) => {
   });
 });
 
-
 /**
  * @desc   Get logged in user's orders
  * @route  GET /api/orders/myorders
  * @access Private
  */
 
-
-
 export const getMyOrders = asyncHandler(async (req, res) => {
-  const orders = await Order
-    .find({ user: req.user._id })
-    .populate("user","firstName lastName")
-  res.json(orders)
-})
-
+  const orders = await Order.find({ user: req.user._id }).populate(
+    "user",
+    "firstName lastName"
+  );
+  res.json(orders);
+});
 
 /**
  * @desc   Get order by ID
@@ -161,19 +166,24 @@ export const getMyOrders = asyncHandler(async (req, res) => {
  * @access Private (user can only fetch their own) / Admin can fetch any
  */
 export const getOrderById = asyncHandler(async (req, res) => {
-  const order = await Order.findById(req.params.id)
-    .populate("user", "firstName lastName email");
+  const order = await Order.findById(req.params.id).populate(
+    "user",
+    "firstName lastName email"
+  );
   if (!order) {
     res.status(404);
     throw new Error("Order not found");
   }
 
-    const canSee =
-       req.user._id.equals(order.user) ||
-       ['Admin', 'Manager', 'SalesRep', 'Logistics'].includes(req.user.userType);
+  const canSee =
+    req.user._id.equals(order.user) ||
+    ["Admin", "Manager", "SalesRep", "Logistics"].includes(req.user.userType);
 
   // enforce ownership
-  if (order.user._id.toString() !== req.user._id.toString() && !req.perms?.includes(PERM.ORDER_MANAGE) && !canSee
+  if (
+    order.user._id.toString() !== req.user._id.toString() &&
+    !req.perms?.includes(PERM.ORDER_MANAGE) &&
+    !canSee
   ) {
     res.status(403);
     throw new Error("Not allowed");
@@ -193,14 +203,54 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error("Order not found");
   }
-  order.status      = status      || order.status;
-  order.isPaid      = isPaid      ?? order.isPaid;
-  order.paidAt      = isPaid      ? Date.now() : order.paidAt;
+  if (req.body.orderItems) {
+    order.orderItems = req.body.orderItems.map((l) => ({
+        ...l,                            // qty / price / etc.
+        baseRam:      l.baseRam      ?? "",   // tolerate partial payloads
+        baseStorage:  l.baseStorage  ?? "",
+        baseCPU:      l.baseCPU      ?? "",
+    }));
+  }
+  order.status = status || order.status;
+  order.isPaid = isPaid ?? order.isPaid;
+  order.paidAt = isPaid ? Date.now() : order.paidAt;
   order.isDelivered = isDelivered ?? order.isDelivered;
   order.deliveredAt = isDelivered ? Date.now() : order.deliveredAt;
 
   const updated = await order.save();
   res.json(updated);
+});
+
+export const updateOrderDetails = asyncHandler(async (req, res) => {
+  const order = await Order.findById(req.params.id);
+  if (!order) { res.status(404); throw new Error("Order not found"); }
+
+  /* ---------- items ---------- */
+  if (Array.isArray(req.body.orderItems)) {
+    order.orderItems = req.body.orderItems.map((incoming) => {
+      const prev = order.orderItems.find(
+        (l) => l.product.toString() === incoming.product.toString()
+      );
+
+      /* keep mandatory fields from DB when the client omits them */
+      return {
+        ...prev?._doc,                 // name, maxQty, image …
+        ...incoming,                   // qty, price, specs (may overwrite)
+        name:   incoming.name   ?? prev?.name   ?? "",
+        maxQty: incoming.maxQty ?? prev?.maxQty ?? 0,
+      };
+    });
+  }
+
+  /* ---------- address / POS ---------- */
+  if (req.body.shippingAddress)
+    order.shippingAddress = { ...order.shippingAddress, ...req.body.shippingAddress };
+
+  if (req.body.pointOfSale !== undefined)
+    order.pointOfSale = req.body.pointOfSale;
+
+  const saved = await order.save();
+  res.json(saved);
 });
 
 /**
@@ -209,9 +259,7 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
  * @access Private/Admin
  */
 export const getOrders = asyncHandler(async (req, res) => {
-  const orders = await Order
-    .find({})
-    .populate('user', 'firstName lastName');
+  const orders = await Order.find({}).populate("user", "firstName lastName");
   res.json(orders);
 });
 
@@ -223,8 +271,62 @@ export const deleteOrder = async (id) => {
     await api.delete(`/api/orders/${id}`, { withCredentials: true });
     setOrders((prev) => prev.filter((order) => order._id !== id));
   } catch (err) {
-    alert("Failed to delete order: " + (err.response?.data?.message || err.message));
+    alert(
+      "Failed to delete order: " + (err.response?.data?.message || err.message)
+    );
   } finally {
-    setActionsOpenFor(null);  // close dropdown after action
+    setActionsOpenFor(null); // close dropdown after action
   }
 };
+
+export const getNewOrdersCount = asyncHandler(async (req, res) => {
+  let { since } = req.query;
+
+  // tolerate bad / missing ISO
+  const sinceDate = isNaN(Date.parse(since)) ? new Date(0) : new Date(since);
+
+  const count = await Order.countDocuments({ createdAt: { $gt: sinceDate } });
+  res.json({ count }); // never throws – always JSON
+});
+
+export const streamNewOrders = asyncHandler(async (req, res) => {
+  if (!hasChangeStream()) {
+    // keep the connection open ≈ empty event stream
+    res
+      .set({
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      })
+      .flushHeaders();
+    res.write(`event: unsupported\ndata: {}\n\n`);
+    return; // 👈 nothing else, avoids 500
+  }
+
+  res
+    .set({
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    })
+    .flushHeaders();
+
+  const change = Order.watch([{ $match: { operationType: "insert" } }]);
+  change.on("change", (doc) => {
+    res.write(
+      `data: ${JSON.stringify({
+        id: doc.fullDocument._id,
+        createdAt: doc.fullDocument.createdAt,
+        status: doc.fullDocument.status,
+        total: doc.fullDocument.totalPrice,
+      })}\n\n`
+    );
+  });
+
+  req.on("close", () => {
+    change.close().catch(() => {});
+    res.end();
+  });
+});
+
+

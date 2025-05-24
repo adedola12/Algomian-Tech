@@ -9,7 +9,7 @@ export default function SelectedItemCard({
   product,
   onQtyChange,
   onSpecChange,
-  onRemove,
+  onDelete,
 }) {
   const [ram, setRam]       = useState(product.baseRam   || "");
   const [storage, setStorage] = useState(product.baseStorage || "");
@@ -56,7 +56,7 @@ export default function SelectedItemCard({
         <FiTrash2
           onClick={e => {
             e.stopPropagation();
-            onRemove(product.id)
+            onDelete(product.id)
           }}
           className="text-gray-400 hover:text-gray-600 mr-4"
         />

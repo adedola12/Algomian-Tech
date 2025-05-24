@@ -8,6 +8,14 @@ import InventSideBar from "../components/InventSideBar";
 export default function InventoryLayout() {
   const [user, setUser] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [lastSeenSaleISO, setLastSeenSaleISO] = useState(
+    localStorage.getItem("lastSalesPing") || null
+  );
+  
+  const handlePing = (iso) => {
+    localStorage.setItem("lastSalesPing", iso);
+    setLastSeenSaleISO(iso);
+  };
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -36,7 +44,7 @@ export default function InventoryLayout() {
 
       {/* shift this whole column over by 260px on md+ so it sits next to the fixed sidebar */}
       <div className="flex flex-1 flex-col md:ml-[260px]">
-        <InventNav toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
+        <InventNav toggleSidebar={() => setSidebarOpen(!sidebarOpen)} currentUser={user} lastSeenSaleISO={lastSeenSaleISO}  onSalesPing={handlePing} />
 
         <main className="flex flex-1 flex-col overflow-y-auto px-4 pt-20 sm:px-6 md:px-8">
           <Outlet />

@@ -130,6 +130,7 @@ export default function SalesTable() {
       <SalesDelivery
         items={items}
         onBack={()=>setStep(1)}
+        onAddAnotherOrder={() => setStep(1)}
         onNext={data=>{
           setDeliveryData(data)
           setStep(3)

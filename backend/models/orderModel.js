@@ -8,6 +8,10 @@ const orderItemSchema = new mongoose.Schema(
       required: true,
     },
     name:     { type: String, required: true },
+    baseRam:      { type: String, default: "" },
+    baseStorage:  { type: String, default: "" },
+    baseCPU:      { type: String, default: "" },
+
     qty:      { type: Number, required: true },
     price:    { type: Number, required: true },
     image:    { type: String },
