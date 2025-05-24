@@ -54,6 +54,8 @@ const orderSchema = new mongoose.Schema(
     paidAt:          { type: Date },
     isDelivered:     { type: Boolean, default: false },
     deliveredAt:     { type: Date },
+    logistics: { type: mongoose.Schema.Types.ObjectId, ref: 'Logistics' },
+
   },
   { timestamps: true }
 );
