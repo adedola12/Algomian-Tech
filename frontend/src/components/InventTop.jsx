@@ -45,6 +45,8 @@ const InventTop = () => {
       maximumFractionDigits: 0,
     });
 
+  // if (!perms.includes("stats.view")) return null;
+
   return (
     <div className="w-full">
       {/* Header */}

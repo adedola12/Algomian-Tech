@@ -205,10 +205,10 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
   }
   if (req.body.orderItems) {
     order.orderItems = req.body.orderItems.map((l) => ({
-        ...l,                            // qty / price / etc.
-        baseRam:      l.baseRam      ?? "",   // tolerate partial payloads
-        baseStorage:  l.baseStorage  ?? "",
-        baseCPU:      l.baseCPU      ?? "",
+      ...l, // qty / price / etc.
+      baseRam: l.baseRam ?? "", // tolerate partial payloads
+      baseStorage: l.baseStorage ?? "",
+      baseCPU: l.baseCPU ?? "",
     }));
   }
   order.status = status || order.status;
@@ -223,7 +223,10 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
 
 export const updateOrderDetails = asyncHandler(async (req, res) => {
   const order = await Order.findById(req.params.id);
-  if (!order) { res.status(404); throw new Error("Order not found"); }
+  if (!order) {
+    res.status(404);
+    throw new Error("Order not found");
+  }
 
   /* ---------- items ---------- */
   if (Array.isArray(req.body.orderItems)) {
@@ -234,9 +237,9 @@ export const updateOrderDetails = asyncHandler(async (req, res) => {
 
       /* keep mandatory fields from DB when the client omits them */
       return {
-        ...prev?._doc,                 // name, maxQty, image …
-        ...incoming,                   // qty, price, specs (may overwrite)
-        name:   incoming.name   ?? prev?.name   ?? "",
+        ...prev?._doc, // name, maxQty, image …
+        ...incoming, // qty, price, specs (may overwrite)
+        name: incoming.name ?? prev?.name ?? "",
         maxQty: incoming.maxQty ?? prev?.maxQty ?? 0,
       };
     });
@@ -244,7 +247,10 @@ export const updateOrderDetails = asyncHandler(async (req, res) => {
 
   /* ---------- address / POS ---------- */
   if (req.body.shippingAddress)
-    order.shippingAddress = { ...order.shippingAddress, ...req.body.shippingAddress };
+    order.shippingAddress = {
+      ...order.shippingAddress,
+      ...req.body.shippingAddress,
+    };
 
   if (req.body.pointOfSale !== undefined)
     order.pointOfSale = req.body.pointOfSale;
@@ -329,4 +335,28 @@ export const streamNewOrders = asyncHandler(async (req, res) => {
   });
 });
 
+/* ─────────────  APPROVE SALE  ─────────────
+   PATCH  /api/orders/:id/approve
+   Body   { note?: string }
+   Needs  "sale.approve" permission
+───────────────────────────────────────────*/
+export const approveSale = asyncHandler(async (req, res) => {
+  const order = await Order.findById(req.params.id);
+  if (!order) {
+    res.status(404);
+    throw new Error("Order not found");
+  }
 
+  // only approve once
+  if (order.isApproved) {
+    return res.json({ message: "Order already approved" });
+  }
+
+  order.isApproved = true;
+  order.approvedBy = req.user._id;
+  order.approvedAt = new Date();
+  order.approveNote = req.body.note || "";
+
+  await order.save();
+  res.json({ message: "Sale approved", order });
+});

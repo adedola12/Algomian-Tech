@@ -13,17 +13,20 @@ import {
   deleteUser,
   changePassword,
   getPreferences,
-  updatePreferences,getAllUsers
+  updatePreferences,
+  getAllUsers,
+  updateUserPermissions,
 } from "../controllers/userController.js";
 import {
   protect,
   isAdmin,
-  adminOrManager,allowRoles
+  authorize,
+  allowRoles,
 } from "../middleware/authMiddleware.js";
 import { upload } from "../middleware/uploadMiddleware.js";
 import { uploadBufferToCloudinary } from "../utils/cloudinaryUpload.js";
-import asyncHandler from "express-async-handler"; 
-import User         from "../models/userModel.js"; 
+import asyncHandler from "express-async-handler";
+import User from "../models/userModel.js";
 import { v4 as uuid } from "uuid";
 
 const router = express.Router();
@@ -47,13 +50,12 @@ router
   .get(protect, getPreferences)
   .put(protect, updatePreferences);
 
-  router.get(
-    "/all",
-  
-    
-    getAllUsers
-  );
-  
+router.get(
+  "/all",
+
+  getAllUsers
+);
+
 router.post("/register", registerUser);
 router.post("/login", authUser);
 router.post("/admin-create", protect, isAdmin, adminCreateUser);
@@ -74,19 +76,30 @@ router
 
 router.put("/change-password", protect, changePassword);
 
-router.get("/customers", protect, adminOrManager, getCustomers);
-router.get("/customerlist", protect, adminOrManager, getCustomersList);
+router.get("/customers", protect, authorize("customer.view"), getCustomers);
+router.get(
+  "/customerlist",
+  protect,
+  authorize("customer.view"),
+  getCustomersList
+);
 
 router.get(
-    '/logistics-drivers',
-    protect,
-    (req, res, next) => allowRoles('Admin', 'SalesRep', 'Manager', 'Logistics')(req, res, next),
-    asyncHandler(async (_req, res) => {
-      const drivers = await User.find({ userType: 'Logistics' })
-                                .select('_id firstName lastName whatAppNumber email');
-      res.json(drivers);
-    })
-  );
+  "/logistics-drivers",
+  protect,
+  (req, res, next) =>
+    allowRoles("Admin", "SalesRep", "Manager", "Logistics")(req, res, next),
+  asyncHandler(async (_req, res) => {
+    const drivers = await User.find({ userType: "Logistics" }).select(
+      "_id firstName lastName whatAppNumber email"
+    );
+    res.json(drivers);
+  })
+);
+
+router
+  // PUT  /api/users/:id/permissions   (admin only)
+  .put("/:id/permissions", protect, isAdmin, updateUserPermissions);
 
 router.get("/:id", getUserById);
 router.get("/:id/orders", getUserOrders);

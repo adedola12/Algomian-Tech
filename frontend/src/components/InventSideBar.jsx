@@ -4,11 +4,18 @@
 import React from "react";
 import { Link, NavLink } from "react-router-dom";
 import {
-  FiHome, FiShoppingCart, FiTag, FiPackage, FiUsers,
-  FiSettings, FiLogOut, FiX
+  FiHome,
+  FiShoppingCart,
+  FiTag,
+  FiPackage,
+  FiUsers,
+  FiSettings,
+  FiLogOut,
+  FiX,
 } from "react-icons/fi";
 import { BsClipboard } from "react-icons/bs";
 import { assets } from "../assets/assets";
+import { DEFAULT_PERMS_BY_TYPE } from "../utils/defaultPerms";
 
 /* 1️⃣  ROUTE → ROLE MATRIX
    – Dashboard / Inventory / Settings   → everybody
@@ -16,24 +23,58 @@ import { assets } from "../assets/assets";
    – Sales Management                   → Admin, Manager, SalesRep
    – Customers                          → Admin, Manager, SalesRep
    – Logistics                          → Admin, Logistics                          */
-const ALL     = ["Admin", "Manager", "SalesRep", "Logistics", "Customer"];
-const navLinks = [
-  { path: "/dashboard",           label: "Dashboard",        icon: <FiHome />      , roles: ALL },
-  { path: "/inventory",           label: "Inventory",        icon: <BsClipboard /> , roles: ALL },
-  { path: "/inventory/orders",    label: "Orders",           icon: <FiShoppingCart/>, roles: ["Admin","Manager","SalesRep","Logistics"] },
-  { path: "/sales",               label: "Sale Management",  icon: <FiTag />       , roles: ["Admin","Manager","SalesRep"] },
-  { path: "/logistics",           label: "Logistics",        icon: <FiPackage />   , roles: ["Admin","Logistics"] },
-  { path: "/customers",           label: "Customers",        icon: <FiUsers />     , roles: ["Admin","Manager","SalesRep"] },
-  { path: "/settings",            label: "Settings",         icon: <FiSettings />  , roles: ALL },
+const ALL = ["Admin", "Manager", "SalesRep", "Logistics", "Customer"];
+
+const NAV_LINKS = [
+  { path: "/dashboard", label: "Dashboard", icon: <FiHome />, perm: null }, // everyone
+  {
+    path: "/inventory",
+    label: "Inventory",
+    icon: <BsClipboard />,
+    perm: "product.view",
+  },
+  {
+    path: "/inventory/orders",
+    label: "Orders",
+    icon: <FiShoppingCart />,
+    perm: "order.view",
+  },
+  {
+    path: "/sales",
+    label: "Sale Management",
+    icon: <FiTag />,
+    perm: "order.edit",
+  },
+  {
+    path: "/logistics",
+    label: "Logistics",
+    icon: <FiPackage />,
+    perm: "shipment.view",
+  },
+  {
+    path: "/customers",
+    label: "Customers",
+    icon: <FiUsers />,
+    perm: "order.view",
+  },
+  { path: "/settings", label: "Settings", icon: <FiSettings />, perm: null },
 ];
 
 /* 2️⃣  SIDEBAR COMPONENT -------------------------------------------------- */
 export default function InventSideBar({ isOpen, setIsOpen, user, onLogout }) {
-  const role = user?.userType ?? "Customer";
-  const links = React.useMemo(
-    () => navLinks.filter(l => l.roles.includes(role)),
-    [role]
-  );
+  const safeUser = user ?? {};
+  const perms =
+    safeUser.perms && safeUser.perms.length
+      ? safeUser.perms
+      : DEFAULT_PERMS_BY_TYPE[safeUser.userType] ?? [];
+  // const role = user?.userType ?? "Customer";
+  // const links = React.useMemo(
+  //   () => NAV_LINKS.filter((l) => l.roles.includes(role)),
+  //   [role]
+  // );
+
+
+  const links = NAV_LINKS.filter((l) => !l.perm || perms.includes(l.perm));
 
   return (
     <>

@@ -9,7 +9,8 @@ import productRoutes from "./routes/productRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import roleRoutes from "./routes/roleRoutes.js";
-import logisticsRoutes from './routes/logisticsRoutes.js';
+import logisticsRoutes from "./routes/logisticsRoutes.js";
+import accessRoutes from "./routes/accessRoutes.js";
 import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
 
 dotenv.config();
@@ -39,7 +40,8 @@ app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/roles", roleRoutes);
-app.use('/api/logistics', logisticsRoutes);
+app.use("/api/logistics", logisticsRoutes);
+app.use("/api/access", accessRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

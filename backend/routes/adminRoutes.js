@@ -1,13 +1,23 @@
-import express from 'express';
-import PERM    from '../models/permissionEnum.js';
-import { getAdminStats  } from "../controllers/adminStatsController.js";
-import { protect, authorize, isAdmin, adminOrManager } from '../middleware/authMiddleware.js';
+import express from "express";
+import PERM from "../models/permissionEnum.js";
+import { getAdminStats } from "../controllers/adminStatsController.js";
 import {
-  createRole, getRoles, updateRole, deleteRole
-} from '../controllers/roleController.js';
+  protect,
+  authorize,
+  isAdmin,
+  adminOrManager,
+} from "../middleware/authMiddleware.js";
 import {
-  inviteUser, listUsers, updateUserRoles
-} from '../controllers/adminUserController.js';
+  createRole,
+  getRoles,
+  updateRole,
+  deleteRole,
+} from "../controllers/roleController.js";
+import {
+  inviteUser,
+  listUsers,
+  updateUserRoles,
+} from "../controllers/adminUserController.js";
 
 const router = express.Router();
 
@@ -15,23 +25,28 @@ const router = express.Router();
 // router.route('/roles')
 //   .post(protect, authorize(PERM.ROLE_MANAGE), createRole)
 //   .get (protect, authorize(PERM.ROLE_MANAGE), getRoles);
-  
-  router.route('/roles')
-  .post(protect, createRole)
-  .get (protect, getRoles);
 
-router.route('/roles/:id')
+router.route("/roles").post(protect, createRole).get(protect, getRoles);
+
+router
+  .route("/roles/:id")
   .patch(protect, authorize(PERM.ROLE_MANAGE), updateRole)
   .delete(protect, authorize(PERM.ROLE_MANAGE), deleteRole);
 
 /*──── users ────*/
-router.route('/users')
+router
+  .route("/users")
   .post(protect, authorize(PERM.USER_MANAGE), inviteUser)
-  .get (protect, authorize(PERM.USER_MANAGE), listUsers);
+  .get(protect, authorize(PERM.USER_MANAGE), listUsers);
 
-router.patch('/users/:id/roles',
-  protect, authorize(PERM.USER_MANAGE), updateUserRoles);
+router.patch(
+  "/users/:id/roles",
+  protect,
+  authorize(PERM.USER_MANAGE),
+  updateUserRoles
+);
 
-  router.get("/stats", protect, adminOrManager, getAdminStats );
+// router.get("/stats", protect, adminOrManager, getAdminStats);
+router.get("/stats", protect, authorize("stats.view"), getAdminStats);
 
 export default router;

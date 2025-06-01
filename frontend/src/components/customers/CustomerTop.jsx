@@ -16,7 +16,7 @@ import dayjs from "dayjs";
    Helper to format ±% with two decimals
 ─────────────────────────────────────────── */
 const fmtPct = (num) =>
-  (Math.abs(num).toFixed(2).replace(/\.00$/, "") + "%") || "—";
+  Math.abs(num).toFixed(2).replace(/\.00$/, "") + "%" || "—";
 
 /* arrow + colour based on sign */
 const Delta = ({ pct }) =>
@@ -36,15 +36,21 @@ const Delta = ({ pct }) =>
 
 export default function CustomerTop() {
   /* current-period metrics */
-  const [total,      setTotal]      = useState(0);
-  const [newCust,    setNewCust]    = useState(0);
-  const [activeSub,  setActiveSub]  = useState(0);
+  const [total, setTotal] = useState(0);
+  const [newCust, setNewCust] = useState(0);
+  const [activeSub, setActiveSub] = useState(0);
   const [repeatRate, setRepeatRate] = useState(0);
 
+  // const perms = currentUser?.permissions ?? [];
+
+  // const canSeeCustomers =
+  //   perms.includes("customer.view") || currentUser?.userType === "Admin";
+  // if (!canSeeCustomers) return null;
+
   /* deltas vs previous period */
-  const [dTotal,      setdTotal]      = useState(null);
-  const [dNewCust,    setdNewCust]    = useState(null);
-  const [dActiveSub,  setdActiveSub]  = useState(null);
+  const [dTotal, setdTotal] = useState(null);
+  const [dNewCust, setdNewCust] = useState(null);
+  const [dActiveSub, setdActiveSub] = useState(null);
   const [dRepeatRate, setdRepeatRate] = useState(null);
 
   /* full raw list kept for CSV export */
@@ -59,24 +65,28 @@ export default function CustomerTop() {
         /* ───── define periods ─────
            We compare the last 48 h to the 48 h before that.
            Feel free to tweak if you prefer daily/weekly.          */
-        const now    = dayjs();
-        const P1_END = now;                       // current moment
-        const P1_STA = now.subtract(48, "hour");  // 0-48 h ago
+        const now = dayjs();
+        const P1_END = now; // current moment
+        const P1_STA = now.subtract(48, "hour"); // 0-48 h ago
         const P0_END = P1_STA;
         const P0_STA = P1_STA.subtract(48, "hour"); // 48-96 h ago
 
         const inP1 = (d) =>
-          dayjs(d.createdAt).isAfter(P1_STA) && dayjs(d.createdAt).isBefore(P1_END);
+          dayjs(d.createdAt).isAfter(P1_STA) &&
+          dayjs(d.createdAt).isBefore(P1_END);
 
         const inP0 = (d) =>
-          dayjs(d.createdAt).isAfter(P0_STA) && dayjs(d.createdAt).isBefore(P0_END);
+          dayjs(d.createdAt).isAfter(P0_STA) &&
+          dayjs(d.createdAt).isBefore(P0_END);
 
         /* helpers for both periods */
         const calcMetrics = (list) => {
-          const totalCustomers     = list.length;
-          const activeSubscribers  = list.filter((c) => c.totalOrders > 0).length;
-          const repeatCustomers    = list.filter((c) => c.totalOrders > 1).length;
-          const repeatRate         =
+          const totalCustomers = list.length;
+          const activeSubscribers = list.filter(
+            (c) => c.totalOrders > 0
+          ).length;
+          const repeatCustomers = list.filter((c) => c.totalOrders > 1).length;
+          const repeatRate =
             totalCustomers === 0 ? 0 : (repeatCustomers / totalCustomers) * 100;
           return { totalCustomers, activeSubscribers, repeatRate };
         };
@@ -94,18 +104,20 @@ export default function CustomerTop() {
         const metPrev = calcMetrics(data.filter(inP0).concat(prev));
 
         /* set state */
-        setTotal      (metCurr.totalCustomers);
-        setNewCust    (newCurr);
-        setActiveSub  (metCurr.activeSubscribers);
-        setRepeatRate (metCurr.repeatRate);
+        setTotal(metCurr.totalCustomers);
+        setNewCust(newCurr);
+        setActiveSub(metCurr.activeSubscribers);
+        setRepeatRate(metCurr.repeatRate);
 
         /* deltas (% vs previous) – guard ÷0 */
         const pct = (c, p) => (p === 0 ? null : ((c - p) / p) * 100);
 
-        setdTotal      (pct(metCurr.totalCustomers, metPrev.totalCustomers));
-        setdNewCust    (pct(newCurr, newPrev));
-        setdActiveSub  (pct(metCurr.activeSubscribers, metPrev.activeSubscribers));
-        setdRepeatRate (pct(metCurr.repeatRate,      metPrev.repeatRate));
+        setdTotal(pct(metCurr.totalCustomers, metPrev.totalCustomers));
+        setdNewCust(pct(newCurr, newPrev));
+        setdActiveSub(
+          pct(metCurr.activeSubscribers, metPrev.activeSubscribers)
+        );
+        setdRepeatRate(pct(metCurr.repeatRate, metPrev.repeatRate));
       } catch (err) {
         console.error("Failed to fetch customer data", err);
       }
@@ -127,16 +139,14 @@ export default function CustomerTop() {
       c.email,
       c.whatAppNumber || "",
       c.totalOrders || "0",
-      c.lastOrderDate
-        ? new Date(c.lastOrderDate).toLocaleDateString()
-        : "N/A",
+      c.lastOrderDate ? new Date(c.lastOrderDate).toLocaleDateString() : "N/A",
       c.status || "N/A",
     ]);
     const csv = [headers, ...rows].map((r) => r.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
-    a.href     = url;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
     a.download = `customers_${Date.now()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
@@ -148,25 +158,25 @@ export default function CustomerTop() {
       label: "Total customers",
       value: total.toLocaleString(),
       delta: dTotal,
-      icon:  <FiUsers />,
+      icon: <FiUsers />,
     },
     {
       label: "New customers (48 h)",
       value: newCust.toLocaleString(),
       delta: dNewCust,
-      icon:  <FiUserPlus />,
+      icon: <FiUserPlus />,
     },
     {
       label: "Active subscribers",
       value: activeSub.toLocaleString(),
       delta: dActiveSub,
-      icon:  <FiUserCheck />,
+      icon: <FiUserCheck />,
     },
     {
       label: "Return customer rate",
       value: repeatRate.toFixed(1) + "%",
       delta: dRepeatRate,
-      icon:  <FiBarChart2 />,
+      icon: <FiBarChart2 />,
     },
   ];
 
