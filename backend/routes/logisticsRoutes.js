@@ -4,8 +4,13 @@ import {
   getShipmentByOrder,
   updateShipmentStatus,
   updateDeliveryContact,
+  driverLogist,
 } from "../controllers/logisticsController.js";
-import { protect, isSalesTeam, isLogistics } from "../middleware/authMiddleware.js"; // adjust as needed
+import {
+  protect,
+  isSalesTeam,
+  isLogistics,
+} from "../middleware/authMiddleware.js"; // adjust as needed
 
 const router = express.Router();
 
@@ -23,5 +28,7 @@ router.patch(
   isLogistics,
   updateDeliveryContact
 );
+
+router.get("/my", protect, isLogistics, driverLogist);
 
 export default router;
