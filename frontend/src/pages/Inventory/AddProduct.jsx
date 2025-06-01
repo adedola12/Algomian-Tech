@@ -38,9 +38,6 @@ const L = ({ label, children }) => (
   </label>
 );
 
-
-
-
 /* ─── component ─────────────────────────────────────────────── */
 export default function AddProduct() {
   const nav = useNavigate();
@@ -52,6 +49,15 @@ export default function AddProduct() {
   const canEdit = (section) =>
     isAdmin || perms.includes(`product.section.${section.toLowerCase()}`);
   const canSave = isAdmin || perms.includes("product.section.save");
+
+  /* ---------- OPTIONAL  graceful message instead of blank --- */
+  if (!isAdmin && perms.every((p) => !p.startsWith("product.section"))) {
+    return (
+      <p className="p-8 text-center text-gray-500">
+        You don’t have permission to add products.
+      </p>
+    );
+  }
 
   /* ---- react-hook-form ------------------------------------- */
   const {

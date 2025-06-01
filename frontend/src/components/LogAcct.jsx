@@ -1,28 +1,31 @@
 // ---------------------------------------------
 //  frontend/src/pages/LogAcct.jsx
 // ---------------------------------------------
-import { useState }         from "react";
-import { Link, useNavigate }      from "react-router-dom";
-import { toast }            from "react-toastify";
-import { FcGoogle }         from "react-icons/fc";
-import api                  from "../api";
-import { useAuth }          from "../context/AuthContext";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import { FcGoogle } from "react-icons/fc";
+import api from "../api";
+import { useAuth } from "../context/AuthContext";
 
 import "react-toastify/dist/ReactToastify.css";
 
 export default function LogAcct() {
-  const { login }  = useAuth();
-  const navigate   = useNavigate();
+  const { login } = useAuth();
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({ identifier: "", password: "" });
-  const [loading,  setLoading ] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) =>
     setFormData((p) => ({ ...p, [e.target.name]: e.target.value }));
 
   const handleLogin = async (e) => {
     e.preventDefault();
+
     if (!formData.identifier || !formData.password) {
-      toast.error("Please enter your login details.", { position: "top-center" });
+      toast.error("Please enter your login details.", {
+        position: "top-center",
+      });
       return;
     }
 
@@ -30,9 +33,18 @@ export default function LogAcct() {
       setLoading(true);
       const { data } = await api.post("/api/users/login", {
         identifier: formData.identifier,
-        password  : formData.password,
+        password: formData.password,
       });
-      login(data.token, data);               // <-- context handles everything
+
+      // login(data.token, data); // <-- context handles everything
+      login(
+        data.token, // JWT
+        {
+          // user object for context
+          ...data.user, // id, name, email, …
+          permissions: data.permissions ?? [], // ⬅️  IMPORTANT
+        }
+      );
       toast.success("Login successful!", { position: "top-center" });
       navigate("/");
     } catch (err) {
@@ -103,8 +115,13 @@ export default function LogAcct() {
         </form>
 
         <div className="flex items-center justify-center text-xs text-gray-500 mt-3">
-            <span className="px-2">Dont have an account? <Link to={'/signup'} className="text-purple-800 text-bold">Sign Up Now!!!</Link></span>
-          </div>
+          <span className="px-2">
+            Dont have an account?{" "}
+            <Link to={"/signup"} className="text-purple-800 text-bold">
+              Sign Up Now!!!
+            </Link>
+          </span>
+        </div>
       </div>
     </div>
   );

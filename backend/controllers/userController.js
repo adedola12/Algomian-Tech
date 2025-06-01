@@ -168,8 +168,22 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
 
   const saved = await user.save();
 
-  res.cookie("algomianToken", generateToken(saved._id), cookieOpts);
-  res.json(safeUser(saved));
+  // res.cookie("algomianToken", generateToken(saved._id), cookieOpts);
+  // res.json(safeUser(saved));
+
+  const policy = await AccessPolicy.findOne({ userType: saved.userType });
+  const finalPerms = policy?.permissions?.length
+    ? policy.permissions
+    : (DEFAULT_PERMS_BY_TYPE[saved.userType] ?? []);
+
+  /* brand-new JWT that contains the fresh permissions */
+  const token = generateToken(saved._id, finalPerms);
+
+  res.cookie("algomianToken", token, cookieOpts).json({
+    ...safeUser(saved),
+    permissions: finalPerms,
+    token,
+  });
 });
 
 export const getCustomersList = asyncHandler(async (req, res) => {

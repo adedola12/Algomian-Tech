@@ -24,6 +24,8 @@ const whitelist = [
   "http://localhost:5173",
   "https://algomian-web-app.vercel.app",
   "https://algomian-tech.vercel.app",
+  "https://www.algomian.com",
+  "https://algomian.com",
 ];
 app.use(
   cors({
