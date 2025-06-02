@@ -24,12 +24,7 @@ const userSchema = new mongoose.Schema(
       ],
       default: "Customer",
     },
-    role: {
-      // ↖  reference to Role _id
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Role",
-      required: true,
-    },
+
     orders: [
       {
         type: mongoose.Schema.Types.ObjectId,
