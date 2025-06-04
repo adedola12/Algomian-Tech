@@ -113,7 +113,12 @@ export default function LogAcct() {
             <FcGoogle className="text-lg" /> Log in with Google
           </button>
         </form>
-
+        
+        <div className="forgot-password ">
+          <Link to={"/forgot-password"} className="text-purple-800 text-sm font-bold">
+            Forgot Password?
+          </Link>
+        </div>
         <div className="flex items-center justify-center text-xs text-gray-500 mt-3">
           <span className="px-2">
             Dont have an account?{" "}
@@ -122,6 +127,7 @@ export default function LogAcct() {
             </Link>
           </span>
         </div>
+      
       </div>
     </div>
   );
