@@ -9,6 +9,19 @@ export default function InventDetails({ product, onClose }) {
 
   const navigate = useNavigate();
 
+  // Extract preview of baseSpecs (first 3 only)
+  const baseSpecsPreview = Array.isArray(product.baseSpecs)
+    ? product.baseSpecs
+        .slice(0, 3)
+        .map(
+          (spec) =>
+            `${spec.baseRam || "?"} RAM, ${spec.baseStorage || "?"}, ${
+              spec.baseCPU || "?"
+            }`
+        )
+        .join("\n") + (product.baseSpecs.length > 3 ? "\n..." : "")
+    : "—";
+
   const badge =
     product.quantity === 0
       ? ["Out of stock", "bg-red-100 text-red-700"]
@@ -21,11 +34,9 @@ export default function InventDetails({ product, onClose }) {
 
   const firstMeta = [
     ["Brand", product.brand ?? "—"],
-    ["Base Ram", product.baseRam ?? "—"],
+    ["Specs", baseSpecsPreview],
     ["Category", product.productCategory ?? "—"],
-    ["Base Storage", product.baseStorage ?? "—"],
     ["Cost Price (NGN)", product.costPrice?.toLocaleString() ?? "—"],
-    ["Base CPU", product.baseCPU ?? "—"],
     ["Selling Price", product.sellingPrice?.toLocaleString() ?? "—"],
     ["Status", product.status ?? "—"],
   ];
@@ -48,8 +59,8 @@ export default function InventDetails({ product, onClose }) {
   const serials = Array.isArray(product.serialNumbers)
     ? product.serialNumbers
     : product.serialNumbers
-        ? product.serialNumbers.split(/[\s,]+/).filter(Boolean)
-        : [];   // ← now always an array
+    ? product.serialNumbers.split(/[\s,]+/).filter(Boolean)
+    : []; // ← now always an array
 
   const variants = product.variants?.length ? product.variants : [];
   const features = product.features?.length ? product.features : [];
@@ -115,7 +126,7 @@ export default function InventDetails({ product, onClose }) {
                 <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
                   {label}
                 </p>
-                <p className="mt-0.5 break-words">{val}</p>
+                <p className="mt-0.5 break-words whitespace-pre-line">{val}</p>
               </div>
             ))}
           </div>
