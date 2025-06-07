@@ -3,11 +3,16 @@
 ──────────────────────────────────────────────────────────── */
 import { XMarkIcon, PencilSquareIcon } from "@heroicons/react/24/outline";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext"; // ✅ Add this
 
 export default function InventDetails({ product, onClose }) {
   if (!product) return null;
 
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const userType = user?.userType;
+
+  const isPrivileged = ["Admin", "Manager", "Inventory"].includes(userType);
 
   // Extract preview of baseSpecs (first 3 only)
   const baseSpecsPreview = Array.isArray(product.baseSpecs)
@@ -79,14 +84,15 @@ export default function InventDetails({ product, onClose }) {
           >
             <XMarkIcon className="h-5 w-5 text-gray-500" />
           </button>
-
-          <button
-            onClick={() => navigate(`/inventory/edit-product/${product._id}`)}
-            className="absolute right-14 top-[22px] flex items-center gap-1 text-sm text-orange-600 hover:underline"
-          >
-            <PencilSquareIcon className="h-4 w-4" />
-            Edit
-          </button>
+          {isPrivileged && (
+            <button
+              onClick={() => navigate(`/inventory/edit-product/${product._id}`)}
+              className="absolute right-14 top-[22px] flex items-center gap-1 text-sm text-orange-600 hover:underline"
+            >
+              <PencilSquareIcon className="h-4 w-4" />
+              Edit
+            </button>
+          )}
 
           <h2 className="text-2xl font-bold">Inventory Details</h2>
           <p className="mt-1 text-sm">
