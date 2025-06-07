@@ -1,11 +1,13 @@
 /*  src/components/products/AddProduct.jsx  */
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm, useFieldArray } from "react-hook-form";
 import { toast } from "react-toastify";
 import { FiUpload } from "react-icons/fi";
 import api from "../../api";
 import { useAuth } from "../../context/AuthContext";
+
+
 
 /* ─── static data ───────────────────────────────────────────── */
 const AVAIL = [
@@ -44,6 +46,7 @@ export default function AddProduct() {
   const { user = {} } = useAuth(); // graceful fallback
   const perms = user.permissions ?? []; // [] when undefined
   const isAdmin = user.userType === "Admin";
+  const [quantity, setQuantity] = useState(1);
 
   /* ---- permission helpers ---------------------------------- */
   const canEdit = (section) =>
@@ -237,132 +240,138 @@ export default function AddProduct() {
       {/*──────── GENERAL ────────*/}
       {show.General && (
         <Block {...META[0]} showButtons>
-          {/* row 1 */}
-          <div className="grid gap-6 sm:grid-cols-2">
-            <L label="Product Name">
-              <input
-                {...register("productName", {
-                  required: "Product name is required",
-                })}
-                className="input"
-                disabled={disGen}
-              />
-            </L>
-            <L label="Product Condition">
-              <select
-                {...register("productCondition", { required: true })}
-                className="input"
-                disabled={disGen}
-              >
-                <option value="" disabled hidden>
-                  Select condition
-                </option>
-                <option>New</option>
-                <option>UK Used</option>
-                <option>Fairly Used</option>
-              </select>
-            </L>
-          </div>
+          
+                <div className="grid gap-6 sm:grid-cols-2">
+                <L label="Product Name">
+                  <input
+                  {...register("productName", {
+                    required: "Product name is required",
+                  })}
+                  className="input"
+                  disabled={disGen}
+                  />
+                </L>
+                <L label="Product Condition">
+                  <select
+                  {...register("productCondition", { required: true })}
+                  className="input"
+                  disabled={disGen}
+                  >
+                  <option value="" disabled hidden>
+                    Select condition
+                  </option>
+                  <option>New</option>
+                  <option>UK Used</option>
+                  <option>Fairly Used</option>
+                  </select>
+                </L>
+                </div>
 
-          {/* row 2 */}
-          <div className="grid gap-6 sm:grid-cols-2">
-            <L label="Brand">
-              <select
-                {...register("brand", { required: "Brand required" })}
-                className="input"
-                disabled={disGen}
-              >
-                <option value="" disabled hidden>
-                  Select brand
-                </option>
-                <option>Dell</option>
-                <option>HP</option>
-                <option>Lenovo</option>
-              </select>
-            </L>
-            <L label="Product Category">
-              <select
-                {...register("productCategory", {
-                  required: "Category required",
-                })}
-                className="input"
-                disabled={disGen}
-              >
-                <option value="" disabled hidden>
-                  Select category
-                </option>
-                <option>Laptops</option>
-                <option>Monitor</option>
-                <option>Accessories</option>
-              </select>
-            </L>
-          </div>
+               
+                  <div className="grid gap-6 sm:grid-cols-2">
+                  <L label="Brand">
+                    <select
+                    {...register("brand", { required: "Brand required" })}
+                    className="input"
+                    disabled={disGen}
+                    >
+                    <option value="" disabled hidden>
+                    Select brand
+                    </option>
+                    <option>Dell</option>
+                    <option>HP</option>
+                    <option>Lenovo</option>
+                    </select>
+                  </L>
+                  <L label="Product Category">
+                    <select
+                    {...register("productCategory", {
+                    required: "Category required",
+                    })}
+                    className="input"
+                    disabled={disGen}
+                    >
+                    <option value="" disabled hidden>
+                    Select category
+                    </option>
+                    <option>Laptops</option>
+                    <option>Monitor</option>
+                    <option>Accessories</option>
+                    </select>
+                  </L>
+                  </div>
 
-          <L label="Product Quantity">
-            <input
-              type="number"
-              min="1"
-              {...register("quantity", { valueAsNumber: true })}
-              className="input"
-              disabled={disGen}
-            />
-          </L>
+                  <L label="Product Quantity">
+                  <input
+                    type="number"
+                    min="1"
+                    {...register("quantity", { valueAsNumber: true })}
+                    onChange={(e) => {
+                      const value = Number(e.target.value);
+                      setQuantity(value > 0 ? value : 1); // Ensure quantity is at least 1
+                      setValue("quantity", value); // Update form state
+                    }}
+                    className="input"
+                    disabled={disGen}
+                  />
+                  </L>
 
-          {/* row 3 */}
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            <L label="Base RAM">
-              <select
-                {...register("baseRam")}
-                className="input"
-                disabled={disGen}
-              >
-                <option value="" disabled hidden>
-                  Select RAM
-                </option>
-                <option>8GB</option>
-                <option>16GB</option>
-                <option>32GB</option>
-              </select>
-            </L>
-            <L label="Base Storage">
-              <select
-                {...register("baseStorage")}
-                className="input"
-                disabled={disGen}
-              >
-                <option value="" disabled hidden>
-                  Select Storage
-                </option>
-                <option>256GB</option>
-                <option>512GB</option>
-                <option>1TB</option>
-              </select>
-            </L>
-            <L label="Base CPU / Processor">
-              <select
-                {...register("baseCPU")}
-                className="input"
-                disabled={disGen}
-              >
-                <option value="" disabled hidden>
-                  Select CPU
-                </option>
-                <option>Core i3</option>
-                <option>Core i5</option>
-                <option>Core i7</option>
-              </select>
-            </L>
-            <L label="Serial Number">
-              <input
-                {...register("serialNumbers")}
-                placeholder="SN-12345"
-                className="input"
-                disabled={disGen}
-              />
-            </L>
-          </div>
+                 
 
-          {/* row 4 */}
+                  {Array.from({ length: quantity }).map((_, index) => (
+                    <div key={index} className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                      <L label={`Base RAM (${index + 1})`}>
+                        <select
+                          {...register(`baseRam_${index}`)}
+                          className="input"
+                          disabled={disGen}
+                        >
+                          <option value="" disabled hidden>
+                            Select RAM
+                          </option>
+                          <option>8GB</option>
+                          <option>16GB</option>
+                          <option>32GB</option>
+                        </select>
+                      </L>
+                      <L label={`Base Storage (${index + 1})`}>
+                        <select
+                          {...register(`baseStorage_${index}`)}
+                          className="input"
+                          disabled={disGen}
+                        >
+                          <option value="" disabled hidden>
+                            Select Storage
+                          </option>
+                          <option>256GB</option>
+                          <option>512GB</option>
+                          <option>1TB</option>
+                        </select>
+                      </L>
+                      <L label={`Base CPU / Processor (${index + 1})`}>
+                        <select
+                          {...register(`baseCPU_${index}`)}
+                          className="input"
+                          disabled={disGen}
+                        >
+                          <option value="" disabled hidden>
+                            Select CPU
+                          </option>
+                          <option>Core i3</option>
+                          <option>Core i5</option>
+                          <option>Core i7</option>
+                        </select>
+                      </L>
+                      <L label={`Serial Number (${index + 1})`}>
+                        <input
+                          {...register(`serialNumbers_${index}`)}
+                          placeholder={`SN-${index + 1}`}
+                          className="input"
+                          disabled={disGen}
+                        />
+                      </L>
+                    </div>
+                  ))}
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             <L label="Cost Price per Unit">
               <input

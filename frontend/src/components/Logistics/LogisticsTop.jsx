@@ -153,12 +153,12 @@ export default function LogisticsTop() {
             Export CSV
           </button>
 
-          <button
+          {/* <button
             onClick={() => nav('create-shipment')}
             className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm hover:bg-orange-700"
           >
             Create Shipment
-          </button>
+          </button> */}
         </div>
       </div>
 
