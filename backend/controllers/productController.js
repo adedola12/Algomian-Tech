@@ -117,7 +117,6 @@ export const updateProduct = asyncHandler(async (req, res) => {
 
   if (req.body.storageRam !== undefined)
     product.storageRam = req.body.storageRam;
-
   if (req.body.Storage !== undefined) product.Storage = req.body.Storage;
   if (req.body.variants)
     product.variants = parseMaybeJSON(req.body.variants, []);
@@ -142,11 +141,18 @@ export const deleteProduct = asyncHandler(async (req, res) => {
   res.json({ message: "Product removed" });
 });
 
-/* ─────────────  READ LIST  ─────────────
-   · ?search=laptop        – fuzzy search across name / brand / category
-   · ?category=PC          – exact match on category
-   · ?page=2&limit=20      – pagination
-──────────────────────────────────────── */
+export const getBrands = asyncHandler(async (req, res) => {
+  const brands = await Product.distinct("brand");
+  res.json(brands.length ? brands : ["HP", "Dell", "Lenovo"]);
+});
+
+export const getCategories = asyncHandler(async (req, res) => {
+  const categories = await Product.distinct("productCategory");
+  res.json(
+    categories.length ? categories : ["Laptops", "Monitors", "Accessories"]
+  );
+});
+
 export const getProducts = asyncHandler(async (req, res) => {
   const { search = "", category, page = 1, limit = 50 } = req.query;
 
