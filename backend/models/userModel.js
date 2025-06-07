@@ -1,6 +1,7 @@
 // backend/models/userModel.js
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 const userSchema = new mongoose.Schema(
   {
@@ -43,6 +44,9 @@ const userSchema = new mongoose.Schema(
       includeTax: { type: Boolean, default: true },
       emailNotification: { type: Boolean, default: false },
     },
+
+    resetPasswordToken: String,
+    resetPasswordExpire: Date,
   },
   { timestamps: true }
 );
@@ -55,6 +59,22 @@ userSchema.pre("save", async function (next) {
 
 userSchema.methods.matchPassword = function (pw) {
   return bcrypt.compare(pw, this.password);
+};
+
+userSchema.methods.generateResetToken = function () {
+  // Generate raw reset token
+  const resetToken = crypto.randomBytes(20).toString("hex");
+
+  // Hash the token to store in DB (security best practice)
+  this.resetPasswordToken = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
+
+  // Set expiration time (e.g., 10 minutes)
+  this.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
+
+  return resetToken; // Return the raw token to email to the user
 };
 
 export default mongoose.model("User", userSchema);

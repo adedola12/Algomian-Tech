@@ -16,6 +16,8 @@ import {
   updatePreferences,
   getAllUsers,
   updateUserPermissions,
+  forgotPassword,
+  resetPassword,
 } from "../controllers/userController.js";
 import {
   protect,
@@ -83,6 +85,10 @@ router.get(
   authorize("customer.view"),
   getCustomersList
 );
+
+// backend/routes/userRoutes.js
+router.post("/forgot-password", forgotPassword);
+router.put("/reset-password/:token", resetPassword);
 
 router.get(
   "/logistics-drivers",

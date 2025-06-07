@@ -3,6 +3,8 @@ import asyncHandler from "express-async-handler";
 import AccessPolicy from "../models/accessPolicyModel.js";
 import User from "../models/userModel.js";
 import Order from "../models/orderModel.js";
+import sendEmail from "../utils/sendEmail.js";
+import crypto from "crypto";
 import generateToken from "../utils/generateToken.js";
 import { DEFAULT_PERMS_BY_TYPE } from "../utils/defaultPerms.js";
 
@@ -82,12 +84,6 @@ export const authUser = asyncHandler(async (req, res) => {
 
   const token = generateToken(user._id, finalPerms); // 2️⃣
 
-  // res.cookie("algomianToken", token, cookieOpts).json({
-  //   ...safeUser(user),
-  //   permissions: perms || policy?.permissions || [],
-  //   token,
-  // });
-
   res.cookie("algomianToken", token, cookieOpts).json({
     ...safeUser(user),
     permissions: finalPerms,
@@ -138,6 +134,76 @@ export const getUserProfile = asyncHandler(async (req, res) => {
   res.json(user);
 
   // res.json(addPerms(user.toObject()));
+});
+
+/* ───────────  FORGOT PASSWORD  ─────────── */
+export const forgotPassword = asyncHandler(async (req, res) => {
+  const { identifier = "" } = req.body;
+  if (!identifier) {
+    res.status(400);
+    throw new Error("Please supply your e-mail or phone number.");
+  }
+
+  const user = await User.findOne({
+    $or: [{ email: identifier.toLowerCase() }, { whatAppNumber: identifier }],
+  });
+
+  if (!user) {
+    // Don't reveal existence
+    return res.json({
+      message: "If the account exists, a reset link was sent.",
+    });
+  }
+
+  const resetToken = user.generateResetToken();
+  await user.save({ validateBeforeSave: false });
+
+  const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
+  const html = `
+    <p>Hello ${user.firstName},</p>
+    <p>You requested a password reset. Click the link below to choose a new password:</p>
+    <p><a href="${resetUrl}">${resetUrl}</a></p>
+    <p>This link expires in 10 minutes. If you did not request this, you can safely ignore this e-mail.</p>`;
+
+  await sendEmail({
+    to: user.email,
+    subject: "Password reset – Algomian Tech",
+    html,
+  });
+
+  res.json({ message: "If the account exists, a reset link was sent." });
+});
+
+/* ───────────  RESET PASSWORD  ─────────── */
+export const resetPassword = asyncHandler(async (req, res) => {
+  /* hash the token from the URL and look it up */
+  const hashedToken = crypto
+    .createHash("sha256")
+    .update(req.params.token)
+    .digest("hex");
+
+  const user = await User.findOne({
+    resetPasswordToken: hashedToken,
+    resetPasswordExpire: { $gt: Date.now() },
+  });
+
+  if (!user) {
+    res.status(400);
+    throw new Error("Token is invalid or has expired");
+  }
+
+  const { newPassword } = req.body;
+  if (!newPassword || !strongPassword(newPassword)) {
+    res.status(400);
+    throw new Error("Password must be ≥6 chars and contain ≥1 digit");
+  }
+
+  user.password = newPassword;
+  user.resetPasswordToken = undefined;
+  user.resetPasswordExpire = undefined;
+  await user.save();
+
+  res.json({ message: "Password updated – you can now log in." });
 });
 
 /* ————————————————— UPDATE PROFILE ————————————— */

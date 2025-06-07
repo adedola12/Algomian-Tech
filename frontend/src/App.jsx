@@ -16,8 +16,6 @@ import Search from "./pages/Search";
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 
-
-
 /* ─ customer-only pages ─ */
 import Orders from "./pages/Orders";
 import Shipping from "./pages/Shipping";
@@ -43,6 +41,8 @@ import PrivateRoute from "./routes/PrivateRoute";
 
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 export default function App() {
   return (
@@ -64,6 +64,8 @@ export default function App() {
           <Route path="order-success" element={<OrderSuccess />} />
           <Route path="login" element={<Login />} />
           <Route path="signup" element={<SignUp />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
         </Route>
 
         {/* ─ Logged-in users ─ */}
