@@ -2,8 +2,8 @@ import mongoose from "mongoose";
 
 const variantSchema = new mongoose.Schema(
   {
-    attribute: { type: String},
-    value: { type: String},
+    attribute: { type: String },
+    value: { type: String },
     inputCost: { type: Number, default: 0 },
   },
   { _id: false }
@@ -21,11 +21,14 @@ const productSchema = new mongoose.Schema(
     brand: { type: String, required: true },
 
     /* base specs */
-    baseRam: String,
-    baseStorage: String,
-    baseCPU: String,
-    serialNumbers: String,
-
+    baseSpecs: [
+      {
+        baseRam: String,
+        baseStorage: String,
+        baseCPU: String,
+        serialNumber: String,
+      },
+    ],
 
     /* pricing & qty */
     quantity: { type: Number, default: 1 },

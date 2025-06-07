@@ -1,26 +1,37 @@
 import asyncHandler from "express-async-handler";
-import Product      from "../models/productModel.js";
+import Product from "../models/productModel.js";
 import { uploadBufferToCloudinary } from "../utils/cloudinaryUpload.js";
 import { v4 as uuid } from "uuid";
 
 /* ─ helpers ─ */
 export const parseMaybeJSON = (val, fallback = null) => {
   if (typeof val !== "string") return fallback;
-  try   { return JSON.parse(val); }
-  catch { return fallback ?? val; }   // ← if it’s plain text just return it
+  try {
+    return JSON.parse(val);
+  } catch {
+    return fallback ?? val;
+  } // ← if it’s plain text just return it
 };
 
 /* ─────────────  CREATE  ───────────── */
 export const createProduct = asyncHandler(async (req, res) => {
   const {
-    productName, productCondition, 
-    productCategory, brand,
-    baseRam, baseStorage, baseCPU,
-    storageRam, Storage,
-    serialNumbers,supplier,
-    costPrice, sellingPrice, quantity,
-    availability, status, reorderLevel, stockLocation,
-    productId, description,
+    productName,
+    productCondition,
+    productCategory,
+    brand,
+    storageRam,
+    Storage,
+    supplier,
+    costPrice,
+    sellingPrice,
+    quantity,
+    availability,
+    status,
+    reorderLevel,
+    stockLocation,
+    productId,
+    description,
   } = req.body;
 
   /* - images - */
@@ -34,34 +45,32 @@ export const createProduct = asyncHandler(async (req, res) => {
 
   /* - parse arrays that came as JSON strings - */
   // const serialNumbers = parseMaybeJSON(req.body.serialNumbers, []);
-  const variants      = parseMaybeJSON(req.body.variants, []);
-  const features      = parseMaybeJSON(req.body.features, []);
+  const variants = parseMaybeJSON(req.body.variants, []);
+  const features = parseMaybeJSON(req.body.features, []);
+  const baseSpecs = parseMaybeJSON(req.body.baseSpecs, []);
 
   const product = await Product.create({
-       productName,
-       productCondition,              // ⭐ REQUIRED field now included
-       productCategory,
-       brand,
-       baseRam,
-       baseStorage,
-       baseCPU,
-       storageRam,                    // ⭐
-       Storage,                       // ⭐
-       serialNumbers,
-       supplier,                      // ⭐
-       costPrice:    Number(costPrice),
-       sellingPrice: Number(sellingPrice),
-       quantity:     Number(quantity),
-       availability,
-       status,
-       reorderLevel: Number(reorderLevel),
-       stockLocation,
-       productId,
-       description,
-       variants,
-       features,
-       images: imageLinks,
-     });
+    productName,
+    productCondition, // ⭐ REQUIRED field now included
+    productCategory,
+    brand,
+    baseSpecs,
+    storageRam, // ⭐
+    Storage, // ⭐
+    supplier, // ⭐
+    costPrice: Number(costPrice),
+    sellingPrice: Number(sellingPrice),
+    quantity: Number(quantity),
+    availability,
+    status,
+    reorderLevel: Number(reorderLevel),
+    stockLocation,
+    productId,
+    description,
+    variants,
+    features,
+    images: imageLinks,
+  });
 
   res.status(201).json(product);
 });
@@ -85,11 +94,17 @@ export const updateProduct = asyncHandler(async (req, res) => {
 
   /* plain scalar fields */
   [
-    "productName", "productCategory", "brand",
-    "baseRam", "baseStorage", "baseCPU",
-    "costPrice", "sellingPrice", "quantity",
-    "availability", "status", "reorderLevel",
-    "stockLocation", "description",
+    "productName",
+    "productCategory",
+    "brand",
+    "costPrice",
+    "sellingPrice",
+    "quantity",
+    "availability",
+    "status",
+    "reorderLevel",
+    "stockLocation",
+    "description",
   ].forEach((f) => {
     if (req.body[f] !== undefined) product[f] = req.body[f];
   });
@@ -99,16 +114,17 @@ export const updateProduct = asyncHandler(async (req, res) => {
     product.serialNumbers = req.body.serialNumbers;
   if (req.body.productCondition !== undefined)
     product.productCondition = req.body.productCondition;
-  
+
   if (req.body.storageRam !== undefined)
     product.storageRam = req.body.storageRam;
-  
-  if (req.body.Storage !== undefined)
-    product.Storage = req.body.Storage;
+
+  if (req.body.Storage !== undefined) product.Storage = req.body.Storage;
   if (req.body.variants)
-    product.variants      = parseMaybeJSON(req.body.variants, []);
+    product.variants = parseMaybeJSON(req.body.variants, []);
   if (req.body.features)
-    product.features      = parseMaybeJSON(req.body.features, []);
+    product.features = parseMaybeJSON(req.body.features, []);
+  if (req.body.baseSpecs)
+    product.baseSpecs = parseMaybeJSON(req.body.baseSpecs, []);
 
   const updated = await product.save();
   res.json(updated);
@@ -126,7 +142,6 @@ export const deleteProduct = asyncHandler(async (req, res) => {
   res.json({ message: "Product removed" });
 });
 
-
 /* ─────────────  READ LIST  ─────────────
    · ?search=laptop        – fuzzy search across name / brand / category
    · ?category=PC          – exact match on category
@@ -140,8 +155,8 @@ export const getProducts = asyncHandler(async (req, res) => {
       search
         ? {
             $or: [
-              { productName:     { $regex: search, $options: "i" } },
-              { brand:           { $regex: search, $options: "i" } },
+              { productName: { $regex: search, $options: "i" } },
+              { brand: { $regex: search, $options: "i" } },
               { productCategory: { $regex: search, $options: "i" } },
             ],
           }
@@ -150,7 +165,7 @@ export const getProducts = asyncHandler(async (req, res) => {
     ],
   };
 
-  const skip  = (+page - 1) * +limit;
+  const skip = (+page - 1) * +limit;
   const total = await Product.countDocuments(q);
   const products = await Product.find(q)
     .sort("-createdAt")
