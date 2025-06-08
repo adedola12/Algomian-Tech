@@ -29,6 +29,7 @@ export const DEFAULT_PERMS_BY_TYPE = {
   SalesRep: [
     "order.view",
     "order.create",
+    "order.manage",
     "product.view",
     "product.section.general",
     "product.section.description",

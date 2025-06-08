@@ -3,6 +3,10 @@ import Order from "../models/orderModel.js";
 import User from "../models/userModel.js"; // ✅ Add this
 import Product from "../models/productModel.js";
 import crypto from "crypto";
+import { ALL_PERMISSIONS } from "../constants/permissions.js";
+import { PERM } from "../constants/permKeys.js"; // 👈 REQUIRED!
+
+
 import { PassThrough } from "stream";
 
 const hasChangeStream = () => {

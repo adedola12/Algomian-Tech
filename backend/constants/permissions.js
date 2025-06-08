@@ -1,9 +1,8 @@
-/*  backend/constants/permissions.js
- *  All IDs are lower-case kebab/period style → easy to compare on client.
- */
+
 export const ALL_PERMISSIONS = [
   /* ─── Orders ───────────────────────────── */
   { id: "order.view", label: "Can view orders" },
+  {id: "order.manage", label: "Can manage orders (legacy)"},
   { id: "order.create", label: "Can create orders" },
   { id: "order.edit", label: "Can edit orders" },
   { id: "order.ship", label: "Can mark as shipped / delivered" },
