@@ -1,9 +1,7 @@
 //  ── src/components/Sales/SalesDelivery.jsx ──
 import React, { useState, useEffect, useMemo } from "react";
-import axios                         from "axios";
-import {
-  FiTruck, FiMapPin, FiUser, FiPhone, FiPlus,
-}                                    from "react-icons/fi";
+import axios from "axios";
+import { FiTruck, FiMapPin, FiUser, FiPhone, FiPlus } from "react-icons/fi";
 
 const TAX_RATE = 0.075;
 
@@ -15,42 +13,58 @@ const TAX_RATE = 0.075;
  */
 export default function SalesDelivery({
   /* wizard navigation */
-  onBack, onNext, onAddAnotherOrder = () => {},
+  onBack,
+  onNext,
+  onAddAnotherOrder = () => {},
 
-  hideNav            = false,
+  hideNav = false,
 
   /* pre-filled data (every prop is optional) */
-  items               = [],
-  customerName        = "",
-  customerPhone       = "",
-  pointOfSale         = "",
-  deliveryMethod      = "",
-  shippingAddress     = "",
-  parkLocation        = "",
-  selectedCustomerId  = null,
+  items = [],
+  customerName = "",
+  customerPhone = "",
+  pointOfSale = "",
+  deliveryMethod = "",
+  shippingAddress = "",
+  parkLocation = "",
+  selectedCustomerId = null,
 }) {
   /* ------------------------------------------------ state ---------- */
-  const [name,  setName ]  = useState(customerName);
-  const [phone, setPhone]  = useState(customerPhone);
-  const [pos,   setPOS ]   = useState(pointOfSale);
-  const [method,setMethod] = useState(deliveryMethod);
-  const [ship,  setShip ]  = useState(shippingAddress);
-  const [park,  setPark ]  = useState(parkLocation);
-  const [selId, setSelId ] = useState(selectedCustomerId);
+  const [name, setName] = useState(customerName);
+  const [phone, setPhone] = useState(customerPhone);
+  const [pos, setPOS] = useState(pointOfSale);
+  const [method, setMethod] = useState(deliveryMethod);
+  const [ship, setShip] = useState(shippingAddress);
+  const [park, setPark] = useState(parkLocation);
+  const [selId, setSelId] = useState(selectedCustomerId);
 
   /* re-sync if the parent opens the modal with a new order */
-  useEffect(() => { setName (customerName);        }, [customerName]);
-  useEffect(() => { setPhone(customerPhone);       }, [customerPhone]);
-  useEffect(() => { setPOS  (pointOfSale);         }, [pointOfSale]);
-  useEffect(() => { setMethod(deliveryMethod);     }, [deliveryMethod]);
-  useEffect(() => { setShip (shippingAddress);     }, [shippingAddress]);
-  useEffect(() => { setPark (parkLocation);        }, [parkLocation]);
-  useEffect(() => { setSelId(selectedCustomerId);  }, [selectedCustomerId]);
+  useEffect(() => {
+    setName(customerName);
+  }, [customerName]);
+  useEffect(() => {
+    setPhone(customerPhone);
+  }, [customerPhone]);
+  useEffect(() => {
+    setPOS(pointOfSale);
+  }, [pointOfSale]);
+  useEffect(() => {
+    setMethod(deliveryMethod);
+  }, [deliveryMethod]);
+  useEffect(() => {
+    setShip(shippingAddress);
+  }, [shippingAddress]);
+  useEffect(() => {
+    setPark(parkLocation);
+  }, [parkLocation]);
+  useEffect(() => {
+    setSelId(selectedCustomerId);
+  }, [selectedCustomerId]);
 
   /* -------------------------------------- customers autocomplete --- */
   const [allCustomers, setAllCustomers] = useState([]);
-  const [suggestions,  setSuggestions ] = useState([]);
-  const [focused,      setFocused    ] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [focused, setFocused] = useState(false);
 
   useEffect(() => {
     axios
@@ -82,14 +96,14 @@ export default function SalesDelivery({
     () => items.reduce((s, i) => s + i.price * i.qty, 0),
     [items]
   );
-  const tax   = subtotal * TAX_RATE;
+  const tax = subtotal * TAX_RATE;
   const total = subtotal + tax;
 
   /* --------------------------------------------- helpers ---------- */
   const methods = [
-    { key: "logistics", label: "Logistics",     icon: <FiTruck /> },
-    { key: "park",      label: "Park Pick-Up",  icon: <FiMapPin /> },
-    { key: "self",      label: "Self Pick-Up",  icon: <FiMapPin /> },
+    { key: "logistics", label: "Logistics", icon: <FiTruck /> },
+    { key: "park", label: "Park Pick-Up", icon: <FiMapPin /> },
+    { key: "self", label: "Self Pick-Up", icon: <FiMapPin /> },
   ];
 
   /* ---------------------------------------------- render ---------- */
@@ -256,8 +270,8 @@ export default function SalesDelivery({
         </div>
       </div>
 
-        {/* footer  –– render only if navigation buttons are wanted */}
-        {!hideNav && (
+      {/* footer  –– render only if navigation buttons are wanted */}
+      {!hideNav && (
         <div className="flex flex-col sm:flex-row justify-between gap-4">
           <button
             onClick={onBack}
@@ -269,13 +283,13 @@ export default function SalesDelivery({
           <button
             onClick={() =>
               onNext({
-                customerName,
-                customerPhone,
-                pointOfSale,
-                deliveryMethod,
-                shippingAddress,
-                parkLocation,
-                selectedCustomerId,
+                customerName: name, // ← use local state instead of props
+                customerPhone: phone,
+                pointOfSale: pos,
+                deliveryMethod: method,
+                shippingAddress: ship,
+                parkLocation: park,
+                selectedCustomerId: selId,
                 summary: { subtotal, tax, total },
               })
             }

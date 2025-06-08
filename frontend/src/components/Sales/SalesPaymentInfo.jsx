@@ -1,5 +1,5 @@
 // src/components/SalesPaymentInfo.jsx
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo } from "react";
 import {
   FiChevronRight,
   FiTrash2,
@@ -7,14 +7,14 @@ import {
   FiUser,
   FiPhone,
   FiMapPin,
-} from 'react-icons/fi'
-import { toast } from 'react-toastify'
-import { createOrder } from '../../api'
-import SalesComplete from './SalesComplete'
-import SalesPrintPreview from './SalesPrintPreview'
+} from "react-icons/fi";
+import { toast } from "react-toastify";
+import { createOrder } from "../../api";
+import SalesComplete from "./SalesComplete";
+import SalesPrintPreview from "./SalesPrintPreview";
 
 export default function SalesPaymentInfo({
-  items: initialItems  = [],
+  items: initialItems = [],
   customerName,
   customerPhone,
   pointOfSale,
@@ -28,22 +28,23 @@ export default function SalesPaymentInfo({
 }) {
   const [items, setItems] = useState(initialItems);
 
-  const [method, setMethod] = useState('cash')
-  const [bankAccount, setBankAccount] = useState('Moniepoint - Alogoman 2')
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
-  const [accountName, setAccountName] = useState('')
-  const [amountTransferred, setAmountTransferred] = useState(summary.total)
+  const [method, setMethod] = useState("cash");
+  const [bankAccount, setBankAccount] = useState("Moniepoint - Alogoman 2");
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [accountName, setAccountName] = useState("");
+  const [amountTransferred, setAmountTransferred] = useState(summary.total);
 
-  const [loading, setLoading] = useState(false)
-  const [showComplete, setShowComplete] = useState(false)
-  const [showPrint, setShowPrint] = useState(false)
+  const [loading, setLoading] = useState(false);
+  const [showComplete, setShowComplete] = useState(false);
+  const [showPrint, setShowPrint] = useState(false);
 
   const change = useMemo(
     () => parseFloat(amountTransferred || 0) - summary.total,
     [amountTransferred, summary.total]
-  )
+  );
 
-  const removeLine = (id) => setItems((prev) => prev.filter((x) => x.id !== id));
+  const removeLine = (id) =>
+    setItems((prev) => prev.filter((x) => x.id !== id));
 
   // const handleDone = async () => {
   //   setLoading(true)
@@ -89,102 +90,106 @@ export default function SalesPaymentInfo({
   //   }
   // }
 
-  
-// only the handleDone() function needs to be updated:
-const handleDone = async () => {
-  setLoading(true);
-  try {
-    const fullShipping = {
-      address:
-        deliveryMethod === 'park'
-          ? parkLocation
-          : deliveryMethod === 'self'
-          ? pointOfSale
-          : shippingAddress,
-      city: 'N/A',
-      postalCode: 'N/A',
-      country: 'N/A',
-    };
+  // only the handleDone() function needs to be updated:
+  const handleDone = async () => {
+    setLoading(true);
+    try {
+      const fullShipping = {
+        address:
+          deliveryMethod === "park"
+            ? parkLocation
+            : deliveryMethod === "self"
+            ? pointOfSale
+            : shippingAddress,
+        city: "N/A",
+        postalCode: "N/A",
+        country: "N/A",
+      };
 
-    const payload = {
-      orderItems: items.map((it) => ({
-        product: it.id,
-        qty: it.qty,
-        price: it.price,
-      })),
-      shippingAddress: fullShipping,
-      paymentMethod: method,
-      shippingPrice: 0,
-      taxPrice: summary.tax,
-      itemsPrice: summary.subtotal,
+      const payload = {
+        orderItems: items.map((it) => ({
+          product: it.id,
+          qty: it.qty,
+          price: it.price,
+          baseRam: it.baseRam,
+          baseStorage: it.baseStorage,
+          baseCPU: it.baseCPU,
+          image: it.image,
+          maxQty: it.maxQty,
+          name: it.name,
+        })),
 
-      selectedCustomerId, // pass this from props
-      customerName,
-      customerPhone,
-      paymentDetails: {
-        bankAccount,
-        date,
-        accountName,
-        amountTransferred: parseFloat(amountTransferred),
-      },
-    };
+        shippingAddress: fullShipping,
+        paymentMethod: method,
+        shippingPrice: 0,
+        taxPrice: summary.tax,
+        itemsPrice: summary.subtotal,
 
-       const res = await createOrder(payload);      // res === pure JSON
+        selectedCustomerId, // pass this from props
+        customerName,
+        customerPhone,
+        paymentDetails: {
+          bankAccount,
+          date,
+          accountName,
+          amountTransferred: parseFloat(amountTransferred),
+        },
+      };
 
-    (res.lowStockWarnings ?? []).forEach((msg) => toast.warn(msg));
+      const res = await createOrder(payload); // res === pure JSON
 
-    toast.success("Order placed successfully!");
+      (res.lowStockWarnings ?? []).forEach((msg) => toast.warn(msg));
 
+      toast.success("Order placed successfully!");
 
-    setShowComplete(true);
-  } catch (err) {
-    toast.error(err.response?.data?.message || err.message);
-  } finally {
-    setLoading(false);
-  }
-};
-
+      setShowComplete(true);
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleCloseComplete = () => {
-    setShowComplete(false)
-    onDone()
-  }
+    setShowComplete(false);
+    onDone();
+  };
   const handlePrint = () => {
-    setShowComplete(false)
-    setShowPrint(true)
-  }
+    setShowComplete(false);
+    setShowPrint(true);
+  };
   const handleClosePrint = () => {
-    setShowPrint(false)
-    onDone()
-  }
+    setShowPrint(false);
+    onDone();
+  };
 
-    const handleNewSale = () => {
-        setShowComplete(false)
-        onDone()                // parent (SalesTable) already resets state & step
-      }
+  const handleNewSale = () => {
+    setShowComplete(false);
+    onDone(); // parent (SalesTable) already resets state & step
+  };
 
   const details = [
-    { label: 'Recipient name', icon: <FiUser />, value: customerName },
-    { label: 'Phone number',   icon: <FiPhone />, value: customerPhone },
-    { label: 'Point of Sales', icon: <FiMapPin />, value: pointOfSale },
+    { label: "Recipient name", icon: <FiUser />, value: customerName },
+    { label: "Phone number", icon: <FiPhone />, value: customerPhone },
+    { label: "Point of Sales", icon: <FiMapPin />, value: pointOfSale },
     {
-      label: 'Delivery Method',
+      label: "Delivery Method",
       icon: <FiMapPin />,
       value:
-        deliveryMethod === 'logistics'
+        deliveryMethod === "logistics"
           ? `Logistics — ${shippingAddress}`
-          : deliveryMethod === 'park'
+          : deliveryMethod === "park"
           ? `Park Pick-Up — ${parkLocation}`
-          : 'Self Pick-Up',
+          : "Self Pick-Up",
     },
-  ]
+  ];
 
   return (
     <div className="relative">
       <div
         className={`bg-white rounded-2xl shadow p-4 sm:p-6 space-y-6
           transition-filter duration-200 ${
-            showComplete || showPrint ? 'filter blur-sm' : ''
+            showComplete || showPrint ? "filter blur-sm" : ""
           }`}
       >
         {/* Header */}
@@ -213,7 +218,10 @@ const handleDone = async () => {
                 />
                 <div>
                   <h3 className="text-gray-800 font-medium">{it.name}</h3>
-                  <p className="text-gray-500 text-sm">{it.specs}</p>
+                  <p className="text-gray-500 text-sm">
+                    {it.baseRam}, {it.baseStorage}, {it.baseCPU}
+                  </p>
+
                   <p className="text-gray-600 text-sm">QTY: {it.qty}</p>
                 </div>
               </div>
@@ -221,7 +229,7 @@ const handleDone = async () => {
                 <span className="text-gray-800 font-semibold">
                   ₦{(it.qty * it.price).toLocaleString()}
                 </span>
-                  <FiTrash2
+                <FiTrash2
                   className="text-gray-400 hover:text-gray-600 cursor-pointer"
                   onClick={() => removeLine(it.id)}
                 />
@@ -263,25 +271,25 @@ const handleDone = async () => {
               Select method of payment
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {['cash', 'bank', 'card'].map((m) => (
+              {["cash", "bank", "card"].map((m) => (
                 <button
                   key={m}
                   onClick={() => setMethod(m)}
                   className={`w-full py-2 rounded-lg border ${
                     method === m
-                      ? 'bg-orange-600 text-white border-orange-600'
-                      : 'bg-white text-gray-700 border-gray-300'
+                      ? "bg-orange-600 text-white border-orange-600"
+                      : "bg-white text-gray-700 border-gray-300"
                   }`}
                 >
-                  {m === 'cash'
-                    ? 'Cash'
-                    : m === 'bank'
-                    ? 'Bank Transfer'
-                    : 'Card'}
+                  {m === "cash"
+                    ? "Cash"
+                    : m === "bank"
+                    ? "Bank Transfer"
+                    : "Card"}
                 </button>
               ))}
             </div>
-            {method === 'bank' && (
+            {method === "bank" && (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 {/* bank details */}
                 <div>
@@ -330,9 +338,7 @@ const handleDone = async () => {
                     <input
                       type="number"
                       value={amountTransferred}
-                      onChange={(e) =>
-                        setAmountTransferred(e.target.value)
-                      }
+                      onChange={(e) => setAmountTransferred(e.target.value)}
                       className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500"
                     />
                   </div>
@@ -355,10 +361,10 @@ const handleDone = async () => {
             onClick={handleDone}
             disabled={loading}
             className={`px-6 py-2 text-white rounded-lg ${
-              loading ? 'bg-gray-400' : 'bg-orange-600 hover:bg-orange-700'
+              loading ? "bg-gray-400" : "bg-orange-600 hover:bg-orange-700"
             }`}
           >
-            {loading ? 'Processing…' : 'Done'}
+            {loading ? "Processing…" : "Done"}
           </button>
         </div>
       </div>
@@ -369,7 +375,7 @@ const handleDone = async () => {
           change={change}
           onClose={handleCloseComplete}
           onPrint={handlePrint}
-          onNewSale={handleNewSale} 
+          onNewSale={handleNewSale}
         />
       )}
 
@@ -379,14 +385,14 @@ const handleDone = async () => {
           onClose={handleClosePrint}
           onPrintPDF={handleClosePrint}
           company={{
-            name: 'Algorional Technologies',
-            email: 'algorionaltechnologies@gmail.com',
+            name: "Algorional Technologies",
+            email: "algorionaltechnologies@gmail.com",
           }}
           billedTo={customerName}
-          date={new Date().toLocaleDateString('en-GB', {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric',
+          date={new Date().toLocaleDateString("en-GB", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
           })}
           items={items.map((it, i) => ({
             sn: i + 1,
@@ -398,5 +404,5 @@ const handleDone = async () => {
         />
       )}
     </div>
-  )
+  );
 }
