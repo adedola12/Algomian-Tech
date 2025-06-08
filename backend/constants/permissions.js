@@ -1,8 +1,7 @@
-
 export const ALL_PERMISSIONS = [
   /* ─── Orders ───────────────────────────── */
   { id: "order.view", label: "Can view orders" },
-  {id: "order.manage", label: "Can manage orders (legacy)"},
+  { id: "order.manage", label: "Can manage orders (legacy)" },
   { id: "order.create", label: "Can create orders" },
   { id: "order.edit", label: "Can edit orders" },
   { id: "order.ship", label: "Can mark as shipped / delivered" },
@@ -42,4 +41,8 @@ export const ALL_PERMISSIONS = [
 
   /* ─── Stats / Dashboard ───────────────── */
   { id: "stats.view", label: "Can view dashboard stats" },
+
+  { id: "store.view", label: "Can view store management" },
+  { id: "store.edit", label: "Can edit store items" },
+  { id: "store.manage", label: "Can manage store inventory" },
 ];

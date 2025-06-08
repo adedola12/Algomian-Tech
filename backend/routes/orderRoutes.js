@@ -10,11 +10,13 @@ import {
   streamNewOrders,
   updateOrderDetails,
   approveSale,
+  verifyInventory,
 } from "../controllers/orderController.js";
 import {
   protect,
   isAdmin,
   isSalesTeam,
+  isInventory,
   canViewOrders,
   authorize,
 } from "../middleware/authMiddleware.js";
@@ -37,6 +39,7 @@ router.patch(
   authorize("sale.approve"), // <── new gate
   approveSale
 );
+router.patch("/:id/verify-inventory", protect, isInventory, verifyInventory);
 
 // routes/orderRoutes.js
 // router.get("/", protect, isAdmin, getOrders);

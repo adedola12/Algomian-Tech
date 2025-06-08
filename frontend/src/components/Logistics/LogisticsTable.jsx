@@ -1,9 +1,8 @@
 /*  src/components/Logistics/LogisticsTable.jsx  */
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { FiMoreVertical, FiStar, FiCheckCircle, FiSend } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-// import jwtDecode from "jwt-decode"; // yarn add jwt-decode
 import { fetchAllOrders } from "../../api";
 import api from "../../api";
 import { useAuth } from "../../context/AuthContext";
@@ -11,16 +10,38 @@ import { useAuth } from "../../context/AuthContext";
 /* ordered list of logistics steps */
 const LOG_STEPS = ["Processing", "RiderOnWay", "InTransit", "Delivered"];
 
+/* ───────────────────── sorting helpers ───────────────────── */
+const arrow = (active, dir) => (active ? (dir === "asc" ? " ▲" : " ▼") : "");
+
+const compare = (a, b, key, dir) => {
+  const mult = dir === "asc" ? 1 : -1;
+
+  /* numeric? – only qty here, but qty is not sortable per spec */
+  if (["qty"].includes(key)) return mult * (a[key] - b[key]);
+
+  return (
+    mult *
+    String(a[key] || "").localeCompare(String(b[key] || ""), "en", {
+      sensitivity: "base",
+    })
+  );
+};
+/* ───────────────────── component ───────────────────── */
 export default function LogisticsTable() {
-  /* ---------------------------------------------------------------- */
   const { currentUser, loading: authLoading } = useAuth();
-  const [user, setUser] = useState(currentUser); // local mirror
+  const [user, setUser] = useState(currentUser);
   const [orders, setOrders] = useState([]);
   const [tab, setTab] = useState("ready");
   const [leading, setLeading] = useState(null);
   const [menuFor, setMenuFor] = useState(null);
+
+  /* NEW: sorting */
+  const [sortBy, setSortBy] = useState("track"); // default column
+  const [sortDir, setSortDir] = useState("asc"); // asc | desc
+
   const nav = useNavigate();
 
+  /* ----------- very-lightweight JWT decode ------------ */
   const jwtDecode = (token) => {
     try {
       const [, payload] = token.split(".");
@@ -37,68 +58,47 @@ export default function LogisticsTable() {
     }
   };
 
-  /* ───────────── 1) hydrate user directly from token ────────────── */
+  /* ----------- 1) hydrate user from token (unchanged) ------------ */
   useEffect(() => {
-    if (user || authLoading) return; // already have one / still loading
+    if (user || authLoading) return;
 
     const token = localStorage.getItem("algomian:token");
-    if (!token) return; // guest → keep user = null
-
-    /* decode just the payload { _id, iat, exp, … } so we can attach
-       the header before hitting “/profile”                                */
-    let decoded;
-    try {
-      decoded = jwtDecode(token);
-    } catch {
-      return;
-    } // invalid token – do nothing
-
+    if (!token) return;
     api.defaults.headers.common.Authorization = `Bearer ${token}`;
 
-    (async () => {
-      try {
-        const { data } = await api.get("/api/users/profile", {
-          withCredentials: true,
-        });
-        setUser(data);
-      } catch {
-        /* token expired ⇒ wipe it */
-        localStorage.removeItem("algomian:token");
-      }
-    })();
+    api
+      .get("/api/users/profile", { withCredentials: true })
+      .then(({ data }) => setUser(data))
+      .catch(() => localStorage.removeItem("algomian:token"));
   }, [user, authLoading]);
 
-  /* ───────────── 2) load orders once we know the user (or lack of) ─ */
+  /* ----------- 2) fetch orders once we know the user ------------ */
   useEffect(() => {
-    if (authLoading) return; // still waiting for context fetch
+    if (authLoading) return;
 
     (async () => {
-      /* fetch list according to role */
       const list =
         user?.userType === "Logistics"
           ? (await api.get("/api/logistics/my", { withCredentials: true })).data
           : await fetchAllOrders();
 
-      /* rider rows have .order – flatten them */
       const normalised = list.map((r) => (r.order ? { ...r.order, ...r } : r));
 
-      /* rider: keep only his shipments (paranoia) */
+      /* limit to driver’s own shipments if role === Logistics */
       const scoped =
         user?.userType === "Logistics"
           ? normalised.filter((lg) => String(lg.assignedTo) === user._id)
           : normalised;
 
-      /* enrich shipped/delivered rows */
+      /* enrich shipped/delivered rows with live logistics info */
       const enriched = await Promise.all(
         scoped.map(async (o) => {
           if (!["Shipped", "Delivered"].includes(o.status)) return o;
-
           try {
             const { data: lg } = await api.get(
               `/api/logistics/order/${o._id}`,
               { withCredentials: true }
             );
-
             return {
               ...o,
               logisticsStatus: lg.status,
@@ -119,7 +119,7 @@ export default function LogisticsTable() {
     })().catch(console.error);
   }, [user, authLoading]);
 
-  /* ───────────── helpers (status changes) ───────────────────────── */
+  /* -------- status helpers (unchanged) -------- */
   const markStatus = async (id, status) => {
     try {
       await api.put(
@@ -158,7 +158,7 @@ export default function LogisticsTable() {
     nav("/logistics/create-shipment", { state: { orderId: o._id, readonly } });
   const viewOrder = (o) => nav(`/customer-order-details/${o._id}`);
 
-  /* ───────────── tabs & columns ─────────────────────────────────── */
+  /* ---------------- tabs ---------------- */
   const baseTabs = [
     { key: "ready", label: "Ready for Shipping", status: "Pending" },
     { key: "shipped", label: "Shipped", status: "Shipped" },
@@ -169,24 +169,44 @@ export default function LogisticsTable() {
       ? baseTabs.filter((t) => t.key !== "ready")
       : baseTabs;
 
-  const filtered = orders.filter(
+  /* ---------------- enrich rows once, then filter/sort ---------------- */
+  const enrichedRows = useMemo(
+    () =>
+      orders.map((o) => ({
+        ...o,
+        track: o.trackingId,
+        qty: o.orderItems.reduce((s, i) => s + i.qty, 0),
+        cust: `${o.user?.firstName} ${o.user?.lastName}`.trim(),
+        driver: o.driverName || "",
+        logPh: o.logisticsPhone || "",
+        status: o.status,
+      })),
+    [orders]
+  );
+
+  const filtered = enrichedRows.filter(
     (o) => o.status === (tabs.find((x) => x.key === tab)?.status || o.status)
   );
 
-  /* --------------------- columns spec ---------------------------- */
+  const sorted = useMemo(
+    () => [...filtered].sort((a, b) => compare(a, b, sortBy, sortDir)),
+    [filtered, sortBy, sortDir]
+  );
+
+  /* ---------------- column spec + sortable flag ---------------- */
   const baseCols = [
-    { id: "track", label: "Order ID" },
-    { id: "qty", label: "Qty" },
-    { id: "cust", label: "Customer" },
+    { id: "track", label: "Order ID", sortable: true },
+    { id: "qty", label: "Qty" }, // not in spec for sorting
+    { id: "cust", label: "Customer", sortable: true },
   ];
   const shippedCols = [
-    { id: "driver", label: "Driver" },
+    { id: "driver", label: "Driver", sortable: true },
     { id: "driverPh", label: "Driver No." },
-    { id: "logPh", label: "Logistics No." },
+    { id: "logPh", label: "Logistics No.", sortable: true },
     { id: "logAddr", label: "Logistics Addr" },
   ];
   const commonTail = [
-    { id: "status", label: "Status" },
+    { id: "status", label: "Status", sortable: true },
     { id: "action", label: "Action" },
   ];
 
@@ -201,11 +221,8 @@ export default function LogisticsTable() {
         ]
       : [...baseCols, ...shippedCols, ...commonTail];
 
-  /* --------------------- UI -------------------------------------- */
-  if (authLoading || (localStorage.getItem("algomian:token") && !user)) {
-    /* still resolving the token → show spinner */
-    return <p className="p-4">Loading…</p>;
-  }
+  /* ---------------- render ---------------- */
+  if (authLoading) return <p className="p-4">Loading…</p>;
 
   return (
     <div className="bg-white p-4 sm:p-6 rounded-2xl shadow space-y-4">
@@ -222,10 +239,7 @@ export default function LogisticsTable() {
             }`}
           >
             {t.label}
-            <span
-              className="ml-1 inline-flex items-center bg-gray-100 text-gray-800
-                               text-xs font-semibold px-2 py-0.5 rounded-full"
-            >
+            <span className="ml-1 bg-gray-100 px-2 py-0.5 rounded-full text-xs text-gray-800 font-semibold">
               {orders.filter((o) => o.status === t.status).length}
             </span>
           </button>
@@ -237,62 +251,73 @@ export default function LogisticsTable() {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              {COLS.map((c) => (
-                <th
-                  key={c.id}
-                  className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
-                >
-                  {c.label}
-                </th>
-              ))}
+              {COLS.map((c) => {
+                const active = sortBy === c.id;
+                return (
+                  <th
+                    key={c.id}
+                    className={`px-4 py-3 text-left text-xs font-medium uppercase ${
+                      c.sortable ? "cursor-pointer select-none" : ""
+                    }`}
+                    onClick={() => {
+                      if (!c.sortable) return;
+                      if (active) {
+                        setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+                      } else {
+                        setSortBy(c.id);
+                        setSortDir("asc");
+                      }
+                    }}
+                  >
+                    {c.label}
+                    {c.sortable && arrow(active, sortDir)}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
 
           <tbody className="bg-white divide-y divide-gray-200">
-            {filtered.map((o) => {
-              const qty = o.orderItems.reduce((s, i) => s + i.qty, 0);
+            {sorted.map((o) => {
               const phone =
-                o.shippingAddress.phone || o.user?.whatAppNumber || "—";
+                o.shippingAddress?.phone || o.user?.whatAppNumber || "—";
               const logStepIdx = LOG_STEPS.indexOf(
                 o.logisticsStatus || "Processing"
               );
 
               return (
                 <tr key={o._id} className="whitespace-nowrap">
+                  {/* checkbox + OrderID */}
                   <td className="px-4 py-2">
                     <div className="flex items-center space-x-2">
                       <input
                         type="checkbox"
-                        checked={leading === o.trackingId}
+                        checked={leading === o.track}
                         onChange={() =>
-                          setLeading(
-                            leading === o.trackingId ? null : o.trackingId
-                          )
+                          setLeading(leading === o.track ? null : o.track)
                         }
-                        className="form-checkbox h-4 w-4 text-purple-600"
+                        className="h-4 w-4 text-purple-600 form-checkbox"
                       />
-                      <span className="font-medium">{o.trackingId}</span>
+                      <span className="font-medium">{o.track}</span>
                     </div>
                   </td>
 
-                  <td className="px-4 py-2">{qty}</td>
-                  <td className="px-4 py-2">
-                    {o.user.firstName} {o.user.lastName}
-                  </td>
+                  <td className="px-4 py-2">{o.qty}</td>
+                  <td className="px-4 py-2">{o.cust}</td>
 
                   {tab === "ready" ? (
                     <>
                       <td className="px-4 py-2">{phone}</td>
                       <td className="px-4 py-2">{o.pointOfSale || "—"}</td>
                       <td className="px-4 py-2">
-                        {o.shippingAddress.address}, {o.shippingAddress.city}
+                        {o.shippingAddress?.address}, {o.shippingAddress?.city}
                       </td>
                     </>
                   ) : (
                     <>
-                      <td className="px-4 py-2">{o.driverName || "—"}</td>
+                      <td className="px-4 py-2">{o.driver || "—"}</td>
                       <td className="px-4 py-2">{o.driverContact || "—"}</td>
-                      <td className="px-4 py-2">{o.logisticsPhone || "—"}</td>
+                      <td className="px-4 py-2">{o.logPh || "—"}</td>
                       <td className="px-4 py-2">{o.logisticsAddr || "—"}</td>
                     </>
                   )}
@@ -311,6 +336,7 @@ export default function LogisticsTable() {
                     </span>
                   </td>
 
+                  {/* Action menu */}
                   <td className="px-4 py-2 text-right relative">
                     <button
                       className="text-gray-500 hover:text-gray-800"
@@ -343,7 +369,7 @@ export default function LogisticsTable() {
   );
 }
 
-/* ---------------- helpers --------------------------------------- */
+/* ---------------- helpers ---------------- */
 function MenuItem({ icon, label, onClick }) {
   return (
     <button
@@ -367,8 +393,7 @@ function ActionMenu({
 }) {
   return (
     <div
-      className="absolute right-4 z-10 mt-2 w-56 bg-white border
-                    border-gray-200 rounded-lg shadow-lg"
+      className="absolute right-4 z-10 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg"
       onMouseLeave={close}
     >
       {o.status === "Pending" && (

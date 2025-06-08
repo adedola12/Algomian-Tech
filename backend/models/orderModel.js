@@ -8,17 +8,23 @@ const orderItemSchema = new mongoose.Schema(
       required: true,
     },
     name: { type: String, required: true },
-    baseRam: { type: String, default: "" },
-    baseStorage: { type: String, default: "" },
-    baseCPU: { type: String, default: "" },
-
+    soldSpecs: [
+      {
+        serialNumber: String,
+        baseRam: String,
+        baseStorage: String,
+        baseCPU: String,
+      },
+    ],
     qty: { type: Number, required: true },
     price: { type: Number, required: true },
     image: { type: String },
-    maxQty: { type: Number, required: true }, // ← NEW
+    maxQty: { type: Number, required: true },
+    serialNumbers: [String],
   },
   { _id: false }
 );
+
 const orderSchema = new mongoose.Schema(
   {
     trackingId: { type: String, required: true, unique: true },
@@ -70,6 +76,7 @@ const orderSchema = new mongoose.Schema(
     approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     approvedAt: { type: Date },
     approveNote: { type: String },
+    // serialNumbers: { type: [String], default: [] },
   },
   { timestamps: true }
 );

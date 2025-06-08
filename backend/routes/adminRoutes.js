@@ -4,34 +4,18 @@ import { getAdminStats } from "../controllers/adminStatsController.js";
 import {
   protect,
   authorize,
+  isGen,
   isAdmin,
   adminOrManager,
 } from "../middleware/authMiddleware.js";
-import {
-  createRole,
-  getRoles,
-  updateRole,
-  deleteRole,
-} from "../controllers/roleController.js";
 import {
   inviteUser,
   listUsers,
   updateUserRoles,
 } from "../controllers/adminUserController.js";
+import { getInventoryStats } from "../controllers/adminController.js";
 
 const router = express.Router();
-
-/*──── roles ────*/
-// router.route('/roles')
-//   .post(protect, authorize(PERM.ROLE_MANAGE), createRole)
-//   .get (protect, authorize(PERM.ROLE_MANAGE), getRoles);
-
-router.route("/roles").post(protect, createRole).get(protect, getRoles);
-
-router
-  .route("/roles/:id")
-  .patch(protect, authorize(PERM.ROLE_MANAGE), updateRole)
-  .delete(protect, authorize(PERM.ROLE_MANAGE), deleteRole);
 
 /*──── users ────*/
 router
@@ -39,14 +23,9 @@ router
   .post(protect, authorize(PERM.USER_MANAGE), inviteUser)
   .get(protect, authorize(PERM.USER_MANAGE), listUsers);
 
-router.patch(
-  "/users/:id/roles",
-  protect,
-  authorize(PERM.USER_MANAGE),
-  updateUserRoles
-);
-
 // router.get("/stats", protect, adminOrManager, getAdminStats);
-router.get("/stats", protect, authorize("stats.view"), getAdminStats);
+// router.get("/stats", protect, authorize("stats.view"), getAdminStats);
+
+router.get("/stats", protect, authorize("stats.view"), getInventoryStats);
 
 export default router;

@@ -9,6 +9,7 @@ import {
   getProduct,
   getBrands,
   getCategories,
+  getBaseSpecs,
 } from "../controllers/productController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
@@ -28,5 +29,7 @@ router
   .get(getProduct) //  ← SINGLE
   .put(protect, upload.array("images", 10), updateProduct)
   .delete(protect, deleteProduct);
+
+router.get("/:id/base-specs", protect, getBaseSpecs);
 
 export default router;

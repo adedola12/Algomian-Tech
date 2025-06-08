@@ -1,9 +1,8 @@
-/* ───────────────────────────────────────────────────────────
-   InventDetails.jsx · Tailwind 3 – full-detail slide-over
-──────────────────────────────────────────────────────────── */
+import { useEffect, useState } from "react";
 import { XMarkIcon, PencilSquareIcon } from "@heroicons/react/24/outline";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext"; // ✅ Add this
+import api from "../api"; // assuming your API wrapper
 
 export default function InventDetails({ product, onClose }) {
   if (!product) return null;
@@ -13,6 +12,7 @@ export default function InventDetails({ product, onClose }) {
   const userType = user?.userType;
 
   const isPrivileged = ["Admin", "Manager", "Inventory"].includes(userType);
+  const [soldSpecs, setSoldSpecs] = useState([]);
 
   // Extract preview of baseSpecs (first 3 only)
   const baseSpecsPreview = Array.isArray(product.baseSpecs)
@@ -51,6 +51,30 @@ export default function InventDetails({ product, onClose }) {
     ["Re-order level", product.reorderLevel ?? "—"],
     ["Stock Location", product.stockLocation ?? "—"],
   ];
+
+  useEffect(() => {
+    const fetchSoldSpecs = async () => {
+      try {
+        const { data: allOrders } = await api.get("/api/orders", {
+          withCredentials: true,
+        });
+
+        const specs = allOrders.flatMap((order) =>
+          order.orderItems
+            .filter((item) => item.product === product._id)
+            .flatMap((item) => item.soldSpecs || [])
+        );
+
+        setSoldSpecs(specs);
+      } catch (err) {
+        console.error("Failed to fetch sold specs:", err);
+      }
+    };
+
+    if (product?._id) {
+      fetchSoldSpecs();
+    }
+  }, [product]);
 
   /* helper ----------------------------------------------------------- */
   const toEmbedUrl = (url) => {
@@ -206,6 +230,21 @@ export default function InventDetails({ product, onClose }) {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </>
+          )}
+
+          {!!soldSpecs.length && (
+            <>
+              <hr className="my-6" />
+              <h4 className="mb-3 font-semibold">Sold Units</h4>
+              <div className="space-y-2 text-sm">
+                {soldSpecs.map((s, i) => (
+                  <p key={i}>
+                    {i + 1}. SN: {s.serialNumber} | CPU: {s.baseCPU || "—"} |
+                    RAM: {s.baseRam || "—"} | Storage: {s.baseStorage || "—"}
+                  </p>
+                ))}
               </div>
             </>
           )}

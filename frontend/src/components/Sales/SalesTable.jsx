@@ -18,11 +18,11 @@ export default function SalesTable() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [invoiceFilter, setInvoiceFilter] = useState("");
-  // which field to filter by
   const [filterBy, setFilterBy] = useState("Date");
   const [filterValue, setFilterValue] = useState("");
+  const [sortField, setSortField] = useState("time");
+  const [sortOrder, setSortOrder] = useState("asc");
 
-  // for capturing SalesDelivery data
   const [deliveryData, setDeliveryData] = useState({
     customerName: "",
     customerPhone: "",
@@ -33,10 +33,8 @@ export default function SalesTable() {
     summary: { subtotal: 0, tax: 0, total: 0 },
   });
 
-  // which row's action menu is open
   const [actionsOpenFor, setActionsOpenFor] = useState(null);
 
-  // compute total price
   const computeTotal = (o) => {
     const itemsSum = o.orderItems.reduce((sum, i) => sum + i.qty * i.price, 0);
     return (
@@ -44,7 +42,6 @@ export default function SalesTable() {
     );
   };
 
-  // fetch on mount and when we return to step=0
   useEffect(() => {
     if (step === 0) fetchOrders();
   }, [step]);
@@ -52,11 +49,7 @@ export default function SalesTable() {
   async function fetchOrders() {
     setLoading(true);
     try {
-      const res = await api.get("/api/orders", {
-        withCredentials: true,
-      });
-
-      // assuming the response is a list of orders
+      const res = await api.get("/api/orders", { withCredentials: true });
       const list = Array.isArray(res.data) ? res.data : [];
       setOrders(list);
     } catch (err) {
@@ -66,7 +59,6 @@ export default function SalesTable() {
     }
   }
 
-  // filter the rows based on search box + dropdown filter
   const filtered = orders
     .filter((o) =>
       o._id.toLowerCase().includes(invoiceFilter.trim().toLowerCase())
@@ -98,22 +90,43 @@ export default function SalesTable() {
         : "Unknown User",
       price: `NGN ${computeTotal(o).toLocaleString()}`,
       status: o.status,
-      raw: o, // keep original for actions
-    }));
+      raw: o,
+    }))
+    .sort((a, b) => {
+      const valA = a[sortField];
+      const valB = b[sortField];
 
-  // handle delete
+      if (sortField === "time") {
+        return sortOrder === "asc"
+          ? new Date(valA) - new Date(valB)
+          : new Date(valB) - new Date(valA);
+      }
+
+      if (valA < valB) return sortOrder === "asc" ? -1 : 1;
+      if (valA > valB) return sortOrder === "asc" ? 1 : -1;
+      return 0;
+    });
+
+  const toggleSort = (field) => {
+    if (field === sortField) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortOrder("asc");
+    }
+  };
+
   const deleteOrder = async (id) => {
     if (!window.confirm("Really delete this order?")) return;
     await api.delete(`/api/orders/${id}`);
     fetchOrders();
   };
-  // handle status change
+
   const updateStatus = async (id, status) => {
     await api.put(`/api/orders/${id}/status`, { status });
     fetchOrders();
   };
 
-  // wizard state
   const [items, setItems] = useState([]);
   if (step === 1) {
     return (
@@ -168,10 +181,8 @@ export default function SalesTable() {
     );
   }
 
-  // main table
   return (
     <div className="bg-white rounded-2xl shadow p-4 sm:p-6">
-      {/* header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6">
         <h2 className="text-2xl font-semibold text-gray-800">
           Sales Management
@@ -184,7 +195,6 @@ export default function SalesTable() {
         </button>
       </div>
 
-      {/* search & filters */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between mb-4">
         <div className="relative w-full md:w-1/3 mb-2 md:mb-0">
           <FiSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -226,7 +236,6 @@ export default function SalesTable() {
         </div>
       </div>
 
-      {/* table */}
       {loading ? (
         <p>Loading…</p>
       ) : error ? (
@@ -237,18 +246,24 @@ export default function SalesTable() {
             <thead>
               <tr className="border-b bg-gray-50">
                 {[
-                  "Time",
-                  "Order No",
-                  "Customer",
-                  "Price",
-                  "Status",
-                  "Action",
-                ].map((col) => (
+                  ["Time", "time"],
+                  ["Order No", "orderNo"],
+                  ["Customer", "customer"],
+                  ["Price", ""],
+                  ["Status", "status"],
+                  ["Action", ""],
+                ].map(([label, field]) => (
                   <th
-                    key={col}
-                    className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase"
+                    key={label}
+                    className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase cursor-pointer"
+                    onClick={() => field && toggleSort(field)}
                   >
-                    {col}
+                    {label}
+                    {sortField === field && (
+                      <span className="ml-1 text-xs">
+                        {sortOrder === "asc" ? "▲" : "▼"}
+                      </span>
+                    )}
                   </th>
                 ))}
               </tr>
@@ -346,7 +361,6 @@ export default function SalesTable() {
         </div>
       )}
 
-      {/* pagination stub */}
       <div className="flex items-center justify-between mt-6">
         <button className="flex items-center px-4 py-2 border rounded-lg">
           <FiChevronLeft className="mr-2" /> Previous

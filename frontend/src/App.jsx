@@ -43,6 +43,9 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import InvMan from "./pages/InvMan";
+import InvManOrderDetails from "./components/InventoryManager/InvManOrderDetails";
+import InvManViewOrder from "./components/InventoryManager/InvManViewOrder";
 
 export default function App() {
   return (
@@ -83,6 +86,16 @@ export default function App() {
               element={<CustomerOrderDetails />}
             />
             <Route path="inventory/orders" element={<InventoryOrder />} />
+            <Route path="inventoryManager" element={<InvMan />} />
+            <Route
+              path="/invman-order-details/:id"
+              element={<InvManOrderDetails />}
+            />
+            <Route
+              path="/invent-order-details/:id"
+              element={<InvManViewOrder />}
+            />
+
             <Route path="sales" element={<SalesManage />} />
             <Route path="logistics">
               <Route index element={<Logistics />} />

@@ -62,6 +62,12 @@ export const DEFAULT_PERMS_BY_TYPE = {
     "product.section.save",
     "inventory.approve",
     "product.approve",
+    "store.view",
+    "store.edit",
+    "store.manage",
+    "product.view",
+    "product.edit",
+    "order.view",
   ],
 
   /* self-service customers                                                 */

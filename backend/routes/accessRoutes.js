@@ -1,5 +1,6 @@
 import express from "express";
-import { protect, isAdmin } from "../middleware/authMiddleware.js";
+import { protect, isAdmin, isGen } from "../middleware/authMiddleware.js";
+
 import {
   listPolicies,
   getPolicy,
@@ -14,5 +15,7 @@ router
   .route("/:type")
   .get(getPolicy) // GET  /api/access/Manager
   .put(upsertPolicy); // PUT  /api/access/Manager
+
+
 
 export default router;

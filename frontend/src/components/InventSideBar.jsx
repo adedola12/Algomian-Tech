@@ -23,7 +23,14 @@ import { DEFAULT_PERMS_BY_TYPE } from "../utils/defaultPerms";
    – Sales Management                   → Admin, Manager, SalesRep
    – Customers                          → Admin, Manager, SalesRep
    – Logistics                          → Admin, Logistics                          */
-const ALL = ["Admin", "Manager", "SalesRep", "Logistics", "Customer"];
+const ALL = [
+  "Admin",
+  "Manager",
+  "SalesRep",
+  "Inventory",
+  "Logistics",
+  "Customer",
+];
 
 const NAV_LINKS = [
   { path: "/dashboard", label: "Dashboard", icon: <FiHome />, perm: null }, // everyone
@@ -44,6 +51,12 @@ const NAV_LINKS = [
     label: "Sale Management",
     icon: <FiTag />,
     perm: "order.edit",
+  },
+  {
+    path: "/inventoryManager",
+    label: "Store Management",
+    icon: <FiTag />,
+    perm: "store.edit",
   },
   {
     path: "/logistics",
@@ -72,7 +85,6 @@ export default function InventSideBar({ isOpen, setIsOpen, user, onLogout }) {
   //   () => NAV_LINKS.filter((l) => l.roles.includes(role)),
   //   [role]
   // );
-
 
   const links = NAV_LINKS.filter((l) => !l.perm || perms.includes(l.perm));
 

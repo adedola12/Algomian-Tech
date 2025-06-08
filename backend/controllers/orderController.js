@@ -6,7 +6,6 @@ import crypto from "crypto";
 import { ALL_PERMISSIONS } from "../constants/permissions.js";
 import { PERM } from "../constants/permKeys.js"; // 👈 REQUIRED!
 
-
 import { PassThrough } from "stream";
 
 const hasChangeStream = () => {
@@ -221,6 +220,22 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
   order.isDelivered = isDelivered ?? order.isDelivered;
   order.deliveredAt = isDelivered ? Date.now() : order.deliveredAt;
 
+  if (isDelivered && status === "Delivered") {
+    for (const item of order.orderItems) {
+      const product = await Product.findById(item.product);
+      if (!product) continue;
+
+      product.baseSpecs = product.baseSpecs.map((spec) => {
+        if (spec.assigned && item.serialNumbers?.includes(spec.serialNumber)) {
+          return { ...spec, assigned: false }; // unassign spec
+        }
+        return spec;
+      });
+
+      await product.save();
+    }
+  }
+
   const updated = await order.save();
   res.json(updated);
 });
@@ -339,6 +354,67 @@ export const streamNewOrders = asyncHandler(async (req, res) => {
   });
 });
 
+export const verifyInventory = asyncHandler(async (req, res) => {
+  const orderId = req.params.id;
+  const { items } = req.body;
+
+  const order = await Order.findById(orderId);
+  if (!order) {
+    res.status(404);
+    throw new Error("Order not found");
+  }
+
+  for (const item of items) {
+    const product = await Product.findById(item.productId);
+    if (!product) continue;
+
+    let modified = false;
+
+    product.baseSpecs = product.baseSpecs.map((spec) => {
+      if (item.selectedSerials.includes(spec.serialNumber)) {
+        if (!spec.assigned) {
+          modified = true;
+          return { ...spec, assigned: true };
+        }
+      }
+      return spec;
+    });
+
+    if (modified) {
+      product.quantity -= item.selectedSerials.length;
+      await product.save();
+    }
+
+    const orderItem = order.orderItems.find(
+      (i) => i.product.toString() === item.productId
+    );
+
+    if (orderItem) {
+      // Optional: Keep legacy support if needed
+      orderItem.serialNumbers = item.selectedSerials;
+
+      const matchedSpecs = product.baseSpecs.filter((spec) =>
+        item.selectedSerials.includes(spec.serialNumber)
+      );
+
+      orderItem.soldSpecs = matchedSpecs.map((spec) => ({
+        serialNumber: spec.serialNumber,
+        baseRam: spec.baseRam || "",
+        baseStorage: spec.baseStorage || "",
+        baseCPU: spec.baseCPU || "",
+      }));
+    }
+  }
+
+  order.status = "Processing";
+  await order.save();
+
+  res.json({
+    message: "Inventory verified and order moved to Processing",
+    order,
+  });
+});
+
 /* ─────────────  APPROVE SALE  ─────────────
    PATCH  /api/orders/:id/approve
    Body   { note?: string }
@@ -363,4 +439,46 @@ export const approveSale = asyncHandler(async (req, res) => {
 
   await order.save();
   res.json({ message: "Sale approved", order });
+});
+
+export const returnOrder = asyncHandler(async (req, res) => {
+  const order = await Order.findById(req.params.id);
+  if (!order) {
+    res.status(404);
+    throw new Error("Order not found");
+  }
+
+  const returnItems = [];
+
+  for (const item of order.orderItems) {
+    const product = await Product.findById(item.product);
+    if (!product) continue;
+
+    product.quantity += item.qty;
+
+    if (Array.isArray(item.soldSpecs)) {
+      product.baseSpecs.push(...item.soldSpecs);
+    }
+
+    await product.save();
+
+    returnItems.push({
+      product: item.product,
+      productName: item.name,
+      qty: item.qty,
+      specs: item.soldSpecs,
+    });
+  }
+
+  await Return.create({
+    orderId: order._id,
+    user: order.user,
+    totalValue: order.totalPrice,
+    returnedAt: new Date(),
+    items: returnItems,
+  });
+
+  await order.deleteOne();
+
+  res.json({ message: "Order returned and logged successfully." });
 });

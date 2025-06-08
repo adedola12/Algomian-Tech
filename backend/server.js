@@ -11,6 +11,7 @@ import adminRoutes from "./routes/adminRoutes.js";
 import roleRoutes from "./routes/roleRoutes.js";
 import logisticsRoutes from "./routes/logisticsRoutes.js";
 import accessRoutes from "./routes/accessRoutes.js";
+import returnRoutes from "./routes/returnRoutes.js";
 import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
 
 dotenv.config();
@@ -44,6 +45,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/roles", roleRoutes);
 app.use("/api/logistics", logisticsRoutes);
 app.use("/api/access", accessRoutes);
+app.use("/api/returns", returnRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

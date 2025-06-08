@@ -181,6 +181,16 @@ export const getProducts = asyncHandler(async (req, res) => {
   res.json({ products, total, page: +page, pages: Math.ceil(total / limit) });
 });
 
+export const getBaseSpecs = asyncHandler(async (req, res) => {
+  const product = await Product.findById(req.params.id);
+  if (!product) {
+    res.status(404);
+    throw new Error("Product not found");
+  }
+
+  res.json(product.baseSpecs || []);
+});
+
 export const getProduct = asyncHandler(async (req, res) => {
   const product = await Product.findById(req.params.id);
   if (!product) {

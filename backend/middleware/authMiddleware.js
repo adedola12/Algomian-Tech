@@ -76,7 +76,8 @@ export const protect = asyncHandler(async (req, res, next) => {
     req.perms = decoded.permissions || [];
     next();
   } catch (err) {
-    res.status(401);q 
+    res.status(401);
+    q;
     throw new Error("Not authorized, token invalid");
   }
 });
@@ -94,6 +95,8 @@ export const allowRoles =
 export const isAdmin = allowRoles("Admin");
 export const isSalesTeam = allowRoles("Admin", "SalesRep", "Manager");
 export const isLogistics = allowRoles("Admin", "Logistics");
+export const isInventory = allowRoles("Admin", "Manager", "Inventory");
+export const isGen = allowRoles("Admin", "Manager", "Inventory", "SalesRep");
 export const adminOrManager = allowRoles("Admin", "Manager");
 export const canViewOrders = allowRoles(
   "Admin",
