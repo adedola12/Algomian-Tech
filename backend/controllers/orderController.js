@@ -63,6 +63,9 @@ export const addOrderItems = asyncHandler(async (req, res) => {
     customerPhone,
     deliveryMethod = "self",
     parkLocation = "",
+    referralId,
+    referralName,
+    referralPhone,
   } = req.body;
 
   if (!orderItems || orderItems.length === 0) {
@@ -72,33 +75,6 @@ export const addOrderItems = asyncHandler(async (req, res) => {
   /* ───── explode every line (validates stock) ───── */
   const detailedItems = await Promise.all(orderItems.map(makeOrderLine));
   // const trackingId = crypto.randomBytes(4).toString("hex").toUpperCase();
-
-  // const detailedItems = await Promise.all(
-  //   orderItems.map(async (item) => {
-  //     const prod = await Product.findById(item.product);
-  //     if (!prod) {
-  //       res.status(400);
-  //       throw new Error(`Product not found: ${item.product}`);
-  //     }
-  //     if (prod.quantity < item.qty) {
-  //       res.status(400);
-  //       throw new Error(
-  //         `Insufficient stock for ${prod.productName}. Available: ${prod.quantity}, Requested: ${item.qty}`
-  //       );
-  //     }
-  //     return {
-  //       product: prod._id,
-  //       name: prod.productName,
-  //       baseRam: prod.baseRam ?? "",
-  //       baseStorage: prod.baseStorage ?? "",
-  //       baseCPU: prod.baseCPU ?? "",
-  //       qty: item.qty,
-  //       price: item.price,
-  //       image: prod.images?.[0] || "",
-  //       maxQty: prod.quantity,
-  //     };
-  //   })
-  // );
 
   let userId = req.user._id;
   if (selectedCustomerId) {
@@ -130,6 +106,28 @@ export const addOrderItems = asyncHandler(async (req, res) => {
     }
   }
 
+  /* ----- referral: optional ----- */
+  let refUserId = null;
+  if (referralId) {
+    refUserId = referralId;
+  } else if (referralName && referralPhone) {
+    const existingRef = await User.findOne({ whatAppNumber: referralPhone });
+    if (existingRef) {
+      refUserId = existingRef._id;
+    } else {
+      const [first, ...rest] = referralName.trim().split(" ");
+      const newRef = await User.create({
+        firstName: first || "Ref",
+        lastName: rest.join(" ") || "-",
+        email: `${referralPhone}@ref.generated`,
+        password: referralPhone + "123",
+        userType: "Customer",
+        whatAppNumber: referralPhone,
+      });
+      refUserId = newRef._id;
+    }
+  }
+
   /* money (base price + ALL variant costs) */
   const itemsPrice = detailedItems.reduce(
     (s, it) =>
@@ -143,6 +141,9 @@ export const addOrderItems = asyncHandler(async (req, res) => {
   const order = await Order.create({
     trackingId: crypto.randomBytes(4).toString("hex").toUpperCase(),
     user: userId,
+    referral: refUserId, // <— store reference
+    referralName: referralName || "", // keep raw text, useful for history
+    referralPhone: referralPhone || "",
     pointOfSale,
     orderItems: detailedItems,
     shippingAddress,

@@ -21,21 +21,46 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 
-const whitelist = [
+// const whitelist = [
+//   "http://localhost:5173",
+//   "https://algomian-web-app.vercel.app",
+//   "https://algomian-tech.vercel.app",
+//   "https://www.algomian.com",
+//   "https://algomian.com",
+// ];
+// app.use(
+//   cors({
+//     origin: whitelist,
+//     credentials: true,
+//     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+//     allowedHeaders: ["Content-Type", "Authorization"],
+//   })
+// );
+
+const allowlist = [
   "http://localhost:5173",
   "https://algomian-web-app.vercel.app",
   "https://algomian-tech.vercel.app",
   "https://www.algomian.com",
   "https://algomian.com",
 ];
-app.use(
-  cors({
-    origin: whitelist,
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
+
+const corsOptions = {
+  origin: (origin, cb) => {
+    // - no Origin header when you call the API from Postman or a cron job
+    if (!origin) return cb(null, true);
+
+    if (allowlist.includes(origin)) return cb(null, true);
+    cb(new Error(`CORS: ${origin} not allowed`));
+  },
+  credentials: true, // ← lets cookies through
+  methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
+  allowedHeaders: ["Content-Type", "Authorization"],
+  optionsSuccessStatus: 204,
+};
+
+app.use(cors(corsOptions));
+// app.options("/*", cors(corsOptions));
 
 app.use("/api/users", userRoutes);
 

@@ -43,8 +43,18 @@ const orderSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    referral: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    referralName: String,
+    referralPhone: String,
+
     pointOfSale: { type: String },
     orderItems: [orderItemSchema],
+
+    deliveryMethod: {
+      type: String,
+      enum: ["self", "logistics", "park"],
+      default: "self",
+    },
 
     shippingAddress: {
       address: {

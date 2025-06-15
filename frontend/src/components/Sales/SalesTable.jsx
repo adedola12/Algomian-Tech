@@ -8,6 +8,7 @@ import {
   FiChevronLeft,
   FiChevronRight,
 } from "react-icons/fi";
+import SingleSalePage from "./SingleSalePage";
 import SalesInfoInput from "./SalesInfoInput";
 import SalesDelivery from "./SalesDelivery";
 import SalesPaymentInfo from "./SalesPaymentInfo";
@@ -44,7 +45,10 @@ export default function SalesTable() {
     : null;
 
   const [items, setItems] = useState(seedLine ? [seedLine] : []);
-  const [step, setStep] = useState(seedLine ? 1 : 0); // jump straight to Step-1
+  // const [step, setStep] = useState(seedLine);
+  const [step, setStep] = useState(seedLine ? 1 : 0);
+
+  const [showForm, setShowForm] = useState(Boolean(seedLine));
 
   /* clear the state once used, so refreshes don’t duplicate the item */
   useEffect(() => {
@@ -167,74 +171,77 @@ export default function SalesTable() {
     fetchOrders();
   };
 
-  if (step === 1) {
-    return (
-      <SalesInfoInput
-        items={items}
-        setItems={setItems}
-        initialTaxPercent={taxPercent}
-        onBack={() => setStep(0)}
-        onNext={({ taxPercent: p }) => {
-          setTaxPercent(p); // ← remember user choice
-          setStep(2);
-        }}
-      />
-    );
-  }
-  if (step === 2) {
-    return (
-      <SalesDelivery
-        items={items}
-        setDraft={setDeliveryData}
-        taxPercent={taxPercent}
-        onBack={() => setStep(1)}
-        onAddAnotherOrder={() => setStep(1)}
-        onNext={(data) => {
-          setDeliveryData(data);
-          setStep(3);
-        }}
-      />
-    );
-  }
-  if (step === 3) {
-    return (
-      <SalesPaymentInfo
-        items={items}
-        customerName={deliveryData.customerName}
-        customerPhone={deliveryData.customerPhone}
-        pointOfSale={deliveryData.pointOfSale}
-        deliveryMethod={deliveryData.deliveryMethod}
-        shippingAddress={deliveryData.shippingAddress}
-        parkLocation={deliveryData.parkLocation}
-        selectedCustomerId={deliveryData.selectedCustomerId}
-        summary={deliveryData.summary}
-        taxPercent={taxPercent}
-        onBack={() => setStep(2)}
-        onDone={() => {
-          setStep(0);
-          setDeliveryData({
-            customerName: "",
-            customerPhone: "",
-            pointOfSale: "",
-            deliveryMethod: "",
-            shippingAddress: "",
-            parkLocation: "",
-            selectedCustomerId: null,
-            summary: { subtotal: 0, tax: 0, total: 0 },
-          });
-        }}
-      />
-    );
-  }
+  // if (step === 1) {
+  //   return (
+  //     <SalesInfoInput
+  //       items={items}
+  //       setItems={setItems}
+  //       initialTaxPercent={taxPercent}
+  //       onBack={() => setStep(0)}
+  //       onNext={({ taxPercent: p }) => {
+  //         setTaxPercent(p); // ← remember user choice
+  //         setStep(2);
+  //       }}
+  //     />
+  //   );
+  // }
+  // if (step === 2) {
+  //   return (
+  //     <SalesDelivery
+  //       items={items}
+  //       setDraft={setDeliveryData}
+  //       taxPercent={taxPercent}
+  //       onBack={() => setStep(1)}
+  //       onAddAnotherOrder={() => setStep(1)}
+  //       onNext={(data) => {
+  //         setDeliveryData(data);
+  //         setStep(3);
+  //       }}
+  //     />
+  //   );
+  // }
+  // if (step === 3) {
+  //   return (
+  //     <SalesPaymentInfo
+  //       items={items}
+  //       customerName={deliveryData.customerName}
+  //       customerPhone={deliveryData.customerPhone}
+  //       pointOfSale={deliveryData.pointOfSale}
+  //       deliveryMethod={deliveryData.deliveryMethod}
+  //       shippingAddress={deliveryData.shippingAddress}
+  //       parkLocation={deliveryData.parkLocation}
+  //       selectedCustomerId={deliveryData.selectedCustomerId}
+  //       summary={deliveryData.summary}
+  //       taxPercent={taxPercent}
+  //       onBack={() => setStep(2)}
+  //       onDone={() => {
+  //         setStep(0);
+  //         setDeliveryData({
+  //           customerName: "",
+  //           customerPhone: "",
+  //           pointOfSale: "",
+  //           deliveryMethod: "",
+  //           shippingAddress: "",
+  //           parkLocation: "",
+  //           selectedCustomerId: null,
+  //           summary: { subtotal: 0, tax: 0, total: 0 },
+  //         });
+  //       }}
+  //     />
+  //   );
+  // }
 
-  return (
+  return showForm ? (
+    <SingleSalePage onClose={() => setShowForm(false)} />
+  ) : (
     <div className="bg-white rounded-2xl shadow p-4 sm:p-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6">
         <h2 className="text-2xl font-semibold text-gray-800">
           Sales Management
         </h2>
         <button
-          onClick={() => setStep(1)}
+          // onClick={() => setStep(1)}
+          onClick={() => setShowForm(true)}
           className="bg-orange-600 hover:bg-orange-700 text-white px-5 py-2 rounded-lg"
         >
           + Enter Sales
