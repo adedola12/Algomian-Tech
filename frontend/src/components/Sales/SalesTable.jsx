@@ -9,9 +9,6 @@ import {
   FiChevronRight,
 } from "react-icons/fi";
 import SingleSalePage from "./SingleSalePage";
-import SalesInfoInput from "./SalesInfoInput";
-import SalesDelivery from "./SalesDelivery";
-import SalesPaymentInfo from "./SalesPaymentInfo";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const buildLine = (p) => {
@@ -44,18 +41,7 @@ export default function SalesTable() {
     ? buildLine(location.state.product)
     : null;
 
-  const [items, setItems] = useState(seedLine ? [seedLine] : []);
-  // const [step, setStep] = useState(seedLine);
-  const [step, setStep] = useState(seedLine ? 1 : 0);
-
   const [showForm, setShowForm] = useState(Boolean(seedLine));
-
-  /* clear the state once used, so refreshes don’t duplicate the item */
-  useEffect(() => {
-    if (location.state?.product) {
-      nav(".", { replace: true, state: {} });
-    }
-  }, []); // eslint-disable-line
 
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -87,8 +73,8 @@ export default function SalesTable() {
   };
 
   useEffect(() => {
-    if (step === 0) fetchOrders();
-  }, [step]);
+    fetchOrders();
+  }, []);
 
   async function fetchOrders() {
     setLoading(true);
@@ -170,66 +156,6 @@ export default function SalesTable() {
     await api.put(`/api/orders/${id}/status`, { status });
     fetchOrders();
   };
-
-  // if (step === 1) {
-  //   return (
-  //     <SalesInfoInput
-  //       items={items}
-  //       setItems={setItems}
-  //       initialTaxPercent={taxPercent}
-  //       onBack={() => setStep(0)}
-  //       onNext={({ taxPercent: p }) => {
-  //         setTaxPercent(p); // ← remember user choice
-  //         setStep(2);
-  //       }}
-  //     />
-  //   );
-  // }
-  // if (step === 2) {
-  //   return (
-  //     <SalesDelivery
-  //       items={items}
-  //       setDraft={setDeliveryData}
-  //       taxPercent={taxPercent}
-  //       onBack={() => setStep(1)}
-  //       onAddAnotherOrder={() => setStep(1)}
-  //       onNext={(data) => {
-  //         setDeliveryData(data);
-  //         setStep(3);
-  //       }}
-  //     />
-  //   );
-  // }
-  // if (step === 3) {
-  //   return (
-  //     <SalesPaymentInfo
-  //       items={items}
-  //       customerName={deliveryData.customerName}
-  //       customerPhone={deliveryData.customerPhone}
-  //       pointOfSale={deliveryData.pointOfSale}
-  //       deliveryMethod={deliveryData.deliveryMethod}
-  //       shippingAddress={deliveryData.shippingAddress}
-  //       parkLocation={deliveryData.parkLocation}
-  //       selectedCustomerId={deliveryData.selectedCustomerId}
-  //       summary={deliveryData.summary}
-  //       taxPercent={taxPercent}
-  //       onBack={() => setStep(2)}
-  //       onDone={() => {
-  //         setStep(0);
-  //         setDeliveryData({
-  //           customerName: "",
-  //           customerPhone: "",
-  //           pointOfSale: "",
-  //           deliveryMethod: "",
-  //           shippingAddress: "",
-  //           parkLocation: "",
-  //           selectedCustomerId: null,
-  //           summary: { subtotal: 0, tax: 0, total: 0 },
-  //         });
-  //       }}
-  //     />
-  //   );
-  // }
 
   return showForm ? (
     <SingleSalePage onClose={() => setShowForm(false)} />

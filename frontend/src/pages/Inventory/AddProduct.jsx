@@ -187,7 +187,7 @@ export default function AddProduct() {
         headers: { "Content-Type": "multipart/form-data" },
       });
       toast.success("Product created");
-      nav("/inventory");
+      // nav("/inventory");
     } catch (err) {
       toast.error(err.response?.data?.message || "Could not save product");
       console.error(err);
