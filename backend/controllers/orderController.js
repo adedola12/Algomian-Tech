@@ -5,6 +5,7 @@ import Product from "../models/productModel.js";
 import crypto from "crypto";
 import { ALL_PERMISSIONS } from "../constants/permissions.js";
 import { PERM } from "../constants/permKeys.js"; // 👈 REQUIRED!
+import { sendWhatsApp } from "../utils/sendWhatsApp.js";
 
 import { PassThrough } from "stream";
 
@@ -18,10 +19,41 @@ const hasChangeStream = () => {
  * @access Private
  */
 
+const makeOrderLine = async (src) => {
+  const prod = await Product.findById(src.product);
+  if (!prod) throw new Error(`Product not found: ${src.product}`);
+  if (prod.quantity < src.qty)
+    throw new Error(
+      `Insufficient stock for ${prod.productName} – have ${prod.quantity}`
+    );
+
+  return {
+    product: prod._id,
+    name: prod.productName,
+
+    baseRam: src.baseRam ?? "",
+    baseStorage: src.baseStorage ?? "",
+    baseCPU: src.baseCPU ?? "",
+
+    /* array of {label,cost} coming from UI */
+    variantSelections: Array.isArray(src.variantSelections)
+      ? src.variantSelections.map((v) => ({
+          label: v.label || "",
+          cost: Number(v.cost) || 0,
+        }))
+      : [],
+
+    qty: src.qty,
+    price: src.price,
+    image: prod.images?.[0] || "",
+    maxQty: prod.quantity,
+  };
+};
+
 export const addOrderItems = asyncHandler(async (req, res) => {
   const {
-    orderItems,
-    shippingAddress,
+    orderItems = [],
+    shippingAddress = {},
     paymentMethod,
     shippingPrice = 0,
     taxPrice = 0,
@@ -29,41 +61,44 @@ export const addOrderItems = asyncHandler(async (req, res) => {
     selectedCustomerId,
     customerName,
     customerPhone,
+    deliveryMethod = "self",
+    parkLocation = "",
   } = req.body;
 
   if (!orderItems || orderItems.length === 0) {
     res.status(400);
     throw new Error("No order items provided");
   }
+  /* ───── explode every line (validates stock) ───── */
+  const detailedItems = await Promise.all(orderItems.map(makeOrderLine));
+  // const trackingId = crypto.randomBytes(4).toString("hex").toUpperCase();
 
-  const trackingId = crypto.randomBytes(4).toString("hex").toUpperCase();
-
-  const detailedItems = await Promise.all(
-    orderItems.map(async (item) => {
-      const prod = await Product.findById(item.product);
-      if (!prod) {
-        res.status(400);
-        throw new Error(`Product not found: ${item.product}`);
-      }
-      if (prod.quantity < item.qty) {
-        res.status(400);
-        throw new Error(
-          `Insufficient stock for ${prod.productName}. Available: ${prod.quantity}, Requested: ${item.qty}`
-        );
-      }
-      return {
-        product: prod._id,
-        name: prod.productName,
-        baseRam: prod.baseRam ?? "",
-        baseStorage: prod.baseStorage ?? "",
-        baseCPU: prod.baseCPU ?? "",
-        qty: item.qty,
-        price: item.price,
-        image: prod.images?.[0] || "",
-        maxQty: prod.quantity,
-      };
-    })
-  );
+  // const detailedItems = await Promise.all(
+  //   orderItems.map(async (item) => {
+  //     const prod = await Product.findById(item.product);
+  //     if (!prod) {
+  //       res.status(400);
+  //       throw new Error(`Product not found: ${item.product}`);
+  //     }
+  //     if (prod.quantity < item.qty) {
+  //       res.status(400);
+  //       throw new Error(
+  //         `Insufficient stock for ${prod.productName}. Available: ${prod.quantity}, Requested: ${item.qty}`
+  //       );
+  //     }
+  //     return {
+  //       product: prod._id,
+  //       name: prod.productName,
+  //       baseRam: prod.baseRam ?? "",
+  //       baseStorage: prod.baseStorage ?? "",
+  //       baseCPU: prod.baseCPU ?? "",
+  //       qty: item.qty,
+  //       price: item.price,
+  //       image: prod.images?.[0] || "",
+  //       maxQty: prod.quantity,
+  //     };
+  //   })
+  // );
 
   let userId = req.user._id;
   if (selectedCustomerId) {
@@ -95,14 +130,18 @@ export const addOrderItems = asyncHandler(async (req, res) => {
     }
   }
 
+  /* money (base price + ALL variant costs) */
   const itemsPrice = detailedItems.reduce(
-    (sum, item) => sum + item.qty * item.price,
+    (s, it) =>
+      s +
+      it.qty *
+        (it.price + it.variantSelections.reduce((p, v) => p + v.cost, 0)),
     0
   );
   const totalPrice = itemsPrice + Number(shippingPrice) + Number(taxPrice);
 
-  const order = new Order({
-    trackingId,
+  const order = await Order.create({
+    trackingId: crypto.randomBytes(4).toString("hex").toUpperCase(),
     user: userId,
     pointOfSale,
     orderItems: detailedItems,
@@ -115,6 +154,40 @@ export const addOrderItems = asyncHandler(async (req, res) => {
   });
 
   const createdOrder = await order.save();
+
+  /* ───── WhatsApp notification (fire-and-forget) ───── */
+  (async () => {
+    try {
+      if (customerPhone) {
+        // normalise: 07067…  →  2347067…
+        const msisdn = customerPhone
+          .replace(/^0/, "234") // NG specific, tweak for other CCs
+          .replace(/\D/g, "");
+
+        const msg = [
+          `Hello ${customerName || "Customer"},`,
+          ``,
+          `Your order *${createdOrder.trackingId}* has been received ✅`,
+          `Status : ${createdOrder.status}`,
+          `Delivery: ${
+            deliveryMethod === "logistics"
+              ? `Logistics — ${shippingAddress.address}`
+              : deliveryMethod === "park"
+                ? `Park Pick-Up — ${parkLocation}`
+                : "Self Pick-Up"
+          }`,
+          `Total  : ₦${createdOrder.totalPrice.toLocaleString()}`,
+          ``,
+          `Thank you for shopping with us!`,
+        ].join("\n");
+
+        await sendWhatsApp({ to: msisdn, body: msg });
+      }
+    } catch (err) {
+      console.error("⚠️ WhatsApp message failed:", err.message);
+      // never block order creation – just log
+    }
+  })();
 
   // Link to user
   const linkedUser = await User.findById(userId);

@@ -11,9 +11,48 @@ import {
 import SalesInfoInput from "./SalesInfoInput";
 import SalesDelivery from "./SalesDelivery";
 import SalesPaymentInfo from "./SalesPaymentInfo";
+import { useLocation, useNavigate } from "react-router-dom";
+
+const buildLine = (p) => {
+  const first =
+    Array.isArray(p.baseSpecs) && p.baseSpecs.length ? p.baseSpecs[0] : {};
+
+  return {
+    id: p._id,
+    image: p.images?.[0] || "",
+    name: p.productName,
+    baseRam: first.baseRam || "",
+    baseStorage: first.baseStorage || "",
+    baseCPU: first.baseCPU || "",
+    price: p.sellingPrice,
+    qty: 1,
+    maxQty: p.quantity,
+    variants: p.variants || [],
+    variantSelections: [],
+    variantCost: 0,
+    expanded: false,
+  };
+};
 
 export default function SalesTable() {
-  const [step, setStep] = useState(0);
+  /* ───── seed from <InventTable> … nav("/sales", {state:{product}}) ───── */
+  const location = useLocation();
+  const nav = useNavigate();
+
+  const seedLine = location.state?.product
+    ? buildLine(location.state.product)
+    : null;
+
+  const [items, setItems] = useState(seedLine ? [seedLine] : []);
+  const [step, setStep] = useState(seedLine ? 1 : 0); // jump straight to Step-1
+
+  /* clear the state once used, so refreshes don’t duplicate the item */
+  useEffect(() => {
+    if (location.state?.product) {
+      nav(".", { replace: true, state: {} });
+    }
+  }, []); // eslint-disable-line
+
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -22,6 +61,7 @@ export default function SalesTable() {
   const [filterValue, setFilterValue] = useState("");
   const [sortField, setSortField] = useState("time");
   const [sortOrder, setSortOrder] = useState("asc");
+  const [taxPercent, setTaxPercent] = useState(0);
 
   const [deliveryData, setDeliveryData] = useState({
     customerName: "",
@@ -127,14 +167,17 @@ export default function SalesTable() {
     fetchOrders();
   };
 
-  const [items, setItems] = useState([]);
   if (step === 1) {
     return (
       <SalesInfoInput
         items={items}
         setItems={setItems}
+        initialTaxPercent={taxPercent}
         onBack={() => setStep(0)}
-        onNext={() => setStep(2)}
+        onNext={({ taxPercent: p }) => {
+          setTaxPercent(p); // ← remember user choice
+          setStep(2);
+        }}
       />
     );
   }
@@ -142,6 +185,8 @@ export default function SalesTable() {
     return (
       <SalesDelivery
         items={items}
+        setDraft={setDeliveryData}
+        taxPercent={taxPercent}
         onBack={() => setStep(1)}
         onAddAnotherOrder={() => setStep(1)}
         onNext={(data) => {
@@ -163,6 +208,7 @@ export default function SalesTable() {
         parkLocation={deliveryData.parkLocation}
         selectedCustomerId={deliveryData.selectedCustomerId}
         summary={deliveryData.summary}
+        taxPercent={taxPercent}
         onBack={() => setStep(2)}
         onDone={() => {
           setStep(0);

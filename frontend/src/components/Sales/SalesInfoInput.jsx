@@ -1,16 +1,17 @@
-/*  src/components/SalesInfoInput.jsx  */
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import { FiSearch } from "react-icons/fi";
+
 import SelectedItemCard from "./SelectedItemCard";
+import { lineTotal } from "../../utils/money";
 
 export default function SalesInfoInput({
-  items,
+  items, // ← passed down from parent
   setItems,
   onBack = () => {},
   onNext = () => {},
-  hideNav = false, // ← hide Go-back / Next when editing
-  initialTaxPercent = 0, // ← pre-fill tax %
+  hideNav = false,
+  initialTaxPercent = 0,
 }) {
   const [query, setQuery] = useState("");
   const [allProducts, setAll] = useState([]);
@@ -19,10 +20,10 @@ export default function SalesInfoInput({
   const [focused, setFocused] = useState(false);
   const [taxPercent, setTax] = useState(initialTaxPercent);
 
-  /* ── sync if parent opens another order ────────────────────────── */
+  /* sync tax when parent re-opens step-1 */
   useEffect(() => setTax(initialTaxPercent), [initialTaxPercent]);
 
-  /* ── fetch full catalogue once ────────────────────────────────── */
+  /* ------------- 1. fetch catalogue once ------------- */
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -31,24 +32,25 @@ export default function SalesInfoInput({
           "/api/products?search=&page=1&limit=100",
           { withCredentials: true }
         );
+
         const list = Array.isArray(data)
           ? data
           : Array.isArray(data.products)
           ? data.products
           : [];
+
         setAll(list);
         setSug(list);
-      } catch (e) {
-        console.error(e);
       } finally {
         setLoading(false);
       }
     })();
   }, []);
 
-  /* ── debounced search ─────────────────────────────────────────── */
+  /* ------------- 2. debounced search ------------------ */
   useEffect(() => {
     if (!query.trim()) return setSug(allProducts);
+
     const t = setTimeout(async () => {
       setLoading(true);
       try {
@@ -67,48 +69,55 @@ export default function SalesInfoInput({
         setLoading(false);
       }
     }, 300);
+
     return () => clearTimeout(t);
   }, [query, allProducts]);
 
-  /* ── add product line ─────────────────────────────────────────── */
+  /* ------------- 3. add product line ------------------ */
   const handleSelect = (p) => {
     const firstSpec =
-      Array.isArray(p.baseSpecs) && p.baseSpecs.length > 0
-        ? p.baseSpecs[0]
-        : {};
+      Array.isArray(p.baseSpecs) && p.baseSpecs.length ? p.baseSpecs[0] : {};
 
     const newLine = {
       id: p._id,
       image: p.images?.[0] || "",
       name: p.productName,
-      baseRam: firstSpec.baseRam || "", // ✅ pull from baseSpecs[0]
+      baseRam: firstSpec.baseRam || "",
       baseStorage: firstSpec.baseStorage || "",
       baseCPU: firstSpec.baseCPU || "",
       price: p.sellingPrice,
       qty: 1,
       maxQty: p.quantity,
+      variants: p.variants || [],
+      variantSelections: [],
+      variantCost: 0,
       expanded: false,
     };
+
     setItems((prev) => [...prev, newLine]);
     setQuery("");
     setSug(allProducts);
-    setFocused(true);
+    setFocused(false);
   };
 
-  /* helpers */
+  /* ------------- helpers ------------------ */
   const updateItem = (id, changes) =>
     setItems((prev) =>
       prev.map((x) => (x.id === id ? { ...x, ...changes } : x))
     );
+
   const removeItem = (id) =>
     setItems((prev) => prev.filter((x) => x.id !== id));
 
-  /* money */
-  const subtotal = items.reduce((s, it) => s + it.price * it.qty, 0);
+  /* ------------- money -------------------- */
+  const subtotal = useMemo(
+    () => items.reduce((s, it) => s + lineTotal(it), 0),
+    [items]
+  );
   const taxTotal = (subtotal * taxPercent) / 100;
   const total = subtotal + taxTotal;
 
-  /* ── render ───────────────────────────────────────────────────── */
+  /* ------------- render ------------------- */
   return (
     <div className="bg-white rounded-2xl shadow p-4 sm:p-6 space-y-6">
       {/* header */}
@@ -117,6 +126,7 @@ export default function SalesInfoInput({
           <h2 className="text-xl font-semibold text-gray-800">
             Sales Management
           </h2>
+
           <div className="flex space-x-2">
             <button className="px-4 py-2 bg-orange-100 text-orange-700 rounded-lg">
               Sales
@@ -130,7 +140,7 @@ export default function SalesInfoInput({
           </div>
         </div>
 
-        {/* search */}
+        {/* search box */}
         <div className="w-full lg:w-1/3 relative">
           <FiSearch className="absolute left-3 top-12 text-gray-400" />
           <input
@@ -181,12 +191,12 @@ export default function SalesInfoInput({
             onToggle={() => updateItem(it.id, { expanded: !it.expanded })}
             onQtyChange={(id, qty) => updateItem(id, { qty })}
             onSpecChange={(id, f, v) => updateItem(id, { [f]: v })}
-            onRemove={removeItem}
+            onDelete={removeItem}
           />
         ))}
       </div>
 
-      {/* summary */}
+      {/* summary block */}
       <div className="max-w-md ml-auto space-y-4">
         <div className="flex justify-between text-gray-600">
           <span>Subtotal</span>
@@ -215,7 +225,7 @@ export default function SalesInfoInput({
         </div>
       </div>
 
-      {/* nav buttons (hidden in edit-modal) */}
+      {/* nav buttons */}
       {!hideNav && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <button
@@ -225,7 +235,7 @@ export default function SalesInfoInput({
             Go back
           </button>
           <button
-            onClick={onNext}
+            onClick={() => onNext({ taxPercent })}
             className="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg"
           >
             Next

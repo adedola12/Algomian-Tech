@@ -1,5 +1,13 @@
 import mongoose from "mongoose";
 
+const variantSelSchema = new mongoose.Schema(
+  {
+    label: { type: String, required: true }, // “GPU: RTX 3050”
+    cost: { type: Number, default: 0 },
+  },
+  { _id: false }
+);
+
 const orderItemSchema = new mongoose.Schema(
   {
     product: {
@@ -18,6 +26,8 @@ const orderItemSchema = new mongoose.Schema(
     ],
     qty: { type: Number, required: true },
     price: { type: Number, required: true },
+    variantSelections: [variantSelSchema], // zero-or-many
+
     image: { type: String },
     maxQty: { type: Number, required: true },
     serialNumbers: [String],

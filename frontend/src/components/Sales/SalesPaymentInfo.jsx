@@ -1,5 +1,6 @@
 // src/components/SalesPaymentInfo.jsx
 import React, { useState, useMemo } from "react";
+import { lineTotal } from "../../utils/money";
 import {
   FiChevronRight,
   FiTrash2,
@@ -26,7 +27,7 @@ export default function SalesPaymentInfo({
   onBack,
   onDone,
 }) {
-  const [items, setItems] = useState(initialItems);
+  const items = initialItems;
 
   const [method, setMethod] = useState("cash");
   const [bankAccount, setBankAccount] = useState("Moniepoint - Alogoman 2");
@@ -116,6 +117,7 @@ export default function SalesPaymentInfo({
           baseCPU: it.baseCPU,
           image: it.image,
           maxQty: it.maxQty,
+          variantSelections: it.variantSelections || [], // ← array
           name: it.name,
         })),
 
@@ -227,7 +229,7 @@ export default function SalesPaymentInfo({
               </div>
               <div className="flex items-center space-x-4">
                 <span className="text-gray-800 font-semibold">
-                  ₦{(it.qty * it.price).toLocaleString()}
+                  ₦{lineTotal(it).toLocaleString()}
                 </span>
                 <FiTrash2
                   className="text-gray-400 hover:text-gray-600 cursor-pointer"

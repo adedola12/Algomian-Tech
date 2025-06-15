@@ -1,9 +1,10 @@
 //  ── src/components/Sales/SalesDelivery.jsx ──
 import React, { useState, useEffect, useMemo } from "react";
+import { lineTotal } from "../../utils/money";
 import axios from "axios";
 import { FiTruck, FiMapPin, FiUser, FiPhone, FiPlus } from "react-icons/fi";
 
-const TAX_RATE = 0.075;
+// const TAX_RATE = 0.075;
 
 /**
  * Re-usable delivery form.
@@ -28,6 +29,8 @@ export default function SalesDelivery({
   shippingAddress = "",
   parkLocation = "",
   selectedCustomerId = null,
+  taxPercent = 0,
+  setDraft,
 }) {
   /* ------------------------------------------------ state ---------- */
   const [name, setName] = useState(customerName);
@@ -40,25 +43,32 @@ export default function SalesDelivery({
 
   /* re-sync if the parent opens the modal with a new order */
   useEffect(() => {
-    setName(customerName);
-  }, [customerName]);
+    setDraft?.((d) => ({ ...d, customerName: name }));
+  }, [name]);
+
   useEffect(() => {
-    setPhone(customerPhone);
-  }, [customerPhone]);
+    setDraft?.((d) => ({ ...d, customerPhone: phone }));
+  }, [phone]);
+
   useEffect(() => {
-    setPOS(pointOfSale);
-  }, [pointOfSale]);
+    setDraft?.((d) => ({ ...d, pointOfSale: pos }));
+  }, [pos]);
+
   useEffect(() => {
-    setMethod(deliveryMethod);
-  }, [deliveryMethod]);
+    setDraft?.((d) => ({ ...d, deliveryMethod: method }));
+  }, [method]);
+
   useEffect(() => {
-    setShip(shippingAddress);
-  }, [shippingAddress]);
+    setDraft?.((d) => ({ ...d, shippingAddress: ship }));
+  }, [ship]);
+
   useEffect(() => {
-    setPark(parkLocation);
-  }, [parkLocation]);
+    setDraft?.((d) => ({ ...d, parkLocation: park }));
+  }, [park]);
+
   useEffect(() => {
     setSelId(selectedCustomerId);
+    setDraft?.((d) => ({ ...d, selectedCustomerId }));
   }, [selectedCustomerId]);
 
   /* -------------------------------------- customers autocomplete --- */
@@ -93,10 +103,10 @@ export default function SalesDelivery({
 
   /* ----------------------------------------- money calc ---------- */
   const subtotal = useMemo(
-    () => items.reduce((s, i) => s + i.price * i.qty, 0),
+    () => items.reduce((s, i) => s + lineTotal(i), 0),
     [items]
   );
-  const tax = subtotal * TAX_RATE;
+  const tax = (subtotal * taxPercent) / 100;
   const total = subtotal + tax;
 
   /* --------------------------------------------- helpers ---------- */
@@ -209,6 +219,8 @@ export default function SalesDelivery({
         </div>
       </div>
 
+      {/* TO DO: REFERAL NUMBER AND NAME (OPTIONAL) */}
+
       {/* delivery mode */}
       <div className="space-y-4">
         <h3 className="text-lg font-semibold">Delivery Method</h3>
@@ -261,7 +273,7 @@ export default function SalesDelivery({
           <span>₦{subtotal.toLocaleString()}</span>
         </div>
         <div className="flex justify-between text-gray-600">
-          <span>Tax (7.5%)</span>
+          <span>Tax </span>
           <span>₦{tax.toLocaleString()}</span>
         </div>
         <div className="flex justify-between font-semibold">
@@ -295,7 +307,7 @@ export default function SalesDelivery({
             }
             className="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg"
           >
-            Pay
+            Next
           </button>
         </div>
       )}

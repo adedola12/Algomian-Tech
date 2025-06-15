@@ -32,13 +32,13 @@ const productSchema = new mongoose.Schema(
 
     /* pricing & qty */
     quantity: { type: Number, default: 1 },
-    costPrice: { type: Number, required: true },
+    costPrice: { type: Number },
     stockLocation: String,
     supplier: String,
 
     storageRam: String,
     Storage: String,
-    sellingPrice: { type: Number, required: true },
+    sellingPrice: { type: Number },
     variants: [variantSchema],
 
     /* stock info */
