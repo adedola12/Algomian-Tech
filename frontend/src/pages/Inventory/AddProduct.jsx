@@ -82,15 +82,15 @@ export default function AddProduct() {
       serialNumbers: "",
 
       quantity: 1,
-      costPrice: "",
+      costPrice: 0,
       stockLocation: "",
       supplier: "",
 
       storageRam: "",
       Storage: "",
-      sellingPrice: "",
+      sellingPrice: 0,
 
-      variants: [{ attribute: "", value: "", inputCost: "" }],
+      variants: [{ attribute: "", value: "", inputCost: 0 }],
       availability: "inStock",
       status: "Status",
       reorderLevel: 10,
@@ -276,37 +276,6 @@ export default function AddProduct() {
           </div>
 
           <div className="grid gap-6 sm:grid-cols-2">
-            {/* <L label="Brand">
-                    <select
-                    {...register("brand", { required: "Brand required" })}
-                    className="input"
-                    disabled={disGen}
-                    >
-                    <option value="" disabled hidden>
-                    Select brand
-                    </option>
-                    <option>Dell</option>
-                    <option>HP</option>
-                    <option>Lenovo</option>
-                    </select>
-                  </L>
-                  <L label="Product Category">
-                    <select
-                    {...register("productCategory", {
-                    required: "Category required",
-                    })}
-                    className="input"
-                    disabled={disGen}
-                    >
-                    <option value="" disabled hidden>
-                    Select category
-                    </option>
-                    <option>Laptops</option>
-                    <option>Monitor</option>
-                    <option>Accessories</option>
-                    </select>
-                  </L> */}
-
             <L label="Brand">
               <input
                 list="brand-options"
