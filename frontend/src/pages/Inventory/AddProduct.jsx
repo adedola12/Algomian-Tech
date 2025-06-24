@@ -6,7 +6,6 @@ import { toast } from "react-toastify";
 import { FiUpload } from "react-icons/fi";
 import api from "../../api";
 import { useAuth } from "../../context/AuthContext";
-import { set } from "mongoose";
 
 /* ─── static data ───────────────────────────────────────────── */
 const AVAIL = [
