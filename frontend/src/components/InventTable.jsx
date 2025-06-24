@@ -6,6 +6,7 @@ import { toast } from "react-toastify";
 import InventDetails from "./InventDetails";
 import { fetchProducts, deleteProduct } from "../api";
 import { useAuth } from "../context/AuthContext";
+import { useDebounce } from "../hooks/useDebounce";
 
 /* ────────── helpers ────────── */
 const badge = (qty, reorder) =>
@@ -48,6 +49,7 @@ export default function InventTable() {
   const [selected, setSelected] = useState(null);
 
   const [sortConfig, setSortConfig] = useState({ key: "", direction: "asc" });
+  const debouncedSearch = useDebounce(search, 300);
 
   /* -------- sort toggler ---------- */
   const handleSort = (key) => {
@@ -63,7 +65,7 @@ export default function InventTable() {
     setLoading(true);
     try {
       const { products, total: grandTotal } = await fetchProducts({
-        search,
+        search: debouncedSearch,
         category,
       });
 
@@ -151,7 +153,7 @@ export default function InventTable() {
   };
 
   /* ------------- render ------------- */
-  if (loading) return <p className="p-4">Loading…</p>;
+  // if (loading) return <p className="p-4">Loading…</p>;
   if (error) return <p className="p-4 text-red-600">Error: {error}</p>;
   if (!rows.length) return <p className="p-4">No products match your query.</p>;
 
@@ -162,12 +164,18 @@ export default function InventTable() {
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-grow sm:flex-grow-0 sm:basis-64">
             <input
+              type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search here…"
               className="peer w-full rounded border-gray-300 py-2 pl-10 pr-3 text-sm focus:outline-none"
             />
           </div>
+
+          {loading && (
+            <div className="text-sm text-gray-500 mt-2">Loading...</div>
+          )}
+
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
