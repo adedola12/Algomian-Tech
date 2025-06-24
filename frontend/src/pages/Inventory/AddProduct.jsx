@@ -333,48 +333,49 @@ export default function AddProduct() {
               key={index}
               className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4"
             >
-              <L label={`Base RAM (${index + 1})`}>
-                <select
-                  {...register(`baseRam_${index}`)}
-                  className="input"
-                  disabled={disGen}
-                >
-                  <option value="" disabled hidden>
-                    Select RAM
-                  </option>
-                  <option>8GB</option>
-                  <option>16GB</option>
-                  <option>32GB</option>
-                </select>
-              </L>
-              <L label={`Base Storage (${index + 1})`}>
-                <select
-                  {...register(`baseStorage_${index}`)}
-                  className="input"
-                  disabled={disGen}
-                >
-                  <option value="" disabled hidden>
-                    Select Storage
-                  </option>
-                  <option>256GB</option>
-                  <option>512GB</option>
-                  <option>1TB</option>
-                </select>
-              </L>
               <L label={`Base CPU / Processor (${index + 1})`}>
-                <select
+                <input
+                  list="cpu-options"
                   {...register(`baseCPU_${index}`)}
                   className="input"
+                  placeholder="Type or select CPU"
                   disabled={disGen}
-                >
-                  <option value="" disabled hidden>
-                    Select CPU
-                  </option>
-                  <option>Core i3</option>
-                  <option>Core i5</option>
-                  <option>Core i7</option>
-                </select>
+                />
+                <datalist id="cpu-options">
+                  <option value="Core i3" />
+                  <option value="Core i5" />
+                  <option value="Core i7" />
+                </datalist>
               </L>
+              <L label={`Base RAM (${index + 1})`}>
+                <input
+                  list="ram-options"
+                  {...register(`baseRam_${index}`)}
+                  className="input"
+                  placeholder="Type or select RAM"
+                  disabled={disGen}
+                />
+                <datalist id="ram-options">
+                  <option value="8GB" />
+                  <option value="16GB" />
+                  <option value="32GB" />
+                </datalist>
+              </L>
+              <L label={`Base Storage (${index + 1})`}>
+                <input
+                  list="storage-options"
+                  {...register(`baseStorage_${index}`)}
+                  className="input"
+                  placeholder="Type or select Storage"
+                  disabled={disGen}
+                />
+                <datalist id="storage-options">
+                  <option value="256GB" />
+                  <option value="512GB" />
+                  <option value="1TB" />
+                </datalist>
+              </L>
+
               <L label={`Serial Number (${index + 1})`}>
                 <input
                   {...register(`serialNumbers_${index}`)}
