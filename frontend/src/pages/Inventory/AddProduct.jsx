@@ -6,6 +6,7 @@ import { toast } from "react-toastify";
 import { FiUpload } from "react-icons/fi";
 import api from "../../api";
 import { useAuth } from "../../context/AuthContext";
+import { set } from "mongoose";
 
 /* ─── static data ───────────────────────────────────────────── */
 const AVAIL = [
@@ -68,6 +69,7 @@ export default function AddProduct() {
     watch,
     setValue,
     getValues,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm({
     mode: "onTouched",
@@ -187,6 +189,8 @@ export default function AddProduct() {
         headers: { "Content-Type": "multipart/form-data" },
       });
       toast.success("Product created");
+      reset(); // reset form state
+      setQuantity(1); // reset quantity
       // nav("/inventory");
     } catch (err) {
       toast.error(err.response?.data?.message || "Could not save product");
