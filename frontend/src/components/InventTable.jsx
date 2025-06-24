@@ -1,3 +1,4 @@
+/*  src/components/InventTable.jsx  */
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { EllipsisVerticalIcon } from "@heroicons/react/24/outline";
@@ -8,7 +9,7 @@ import { fetchProducts, deleteProduct } from "../api";
 import { useAuth } from "../context/AuthContext";
 import { useDebounce } from "../hooks/useDebounce";
 
-/* ────────── helpers ────────── */
+/* ─── helpers ──────────────────────────────────────────────── */
 const badge = (qty, reorder) =>
   qty === 0
     ? "bg-red-100 text-red-700"
@@ -16,8 +17,7 @@ const badge = (qty, reorder) =>
     ? "bg-yellow-100 text-yellow-700"
     : "bg-green-100 text-green-700";
 
-const toEmbedUrl = (url) => {
-  if (!url) return url;
+const toEmbedUrl = (url = "") => {
   const m = url.match(/(?:file\/d\/|id=)([^/&?]+)/);
   return m ? `https://drive.google.com/uc?export=view&id=${m[1]}` : url;
 };
@@ -30,7 +30,7 @@ const testImage = (url) =>
     img.onerror = () => ok(false);
   });
 
-/* ────────── component ───────── */
+/* ─── component ────────────────────────────────────────────── */
 export default function InventTable() {
   const nav = useNavigate();
   const { user } = useAuth();
@@ -38,39 +38,48 @@ export default function InventTable() {
     user?.userType
   );
 
+  /* ------------ state ------------ */
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
+
   const [menuRow, setMenuRow] = useState(null);
   const [selected, setSelected] = useState(null);
 
-  const [sortConfig, setSortConfig] = useState({ key: "", direction: "asc" });
-  const debouncedSearch = useDebounce(search, 300);
+  const [sortConfig, setSortConfig] = useState({
+    key: "",
+    direction: "asc",
+  });
 
-  /* -------- sort toggler ---------- */
-  const handleSort = (key) => {
+  const debouncedSearch = useDebounce(search.trim(), 300);
+
+  /* ------------ sorting handler ------------ */
+  const handleSort = (key) =>
     setSortConfig((prev) =>
       prev.key === key
         ? { key, direction: prev.direction === "asc" ? "desc" : "asc" }
         : { key, direction: "asc" }
     );
-  };
 
-  /* -------- data loader ----------- */
+  /* ------------ data loader ------------ */
   const loadProducts = useCallback(async () => {
     setLoading(true);
     try {
-      const { products, total: grandTotal } = await fetchProducts({
-        search: debouncedSearch,
-        category,
+      const { products = [], total: grandTotal = 0 } = await fetchProducts({
+        search: debouncedSearch || undefined, // blank search ⇒ all items
+        category: category || undefined,
       });
 
+      // sanity: ensure array
+      const safeProducts = Array.isArray(products) ? products : [];
+
       const verified = await Promise.all(
-        products.map(async (p) => {
+        safeProducts.map(async (p) => {
           const img = p.images?.[0] ? toEmbedUrl(p.images[0]) : null;
           return {
             ...p,
@@ -87,25 +96,26 @@ export default function InventTable() {
     } finally {
       setLoading(false);
     }
-  }, [search, category]);
+  }, [debouncedSearch, category]);
 
+  /* initial + reactive load */
   useEffect(() => {
     loadProducts();
   }, [loadProducts]);
 
-  /* close the 3-dot menu when user clicks elsewhere */
+  /* close the 3-dot menu on outside click */
   useEffect(() => {
     const close = () => setMenuRow(null);
     window.addEventListener("click", close);
     return () => window.removeEventListener("click", close);
   }, []);
 
+  /* ------------ derived data ------------ */
   const categories = useMemo(
     () => [...new Set(rows.map((p) => p.productCategory))],
     [rows]
   );
 
-  /* ------------- sorted rows ------------- */
   const sortedRows = useMemo(() => {
     if (!sortConfig.key) return rows;
 
@@ -121,17 +131,18 @@ export default function InventTable() {
     const sorted = [...rows].sort((a, b) => {
       const va = val(a),
         vb = val(b);
-      if (typeof va === "string") return va.localeCompare(vb);
-      return va - vb;
+      return typeof va === "string" ? va.localeCompare(vb) : va - vb;
     });
 
     return sortConfig.direction === "asc" ? sorted : sorted.reverse();
   }, [rows, sortConfig]);
 
-  /* ------------- helpers ------------- */
+  /* ------------ helpers ------------ */
   const fmtNGN = (n) =>
     "NGN " +
-    Number(n || 0).toLocaleString("en-NG", { minimumFractionDigits: 0 });
+    Number(n || 0).toLocaleString("en-NG", {
+      minimumFractionDigits: 0,
+    });
 
   const compactDetails = (p) => {
     const cpu = p.baseCPU || p.storageCPU || "";
@@ -140,7 +151,7 @@ export default function InventTable() {
     return [cpu, ram, sto].filter(Boolean).join("/") || "—";
   };
 
-  /* ------------- delete flow ------------- */
+  /* ------------ delete flow ------------ */
   const confirmDelete = async (row) => {
     if (!window.confirm(`Delete “${row.productName}” permanently?`)) return;
     try {
@@ -152,15 +163,11 @@ export default function InventTable() {
     }
   };
 
-  /* ------------- render ------------- */
-  // if (loading) return <p className="p-4">Loading…</p>;
-  if (error) return <p className="p-4 text-red-600">Error: {error}</p>;
-  if (!rows.length) return <p className="p-4">No products match your query.</p>;
-
+  /* ------------ render ------------ */
   return (
     <>
       <section className="space-y-4 rounded-lg bg-white p-4 sm:p-5 shadow-sm">
-        {/* search + category filter */}
+        {/* ── filter row ───────────────── */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-grow sm:flex-grow-0 sm:basis-64">
             <input
@@ -172,9 +179,7 @@ export default function InventTable() {
             />
           </div>
 
-          {loading && (
-            <div className="text-sm text-gray-500 mt-2">Loading...</div>
-          )}
+          {loading && <span className="text-sm text-gray-500">Loading…</span>}
 
           <select
             value={category}
@@ -188,13 +193,23 @@ export default function InventTable() {
           </select>
         </div>
 
+        {/* totals + errors */}
+        {error && <p className="text-sm text-red-600">Error: {error}</p>}
+
         <p className="text-sm text-gray-500">
           Total items:&nbsp;
           <span className="font-medium text-gray-900">{total}</span>
         </p>
 
-        {/* table */}
-        <div className="w-full overflow-x-auto">
+        {/* ── table ───────────────────── */}
+        <div className="w-full overflow-x-auto relative">
+          {/* inline overlay loader */}
+          {loading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-white/60 z-10">
+              <span className="text-sm text-gray-500">Loading…</span>
+            </div>
+          )}
+
           <table className="w-full min-w-[900px] text-sm">
             <thead className="whitespace-nowrap border-b text-left text-gray-500">
               <tr>
@@ -229,6 +244,17 @@ export default function InventTable() {
             </thead>
 
             <tbody className="divide-y">
+              {!loading && sortedRows.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={isPrivileged ? 8 : 6}
+                    className="py-6 text-center text-gray-500"
+                  >
+                    No products match your query.
+                  </td>
+                </tr>
+              )}
+
               {sortedRows.map((p) => (
                 <tr
                   key={p._id}
@@ -239,6 +265,7 @@ export default function InventTable() {
                       <input type="checkbox" className="accent-orange-500" />
                     </td>
                   )}
+
                   {/* name + avatar */}
                   <td className="py-3 flex min-w-[180px] items-center gap-3">
                     <img
@@ -284,7 +311,7 @@ export default function InventTable() {
                     </span>
                   </td>
 
-                  {/* 3-dot menu */}
+                  {/* three-dot menu */}
                   <td className="pr-4 text-right relative">
                     <button
                       onClick={(e) => {
@@ -313,7 +340,9 @@ export default function InventTable() {
 
                         <button
                           onClick={() => {
-                            nav("/sales", { state: { product: p } });
+                            nav("/sales", {
+                              state: { product: p },
+                            });
                           }}
                           className="flex w-full items-center px-3 py-2 hover:bg-gray-100"
                         >
@@ -352,6 +381,7 @@ export default function InventTable() {
         </div>
       </section>
 
+      {/* slide-over details drawer */}
       {selected && (
         <InventDetails product={selected} onClose={() => setSelected(null)} />
       )}
