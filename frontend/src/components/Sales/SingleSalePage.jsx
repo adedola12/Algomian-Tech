@@ -37,11 +37,7 @@ const buildLine = (p) => {
 };
 
 /* ---------- component ---------- */
-export default function SingleSalePage({
-  onClose,
-  onBack = () => {},
-  mode = "sale",
-}) {
+export default function SingleSalePage({ onClose, onBack, mode = "sale" }) {
   /* --------------- catalogue ---------------- */
   const [catalogue, setCatalogue] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -107,6 +103,12 @@ export default function SingleSalePage({
       .then((r) => setAllPeople(r.data || []))
       .catch(() => toast.error("Could not fetch customers list"));
   }, []);
+
+  /** go-back helper */
+  const handleBack = () => {
+    if (typeof onBack === "function") onBack();
+    else nav(-1); // fallback: browser history
+  };
 
   /* helpers that return a filtered list of suggestions */
   const suggest = (needle) =>
@@ -205,7 +207,10 @@ export default function SingleSalePage({
       {/* ───────── header / nav ───────── */}
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold text-gray-800">
-          <button onClick={onBack} className="mr-3 text-gray-500">
+          <button
+            onClick={handleBack}
+            className="mr-3 text-gray-500 cursor-pointer"
+          >
             <FiArrowLeft />
           </button>
           Sales Management
