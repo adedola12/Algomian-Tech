@@ -15,8 +15,23 @@ export const parseMaybeJSON = (val, fallback = null) => {
 
 /* ─────────────  CREATE  ───────────── */
 export const createProduct = asyncHandler(async (req, res) => {
+  /* ---------- DUPLICATE CHECK (case-insensitive) ---------- */
+  const { productName = "" } = req.body;
+  const existing = await Product.findOne({
+    productName: { $regex: `^${productName}$`, $options: "i" },
+  });
+
+  if (existing) {
+    res
+      .status(409) // Conflict
+      .json({
+        message: `“${existing.productName}” already exists. Use Update instead.`,
+        productId: existing._id,
+      });
+    return;
+  }
+
   const {
-    productName,
     productCondition,
     productCategory,
     brand,
@@ -154,19 +169,46 @@ export const getCategories = asyncHandler(async (req, res) => {
 });
 
 export const getProducts = asyncHandler(async (req, res) => {
-  const { search = "", category, page = 1, limit = 50 } = req.query;
+  const { search = "", category = "", page = 1, limit = 50 } = req.query;
 
+  /* ── build a single case-insensitive RegExp once ── */
+  const term = search.trim()
+    ? new RegExp(search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i")
+    : null;
+
+  /* ── MAIN QUERY ─────────────────────────────────── */
   const q = {
     $and: [
-      search
+      term
         ? {
             $or: [
-              { productName: { $regex: search, $options: "i" } },
-              { brand: { $regex: search, $options: "i" } },
-              { productCategory: { $regex: search, $options: "i" } },
+              /* basic columns */
+              { productName: term },
+              { brand: term },
+              { productCategory: term },
+
+              /* flat spec helpers */
+              { storageRam: term },
+              { Storage: term },
+
+              /* search inside **each element** of baseSpecs[] */
+              {
+                baseSpecs: {
+                  $elemMatch: {
+                    $or: [
+                      { baseCPU: term },
+                      { baseRam: term },
+                      { baseStorage: term },
+                      { serialNumber: term },
+                    ],
+                  },
+                },
+              },
             ],
           }
         : {},
+
+      /* optional category drop-down */
       category ? { productCategory: category } : {},
     ],
   };

@@ -50,7 +50,7 @@ const productSchema = new mongoose.Schema(
     status: String,
     reorderLevel: { type: Number, default: 0 },
 
-    productId: { type: String, unique: true },
+    productId: { type: String },
 
     /* arrays */
     // features: [specSchema],
@@ -59,6 +59,11 @@ const productSchema = new mongoose.Schema(
     description: String,
   },
   { timestamps: true }
+);
+
+productSchema.index(
+  { productName: 1 },
+  { unique: true, collation: { locale: "en", strength: 2 } } // case-insensitive
 );
 
 export default mongoose.model("Product", productSchema);

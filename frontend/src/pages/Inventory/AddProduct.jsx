@@ -44,7 +44,6 @@ export default function AddProduct() {
   const { user = {} } = useAuth(); // graceful fallback
   const perms = user.permissions ?? []; // [] when undefined
   const isAdmin = user.userType === "Admin";
-  const [quantity, setQuantity] = useState(1);
 
   /* ---- permission helpers ---------------------------------- */
   const canEdit = (section) =>
@@ -59,6 +58,9 @@ export default function AddProduct() {
       </p>
     );
   }
+
+  /* ---------- duplicate-modal state ---------------------- */
+  const [dupModalId, setDupModalId] = useState(null); // null ⇢ hidden
 
   /* ---- react-hook-form ------------------------------------- */
   const {
@@ -109,6 +111,36 @@ export default function AddProduct() {
     name: "variants",
   });
 
+  const [quantity, setQuantity] = useState(1);
+  const [autoCopy, setAutoCopy] = useState(true); // ⬅️ new flag
+
+  /* replicate helper */
+  const replicateFirstSpecs = () => {
+    const cpu = getValues(`baseCPU_0`) ?? "";
+    const ram = getValues(`baseRam_0`) ?? "";
+    const sto = getValues(`baseStorage_0`) ?? "";
+
+    for (let i = 1; i < quantity; i++) {
+      if (cpu && !getValues(`baseCPU_${i}`)) setValue(`baseCPU_${i}`, cpu);
+      if (ram && !getValues(`baseRam_${i}`)) setValue(`baseRam_${i}`, ram);
+      if (sto && !getValues(`baseStorage_${i}`))
+        setValue(`baseStorage_${i}`, sto);
+    }
+  };
+
+  /* auto-copy effect – fires whenever first row changes */
+  useEffect(() => {
+    if (!autoCopy || quantity < 2) return;
+    replicateFirstSpecs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    watch(`baseCPU_0`),
+    watch(`baseRam_0`),
+    watch(`baseStorage_0`),
+    quantity,
+    autoCopy,
+  ]);
+
   const addImages = (files) =>
     setValue("images", [...getValues("images"), ...files]);
 
@@ -121,6 +153,24 @@ export default function AddProduct() {
   /* ---- SUBMIT ---------------------------------------------- */
   const onSubmit = async (data) => {
     if (!canSave) return; // defence in depth
+
+    /* 1️⃣  lightweight duplicate probe -------------------- */
+    try {
+      const { data: probe } = await api.get(
+        `/api/products?search=${encodeURIComponent(data.productName)}&limit=1`
+      );
+
+      if (
+        probe.products?.length &&
+        probe.products[0].productName.toLowerCase() ===
+          data.productName.toLowerCase()
+      ) {
+        setDupModalId(probe.products[0]._id); // ⬅️ open modal
+        return;
+      }
+    } catch {
+      /* ignore – backend guard still active */
+    }
 
     const baseSpecs = [];
     for (let i = 0; i < data.quantity; i++) {
@@ -245,394 +295,452 @@ export default function AddProduct() {
 
   /* ---- UI -------------------------------------------------- */
   return (
-    <form
-      onSubmit={handleSubmit(onSubmit)}
-      className="mx-auto max-w-[1150px] px-4 sm:px-6 pb-32"
-    >
-      {/*──────── GENERAL ────────*/}
-      {show.General && (
-        <Block {...META[0]} showButtons>
-          <div className="grid gap-6 sm:grid-cols-2">
-            <L label="Product Name">
-              <input
-                {...register("productName", {
-                  required: "Product name is required",
-                })}
-                className="input"
-                disabled={disGen}
-              />
-            </L>
-            <L label="Product Condition">
-              <select
-                {...register("productCondition", { required: true })}
-                className="input"
-                disabled={disGen}
-              >
-                <option value="" disabled hidden>
-                  Select condition
-                </option>
-                <option>New</option>
-                <option>UK Used</option>
-                <option>Fairly Used</option>
-              </select>
-            </L>
-          </div>
-
-          <div className="grid gap-6 sm:grid-cols-2">
-            <L label="Brand">
-              <input
-                list="brand-options"
-                {...register("brand", { required: "Brand required" })}
-                className="input"
-                disabled={disGen}
-                placeholder="Type or select brand"
-              />
-              <datalist id="brand-options">
-                <option value="Dell" />
-                <option value="HP" />
-                <option value="Lenovo" />
-              </datalist>
-            </L>
-
-            <L label="Product Category">
-              <input
-                list="category-options"
-                {...register("productCategory", {
-                  required: "Category required",
-                })}
-                className="input"
-                disabled={disGen}
-                placeholder="Type or select category"
-              />
-              <datalist id="category-options">
-                <option value="Laptops" />
-                <option value="Monitor" />
-                <option value="Accessories" />
-              </datalist>
-            </L>
-          </div>
-
-          <L label="Product Quantity">
-            <input
-              type="number"
-              min="1"
-              {...register("quantity", { valueAsNumber: true })}
-              onChange={(e) => {
-                const value = Number(e.target.value);
-                setQuantity(value > 0 ? value : 1); // Ensure quantity is at least 1
-                setValue("quantity", value); // Update form state
-              }}
-              className="input"
-              disabled={disGen}
-            />
-          </L>
-
-          {Array.from({ length: quantity }).map((_, index) => (
-            <div
-              key={index}
-              className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4"
-            >
-              <L label={`Base CPU / Processor (${index + 1})`}>
+    <>
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        className="mx-auto max-w-[1150px] px-4 sm:px-6 pb-32"
+      >
+        {/*──────── GENERAL ────────*/}
+        {show.General && (
+          <Block {...META[0]} showButtons>
+            <div className="grid gap-6 sm:grid-cols-2">
+              <L label="Product Name">
                 <input
-                  list="cpu-options"
-                  {...register(`baseCPU_${index}`)}
-                  className="input"
-                  placeholder="Type or select CPU"
-                  disabled={disGen}
-                />
-                <datalist id="cpu-options">
-                  <option value="Core i3" />
-                  <option value="Core i5" />
-                  <option value="Core i7" />
-                </datalist>
-              </L>
-              <L label={`Base RAM (${index + 1})`}>
-                <input
-                  list="ram-options"
-                  {...register(`baseRam_${index}`)}
-                  className="input"
-                  placeholder="Type or select RAM"
-                  disabled={disGen}
-                />
-                <datalist id="ram-options">
-                  <option value="8GB" />
-                  <option value="16GB" />
-                  <option value="32GB" />
-                </datalist>
-              </L>
-              <L label={`Base Storage (${index + 1})`}>
-                <input
-                  list="storage-options"
-                  {...register(`baseStorage_${index}`)}
-                  className="input"
-                  placeholder="Type or select Storage"
-                  disabled={disGen}
-                />
-                <datalist id="storage-options">
-                  <option value="256GB" />
-                  <option value="512GB" />
-                  <option value="1TB" />
-                </datalist>
-              </L>
-
-              <L label={`Serial Number (${index + 1})`}>
-                <input
-                  {...register(`serialNumbers_${index}`)}
-                  placeholder={`SN-${index + 1}`}
-                  className="input"
-                  disabled={disGen}
-                />
-              </L>
-            </div>
-          ))}
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            <L label="Cost Price per Unit">
-              <input
-                {...register("costPrice", {
-                  valueAsNumber: true,
-                  required: true,
-                })}
-                className="input"
-                disabled={disGen}
-              />
-            </L>
-            <L label="Stock Location">
-              <select
-                {...register("stockLocation")}
-                className="input"
-                disabled={disGen}
-              >
-                <option value="" disabled hidden>
-                  Select location
-                </option>
-                <option>Warehouse A</option>
-                <option>Component 180</option>
-              </select>
-            </L>
-            <L label="Supplier Name">
-              <input
-                {...register("supplier")}
-                className="input"
-                disabled={disGen}
-              />
-            </L>
-          </div>
-        </Block>
-      )}
-
-      <Divider />
-
-      {/*──────── VARIANTS ────────*/}
-      {show.Variants && (
-        <Block {...META[1]}>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            <L label="Variant RAM">
-              <select
-                {...register("storageRam")}
-                className="input"
-                disabled={disVar}
-              >
-                <option value="" disabled hidden>
-                  Select RAM
-                </option>
-                <option>8GB</option>
-                <option>16GB</option>
-                <option>32GB</option>
-              </select>
-            </L>
-            <L label="Variant Storage">
-              <select
-                {...register("Storage")}
-                className="input"
-                disabled={disVar}
-              >
-                <option value="" disabled hidden>
-                  Select Storage
-                </option>
-                <option>256GB</option>
-                <option>512GB</option>
-                <option>1TB</option>
-              </select>
-            </L>
-            <L label="Selling Price (NGN)">
-              <input
-                {...register("sellingPrice", {
-                  valueAsNumber: true,
-                  required: "Selling price required",
-                })}
-                className="input"
-                disabled={disVar}
-              />
-            </L>
-          </div>
-
-          <div className="flex items-center justify-between mt-6">
-            <h4 className="font-medium" />
-            {canEdit("variants") && (
-              <button
-                type="button"
-                onClick={() =>
-                  addVariant({ attribute: "", value: "", inputCost: "" })
-                }
-                className="text-sm font-medium text-orange-500"
-              >
-                + Add Variants
-              </button>
-            )}
-          </div>
-
-          {variantF.map((v, idx) => (
-            <div
-              key={v.id}
-              className="mb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-            >
-              <L label="Attribute">
-                <input
-                  {...register(`variants.${idx}.attribute`)}
-                  className="input"
-                  placeholder="e.g. Colour"
-                  disabled={disVar}
-                />
-              </L>
-              <L label="Value">
-                <input
-                  {...register(`variants.${idx}.value`)}
-                  className="input"
-                  placeholder="e.g. Black"
-                  disabled={disVar}
-                />
-              </L>
-              <L label="Input Cost">
-                <input
-                  {...register(`variants.${idx}.inputCost`, {
-                    valueAsNumber: true,
+                  {...register("productName", {
+                    required: "Product name is required",
                   })}
                   className="input"
-                  placeholder="0"
+                  disabled={disGen}
+                />
+              </L>
+              <L label="Product Condition">
+                <select
+                  {...register("productCondition", { required: true })}
+                  className="input"
+                  disabled={disGen}
+                >
+                  <option value="" disabled hidden>
+                    Select condition
+                  </option>
+                  <option>New</option>
+                  <option>UK Used</option>
+                  <option>Fairly Used</option>
+                </select>
+              </L>
+            </div>
+
+            <div className="grid gap-6 sm:grid-cols-2">
+              <L label="Brand">
+                <input
+                  list="brand-options"
+                  {...register("brand", { required: "Brand required" })}
+                  className="input"
+                  disabled={disGen}
+                  placeholder="Type or select brand"
+                />
+                <datalist id="brand-options">
+                  <option value="Dell" />
+                  <option value="HP" />
+                  <option value="Lenovo" />
+                </datalist>
+              </L>
+
+              <L label="Product Category">
+                <input
+                  list="category-options"
+                  {...register("productCategory", {
+                    required: "Category required",
+                  })}
+                  className="input"
+                  disabled={disGen}
+                  placeholder="Type or select category"
+                />
+                <datalist id="category-options">
+                  <option value="Laptops" />
+                  <option value="Monitor" />
+                  <option value="Accessories" />
+                </datalist>
+              </L>
+            </div>
+
+            <L label="Product Quantity">
+              <input
+                type="number"
+                min="1"
+                {...register("quantity", { valueAsNumber: true })}
+                onChange={(e) => {
+                  const value = Number(e.target.value);
+                  setQuantity(value > 0 ? value : 1); // Ensure quantity is at least 1
+                  setValue("quantity", value); // Update form state
+                }}
+                className="input"
+                disabled={disGen}
+              />
+            </L>
+
+            {/* ---- spec grid ---- */}
+            {quantity > 1 && (
+              <div className="flex items-center gap-4 pb-4">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="accent-orange-500"
+                    checked={autoCopy}
+                    onChange={(e) => setAutoCopy(e.target.checked)}
+                  />
+                  Same spec for all
+                </label>
+
+                <button
+                  type="button"
+                  onClick={replicateFirstSpecs}
+                  disabled={
+                    !getValues(`baseCPU_0`) &&
+                    !getValues(`baseRam_0`) &&
+                    !getValues(`baseStorage_0`)
+                  }
+                  className="rounded bg-gray-100 px-3 py-1 text-xs hover:bg-gray-200"
+                >
+                  Copy now
+                </button>
+              </div>
+            )}
+
+            {Array.from({ length: quantity }).map((_, index) => (
+              <div
+                key={index}
+                className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4"
+              >
+                <L label={`Base CPU / Processor (${index + 1})`}>
+                  <input
+                    list="cpu-options"
+                    {...register(`baseCPU_${index}`)}
+                    className="input"
+                    placeholder="Type or select CPU"
+                    disabled={disGen}
+                  />
+                  <datalist id="cpu-options">
+                    <option value="Core i3" />
+                    <option value="Core i5" />
+                    <option value="Core i7" />
+                  </datalist>
+                </L>
+                <L label={`Base RAM (${index + 1})`}>
+                  <input
+                    list="ram-options"
+                    {...register(`baseRam_${index}`)}
+                    className="input"
+                    placeholder="Type or select RAM"
+                    disabled={disGen}
+                  />
+                  <datalist id="ram-options">
+                    <option value="8GB" />
+                    <option value="16GB" />
+                    <option value="32GB" />
+                  </datalist>
+                </L>
+                <L label={`Base Storage (${index + 1})`}>
+                  <input
+                    list="storage-options"
+                    {...register(`baseStorage_${index}`)}
+                    className="input"
+                    placeholder="Type or select Storage"
+                    disabled={disGen}
+                  />
+                  <datalist id="storage-options">
+                    <option value="256GB" />
+                    <option value="512GB" />
+                    <option value="1TB" />
+                  </datalist>
+                </L>
+
+                <L label={`Serial Number (${index + 1})`}>
+                  <input
+                    {...register(`serialNumbers_${index}`)}
+                    placeholder={`SN-${index + 1}`}
+                    className="input"
+                    disabled={disGen}
+                  />
+                </L>
+              </div>
+            ))}
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              <L label="Cost Price per Unit">
+                <input
+                  {...register("costPrice", {
+                    valueAsNumber: true,
+                    required: true,
+                  })}
+                  className="input"
+                  disabled={disGen}
+                />
+              </L>
+              <L label="Stock Location">
+                <select
+                  {...register("stockLocation")}
+                  className="input"
+                  disabled={disGen}
+                >
+                  <option value="" disabled hidden>
+                    Select location
+                  </option>
+                  <option>Warehouse A</option>
+                  <option>Component 180</option>
+                </select>
+              </L>
+              <L label="Supplier Name">
+                <input
+                  {...register("supplier")}
+                  className="input"
+                  disabled={disGen}
+                />
+              </L>
+            </div>
+          </Block>
+        )}
+
+        <Divider />
+
+        {/*──────── VARIANTS ────────*/}
+        {show.Variants && (
+          <Block {...META[1]}>
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              <L label="Variant RAM">
+                <select
+                  {...register("storageRam")}
+                  className="input"
+                  disabled={disVar}
+                >
+                  <option value="" disabled hidden>
+                    Select RAM
+                  </option>
+                  <option>8GB</option>
+                  <option>16GB</option>
+                  <option>32GB</option>
+                </select>
+              </L>
+              <L label="Variant Storage">
+                <select
+                  {...register("Storage")}
+                  className="input"
+                  disabled={disVar}
+                >
+                  <option value="" disabled hidden>
+                    Select Storage
+                  </option>
+                  <option>256GB</option>
+                  <option>512GB</option>
+                  <option>1TB</option>
+                </select>
+              </L>
+              <L label="Selling Price (NGN)">
+                <input
+                  {...register("sellingPrice", {
+                    valueAsNumber: true,
+                    required: "Selling price required",
+                  })}
+                  className="input"
                   disabled={disVar}
                 />
               </L>
             </div>
-          ))}
-        </Block>
-      )}
 
-      <Divider />
+            <div className="flex items-center justify-between mt-6">
+              <h4 className="font-medium" />
+              {canEdit("variants") && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    addVariant({ attribute: "", value: "", inputCost: "" })
+                  }
+                  className="text-sm font-medium text-orange-500"
+                >
+                  + Add Variants
+                </button>
+              )}
+            </div>
 
-      {/*──────── AVAILABILITY ────────*/}
-      {show.Availability && (
-        <Block {...META[2]}>
-          <L label="Stock Status">
-            <div className="flex flex-wrap gap-8 pt-1">
-              {AVAIL.map((o) => (
-                <label key={o.id} className="flex items-center gap-2 text-sm">
+            {variantF.map((v, idx) => (
+              <div
+                key={v.id}
+                className="mb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+              >
+                <L label="Attribute">
                   <input
-                    type="radio"
-                    value={o.id}
-                    {...register("availability")}
-                    className="accent-orange-500"
+                    {...register(`variants.${idx}.attribute`)}
+                    className="input"
+                    placeholder="e.g. Colour"
+                    disabled={disVar}
+                  />
+                </L>
+                <L label="Value">
+                  <input
+                    {...register(`variants.${idx}.value`)}
+                    className="input"
+                    placeholder="e.g. Black"
+                    disabled={disVar}
+                  />
+                </L>
+                <L label="Input Cost">
+                  <input
+                    {...register(`variants.${idx}.inputCost`, {
+                      valueAsNumber: true,
+                    })}
+                    className="input"
+                    placeholder="0"
+                    disabled={disVar}
+                  />
+                </L>
+              </div>
+            ))}
+          </Block>
+        )}
+
+        <Divider />
+
+        {/*──────── AVAILABILITY ────────*/}
+        {show.Availability && (
+          <Block {...META[2]}>
+            <L label="Stock Status">
+              <div className="flex flex-wrap gap-8 pt-1">
+                {AVAIL.map((o) => (
+                  <label key={o.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      value={o.id}
+                      {...register("availability")}
+                      className="accent-orange-500"
+                      disabled={disAv}
+                    />
+                    {o.label}
+                  </label>
+                ))}
+              </div>
+            </L>
+
+            <div className="grid gap-1">
+              <div className="grid gap-6 sm:grid-cols-[1fr_120px]">
+                <L label="Product Status">
+                  <select
+                    {...register("status")}
+                    className="input"
+                    disabled={disAv}
+                  >
+                    <option>Status</option>
+                    <option>Incoming</option>
+                    <option>Archived</option>
+                  </select>
+                </L>
+                <L label="Re-order Level">
+                  <input
+                    type="number"
+                    {...register("reorderLevel", { valueAsNumber: true })}
+                    className="input"
                     disabled={disAv}
                   />
-                  {o.label}
-                </label>
-              ))}
+                </L>
+              </div>
+              <p className="hidden sm:block text-xs text-gray-400">
+                (Low stock alert when stock is less than)
+              </p>
             </div>
-          </L>
 
-          <div className="grid gap-1">
-            <div className="grid gap-6 sm:grid-cols-[1fr_120px]">
-              <L label="Product Status">
-                <select
-                  {...register("status")}
-                  className="input"
-                  disabled={disAv}
-                >
-                  <option>Status</option>
-                  <option>Incoming</option>
-                  <option>Archived</option>
-                </select>
-              </L>
-              <L label="Re-order Level">
-                <input
-                  type="number"
-                  {...register("reorderLevel", { valueAsNumber: true })}
-                  className="input"
-                  disabled={disAv}
-                />
-              </L>
-            </div>
-            <p className="hidden sm:block text-xs text-gray-400">
-              (Low stock alert when stock is less than)
-            </p>
-          </div>
-
-          <div className="grid sm:grid-cols-[160px_1fr] md:grid-cols-[180px_1fr] gap-0.5">
-            <select
-              {...register("productIdMode")}
-              className="input rounded-r-none"
-              disabled={disAv}
-            >
-              <option>Autogenerated</option>
-              <option>Manual</option>
-            </select>
-            <input
-              {...register("productId", { required: pidMode === "Manual" })}
-              disabled={pidMode === "Autogenerated" || disAv}
-              placeholder={
-                pidMode === "Autogenerated"
-                  ? "Generated automatically"
-                  : "Enter product ID"
-              }
-              className="input rounded-l-none"
-            />
-          </div>
-        </Block>
-      )}
-
-      <Divider />
-
-      {/*──────── DESCRIPTION & FEATURES ────────*/}
-      {show.Description && (
-        <Block {...META[3]}>
-          <L label="Upload Product Image">
-            <label className="flex w-full items-center gap-2 rounded border px-4 py-2 text-sm cursor-pointer">
-              <FiUpload /> Upload image
+            <div className="grid sm:grid-cols-[160px_1fr] md:grid-cols-[180px_1fr] gap-0.5">
+              <select
+                {...register("productIdMode")}
+                className="input rounded-r-none"
+                disabled={disAv}
+              >
+                <option>Autogenerated</option>
+                <option>Manual</option>
+              </select>
               <input
-                type="file"
-                multiple
-                className="hidden"
-                onChange={(e) => addImages(Array.from(e.target.files))}
+                {...register("productId", { required: pidMode === "Manual" })}
+                disabled={pidMode === "Autogenerated" || disAv}
+                placeholder={
+                  pidMode === "Autogenerated"
+                    ? "Generated automatically"
+                    : "Enter product ID"
+                }
+                className="input rounded-l-none"
+              />
+            </div>
+          </Block>
+        )}
+
+        <Divider />
+
+        {/*──────── DESCRIPTION & FEATURES ────────*/}
+        {show.Description && (
+          <Block {...META[3]}>
+            <L label="Upload Product Image">
+              <label className="flex w-full items-center gap-2 rounded border px-4 py-2 text-sm cursor-pointer">
+                <FiUpload /> Upload image
+                <input
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => addImages(Array.from(e.target.files))}
+                  disabled={disDesc}
+                />
+              </label>
+              <span className="mt-1 text-xs text-gray-400">
+                Upload png / jpeg — {watch("images").length} selected
+              </span>
+            </L>
+
+            <L label="Product Details">
+              <textarea
+                rows={3}
+                {...register("description")}
+                placeholder="Enter a description..."
+                className="input resize-none"
                 disabled={disDesc}
               />
-            </label>
-            <span className="mt-1 text-xs text-gray-400">
-              Upload png / jpeg — {watch("images").length} selected
-            </span>
-          </L>
+            </L>
+          </Block>
+        )}
 
-          <L label="Product Details">
-            <textarea
-              rows={3}
-              {...register("description")}
-              placeholder="Enter a description..."
-              className="input resize-none"
-              disabled={disDesc}
-            />
-          </L>
-        </Block>
-      )}
+        {/* bottom save row */}
+        {canSave && <SaveButtons />}
 
-      {/* bottom save row */}
-      {canSave && <SaveButtons />}
+        {/* validation summary */}
+        {canSave && Object.keys(errors).length > 0 && (
+          <div className="mt-10 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {Object.values(errors).map((e, i) => (
+              <p key={i}>• {e.message}</p>
+            ))}
+          </div>
+        )}
+      </form>
 
-      {/* validation summary */}
-      {canSave && Object.keys(errors).length > 0 && (
-        <div className="mt-10 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {Object.values(errors).map((e, i) => (
-            <p key={i}>• {e.message}</p>
-          ))}
+      {/* ========== DUPLICATE MODAL ========== */}
+      {dupModalId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-[90%] max-w-sm rounded-lg bg-white p-6 text-center space-y-6 shadow-lg">
+            <h3 className="text-lg font-semibold text-gray-800">
+              Product already exists
+            </h3>
+            <p className="text-sm text-gray-600">
+              Click the button below to update the existing product instead.
+            </p>
+
+            <button
+              className="w-full rounded-lg bg-orange-600 py-2 text-white hover:bg-orange-700"
+              onClick={() => nav(`/inventory/edit-product/${dupModalId}`)}
+            >
+              Update product
+            </button>
+
+            <button
+              className="w-full rounded-lg border border-gray-300 py-2 text-gray-700 hover:bg-gray-50"
+              onClick={() => setDupModalId(null)}
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       )}
-    </form>
+    </>
   );
 }
