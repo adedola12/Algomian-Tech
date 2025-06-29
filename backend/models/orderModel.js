@@ -69,7 +69,12 @@ const orderSchema = new mongoose.Schema(
       country: { type: String, required: true },
     },
 
-    paymentMethod: { type: String, required: true },
+    paymentMethod: {
+      type: String,
+      required: function () {
+        return this.isPaid;
+      },
+    },
     paymentResult: {
       id: String,
       status: String,
@@ -83,7 +88,7 @@ const orderSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["Pending", "Processing", "Shipped", "Delivered"],
+      enum: ["Invoice", "Pending", "Processing", "Shipped", "Delivered"],
       default: "Pending",
     },
     isPaid: { type: Boolean, default: false },

@@ -39,7 +39,8 @@ const buildLine = (p) => {
 /* ---------- component ---------- */
 export default function SingleSalePage({
   onClose,
-  onBack = () => {}, // optional back handler (sales history)
+  onBack = () => {},
+  mode = "sale",
 }) {
   /* --------------- catalogue ---------------- */
   const [catalogue, setCatalogue] = useState([]);
@@ -122,7 +123,10 @@ export default function SingleSalePage({
   const [showRefSug, setShowRefSug] = useState(false);
 
   /* --------------- delivery ------------------- */
-  const [method, setMethod] = useState("self");
+  // const [method, setMethod] = useState("self");
+  const [orderType, setOrderType] = useState("order"); // "order" | "pickup"
+  const [method, setMethod] = useState("logistics"); // default for pick-up
+  const [paid, setPaid] = useState(true); // for pick-up only
   const [shipAddr, setShip] = useState("");
   const [park, setPark] = useState("");
 
@@ -147,6 +151,13 @@ export default function SingleSalePage({
   /* --------------- save ----------------------- */
   const saveSale = async () => {
     if (!items.length) return toast.error("Pick at least one product");
+
+    if ((orderType === "order" || paid) && !payMethod)
+      return toast.error("Select a payment method");
+
+    if (mode !== "invoice" && !payMethod && paid)
+      return toast.error("Select a payment method");
+
     try {
       await createOrder({
         orderItems: items.map((l) => ({
@@ -158,6 +169,7 @@ export default function SingleSalePage({
           baseStorage: l.baseStorage,
           variantSelections: l.variantSelections,
         })),
+        orderType: mode === "invoice" ? "invoice" : "sale",
         shippingAddress: {
           address:
             method === "logistics" ? shipAddr : method === "park" ? park : pos,
@@ -165,7 +177,9 @@ export default function SingleSalePage({
           postalCode: "N/A",
           country: "N/A",
         },
-        paymentMethod: payMethod,
+        isPaid: orderType === "order" ? true : paid,
+        paymentMethod:
+          mode === "invoice" ? undefined : paid ? payMethod : undefined,
         taxPrice: taxTotal,
         itemsPrice: subtotal,
         customerName: custName,
@@ -383,118 +397,160 @@ export default function SingleSalePage({
       </section>
 
       {/* ───────── delivery ───────── */}
-      <section className="space-y-4">
-        <h3 className="text-lg font-semibold">Delivery</h3>
-        <div className="flex gap-4 flex-wrap">
-          {[
-            ["self", "Self Pick-Up"],
-            ["logistics", "Logistics"],
-            ["park", "Park Pick-Up"],
-          ].map(([k, lbl]) => (
-            <button
-              key={k}
-              onClick={() => setMethod(k)}
-              className={`px-4 py-1.5 rounded-lg border ${
-                method === k
-                  ? "bg-orange-600 text-white border-orange-600"
-                  : "border-gray-300 text-gray-700"
-              }`}
-            >
-              {lbl}
-            </button>
-          ))}
-        </div>
+      {mode !== "invoice" && (
+        <section className="space-y-4">
+          <h3 className="text-lg font-semibold">Delivery</h3>
+          <div className="flex gap-4 flex-wrap">
+            {[
+              ["order", "In-person Order"],
+              ["pickup", "In-person Pick-up"],
+            ].map(([v, lbl]) => (
+              <button
+                key={v}
+                onClick={() => setOrderType(v)}
+                className={`px-4 py-1.5 rounded-lg border ${
+                  orderType === v
+                    ? "bg-orange-600 text-white border-orange-600"
+                    : "border-gray-300 text-gray-700"
+                }`}
+              >
+                {lbl}
+              </button>
+            ))}
+          </div>
 
-        {method === "logistics" && (
-          <textarea
-            rows={2}
-            value={shipAddr}
-            onChange={(e) => setShip(e.target.value)}
-            placeholder="Shipping address"
-            className="w-full border rounded-lg px-3 py-2"
-          />
-        )}
-        {method === "park" && (
-          <input
-            value={park}
-            onChange={(e) => setPark(e.target.value)}
-            placeholder="Nearest bus park"
-            className="w-full border rounded-lg px-3 py-2"
-          />
-        )}
-      </section>
+          {/* ─── extra choices only for pick-up ─── */}
+          {orderType === "pickup" && (
+            <>
+              <div className="flex gap-4 flex-wrap">
+                {[
+                  ["logistics", "Logistics Pick-up"],
+                  ["park", "Park Pick-up"],
+                ].map(([k, lbl]) => (
+                  <button key={k} onClick={() => setMethod(k)}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+
+              {method === "logistics" && (
+                <textarea
+                  rows={2}
+                  value={shipAddr}
+                  onChange={(e) => setShip(e.target.value)}
+                  placeholder="Shipping address"
+                  className="w-full border rounded-lg px-3 py-2"
+                />
+              )}
+              {method === "park" && (
+                <input
+                  value={park}
+                  onChange={(e) => setPark(e.target.value)}
+                  placeholder="Nearest bus park"
+                  className="w-full border rounded-lg px-3 py-2"
+                />
+              )}
+
+              {/* paid / not-paid toggle */}
+              <div className="flex gap-4 items-center">
+                <span className="text-sm">Paid?</span>
+                <label className="flex items-center gap-1">
+                  <input
+                    type="radio"
+                    name="paid"
+                    checked={paid}
+                    onChange={() => setPaid(true)}
+                  />{" "}
+                  Yes
+                </label>
+                <label className="flex items-center gap-1">
+                  <input
+                    type="radio"
+                    name="paid"
+                    checked={!paid}
+                    onChange={() => setPaid(false)}
+                  />{" "}
+                  No
+                </label>
+              </div>
+            </>
+          )}
+        </section>
+      )}
 
       {/* ───────── payment ───────── */}
-      <section className="space-y-4">
-        <h3 className="text-lg font-semibold">Payment</h3>
-        <div className="flex gap-4 flex-wrap">
-          {["cash", "bank", "card"].map((m) => (
-            <button
-              key={m}
-              onClick={() => setPayMethod(m)}
-              className={`px-4 py-1.5 rounded-lg border ${
-                payMethod === m
-                  ? "bg-orange-600 text-white border-orange-600"
-                  : "border-gray-300 text-gray-700"
-              }`}
-            >
-              {m}
-            </button>
-          ))}
-        </div>
-
-        {payMethod === "bank" && (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <label className="block">
-              <span className="text-sm">Bank account</span>
-              <select
-                value={bankAccount}
-                onChange={(e) => setBankAccount(e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 mt-1"
+      {mode !== "invoice" && (orderType === "order" || paid) && (
+        <section className="space-y-4">
+          <h3 className="text-lg font-semibold">Payment</h3>
+          <div className="flex gap-4 flex-wrap">
+            {["cash", "bank", "card"].map((m) => (
+              <button
+                key={m}
+                onClick={() => setPayMethod(m)}
+                className={`px-4 py-1.5 rounded-lg border ${
+                  payMethod === m
+                    ? "bg-orange-600 text-white border-orange-600"
+                    : "border-gray-300 text-gray-700"
+                }`}
               >
-                <option>Moniepoint - Alogoman 2</option>
-                <option>GTB - 00112233</option>
-              </select>
-            </label>
-            <label className="block">
-              <span className="text-sm">Date</span>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 mt-1"
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm">Name on account</span>
-              <input
-                value={accountName}
-                onChange={(e) => setAccountName(e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 mt-1"
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm">Amount transferred</span>
-              <input
-                type="number"
-                value={amountTransferred}
-                onChange={(e) => setAmountTransferred(e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 mt-1"
-              />
-            </label>
+                {m}
+              </button>
+            ))}
           </div>
-        )}
 
-        <label className="flex items-center gap-2">
-          <span className="text-sm">Tax %</span>
-          <input
-            type="number"
-            value={taxPct}
-            onChange={(e) => setTax(+e.target.value)}
-            className="w-24 border rounded-lg px-2 py-1"
-          />
-        </label>
-      </section>
+          {payMethod === "bank" && (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <label className="block">
+                <span className="text-sm">Bank account</span>
+                <select
+                  value={bankAccount}
+                  onChange={(e) => setBankAccount(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 mt-1"
+                >
+                  <option>Moniepoint - Alogoman 2</option>
+                  <option>GTB - 00112233</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-sm">Date</span>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 mt-1"
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm">Name on account</span>
+                <input
+                  value={accountName}
+                  onChange={(e) => setAccountName(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 mt-1"
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm">Amount transferred</span>
+                <input
+                  type="number"
+                  value={amountTransferred}
+                  onChange={(e) => setAmountTransferred(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 mt-1"
+                />
+              </label>
+            </div>
+          )}
+
+          <label className="flex items-center gap-2">
+            <span className="text-sm">Tax %</span>
+            <input
+              type="number"
+              value={taxPct}
+              onChange={(e) => setTax(+e.target.value)}
+              className="w-24 border rounded-lg px-2 py-1"
+            />
+          </label>
+        </section>
+      )}
 
       {/* ───────── summary / save ───────── */}
       <section className="space-y-2 max-w-sm ml-auto">

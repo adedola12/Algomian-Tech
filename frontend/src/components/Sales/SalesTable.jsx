@@ -41,8 +41,7 @@ export default function SalesTable() {
     ? buildLine(location.state.product)
     : null;
 
-  const [showForm, setShowForm] = useState(Boolean(seedLine));
-
+  const [showForm, setShowForm] = useState(seedLine ? { mode: "sale" } : null);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -158,7 +157,10 @@ export default function SalesTable() {
   };
 
   return showForm ? (
-    <SingleSalePage onClose={() => setShowForm(false)} />
+    <SingleSalePage
+      mode={showForm.mode} // "sale" or "invoice"
+      onClose={() => setShowForm(null)}
+    />
   ) : (
     <div className="bg-white rounded-2xl shadow p-4 sm:p-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6">
@@ -171,6 +173,13 @@ export default function SalesTable() {
           className="bg-orange-600 hover:bg-orange-700 text-white px-5 py-2 rounded-lg"
         >
           + Enter Sales
+        </button>
+
+        <button
+          onClick={() => setShowForm({ mode: "invoice" })}
+          className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2 rounded-lg"
+        >
+          + Create Invoice
         </button>
       </div>
 
@@ -272,6 +281,8 @@ export default function SalesTable() {
                             ? "bg-blue-100 text-blue-800"
                             : r.status === "Shipped"
                             ? "bg-green-100 text-green-800"
+                            : r.status === "Invoice"
+                            ? "bg-purple-100 text-purple-800"
                             : r.status === "Delivered"
                             ? "bg-gray-100 text-gray-800"
                             : "bg-gray-100 text-gray-800"

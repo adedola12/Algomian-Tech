@@ -55,6 +55,8 @@ export const addOrderItems = asyncHandler(async (req, res) => {
     orderItems = [],
     shippingAddress = {},
     paymentMethod,
+    orderType = "sale",
+    isPaid = true,
     shippingPrice = 0,
     taxPrice = 0,
     pointOfSale,
@@ -138,7 +140,7 @@ export const addOrderItems = asyncHandler(async (req, res) => {
   );
   const totalPrice = itemsPrice + Number(shippingPrice) + Number(taxPrice);
 
-  const order = await Order.create({
+  const base = {
     trackingId: crypto.randomBytes(4).toString("hex").toUpperCase(),
     user: userId,
     referral: refUserId, // <— store reference
@@ -147,12 +149,43 @@ export const addOrderItems = asyncHandler(async (req, res) => {
     pointOfSale,
     orderItems: detailedItems,
     shippingAddress,
-    paymentMethod,
     itemsPrice,
     shippingPrice,
     taxPrice,
     totalPrice,
-  });
+  };
+
+  // ─── specialise ────────────────────────────────
+  let doc;
+  if (orderType === "invoice") {
+    doc = {
+      ...base,
+      status: "Invoice",
+      isPaid: false,
+      paymentMethod: undefined, // not needed yet
+    };
+  } else {
+    doc = { ...base, paymentMethod };
+  }
+
+  // const order = await Order.create({
+  //   trackingId: crypto.randomBytes(4).toString("hex").toUpperCase(),
+  //   user: userId,
+  //   referral: refUserId, // <— store reference
+  //   referralName: referralName || "", // keep raw text, useful for history
+  //   referralPhone: referralPhone || "",
+  //   pointOfSale,
+  //   orderItems: detailedItems,
+  //   shippingAddress,
+  //   paymentMethod: isPaid ? paymentMethod : undefined,
+  //   isPaid,
+  //   itemsPrice,
+  //   shippingPrice,
+  //   taxPrice,
+  //   totalPrice,
+  // });
+
+  const order = await Order.create(doc);
 
   const createdOrder = await order.save();
 
