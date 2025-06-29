@@ -1,8 +1,12 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000",
-  withCredentials: true, // <- receive httpOnly cookie too
+  baseURL:
+    import.meta.env.VITE_API_URL || // production  ← ENV
+    (import.meta.env.DEV
+      ? "http://localhost:5000" // dev fallback
+      : "/"), // *never* blank
+  withCredentials: true, // keep your cookies / JWTs working
 });
 
 // at top of your existing axios setup

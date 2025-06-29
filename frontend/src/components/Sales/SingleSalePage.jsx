@@ -13,7 +13,7 @@ import { toast } from "react-toastify";
 
 import SelectedItemCard from "./SelectedItemCard";
 import { lineTotal } from "../../utils/money";
-import { createOrder } from "../../api";
+import { fetchProducts, createOrder } from "../../api";
 
 /* ---------- helpers ---------- */
 const buildLine = (p) => {
@@ -57,8 +57,11 @@ export default function SingleSalePage({
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await axios.get("/api/products?limit=500");
-        const list = Array.isArray(data) ? data : data.products ?? [];
+        // const { data } = await axios.get("/api/products?limit=500");
+        // const list = Array.isArray(data) ? data : data.products ?? [];
+
+        const { products = [] } = await fetchProducts({ limit: 500 });
+        const list = products;
         setCatalogue(list);
       } catch (err) {
         toast.error("Could not load catalogue");
