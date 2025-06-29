@@ -144,10 +144,25 @@ export default function InventTable() {
       minimumFractionDigits: 0,
     });
 
+  /*  NEW: always show the first spec  */
   const compactDetails = (p) => {
-    const cpu = p.baseCPU || p.storageCPU || "";
-    const ram = p.baseRam || p.storageRam || "";
-    const sto = p.baseStorage || p.Storage || "";
+    let cpu = "",
+      ram = "",
+      sto = "";
+
+    /* 1️⃣ Prefer first entry in baseSpecs array */
+    if (Array.isArray(p.baseSpecs) && p.baseSpecs.length > 0) {
+      const first = p.baseSpecs[0] || {};
+      cpu = first.baseCPU || "";
+      ram = first.baseRam || "";
+      sto = first.baseStorage || "";
+    }
+
+    /* 2️⃣ Fallback to legacy top-level fields */
+    cpu = cpu || p.baseCPU || p.storageCPU || "";
+    ram = ram || p.baseRam || p.storageRam || "";
+    sto = sto || p.baseStorage || p.Storage || "";
+
     return [cpu, ram, sto].filter(Boolean).join("/") || "—";
   };
 
