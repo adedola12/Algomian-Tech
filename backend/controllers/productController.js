@@ -171,44 +171,48 @@ export const getCategories = asyncHandler(async (req, res) => {
 export const getProducts = asyncHandler(async (req, res) => {
   const { search = "", category = "", page = 1, limit = 50 } = req.query;
 
-  /* ── build a single case-insensitive RegExp once ── */
-  const term = search.trim()
-    ? new RegExp(search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i")
-    : null;
+  /* ── turn "i7 16GB"  ->  ["i7", "16GB"] ──────────────────────────── */
+  const tokens = search
+    .trim()
+    .split(/\s+/) // split by 1-or-more spaces
+    .filter(Boolean) // remove empties
+    .slice(0, 5); // safety: max 5 tokens
 
-  /* ── MAIN QUERY ─────────────────────────────────── */
+  /* one sub-query per token – ALL tokens must be satisfied (AND) */
+  const tokenConditions = tokens.map((t) => {
+    const term = new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    return {
+      $or: [
+        /* simple text columns */
+        { productName: term },
+        { brand: term },
+        { productCategory: term },
+
+        /* flat spec helpers */
+        { storageRam: term },
+        { Storage: term },
+
+        /* look inside every element of baseSpecs[] */
+        {
+          baseSpecs: {
+            $elemMatch: {
+              $or: [
+                { baseCPU: term },
+                { baseRam: term },
+                { baseStorage: term },
+                { serialNumber: term },
+              ],
+            },
+          },
+        },
+      ],
+    };
+  });
+
+  /* optional category filter stays the same ------------------------- */
   const q = {
     $and: [
-      term
-        ? {
-            $or: [
-              /* basic columns */
-              { productName: term },
-              { brand: term },
-              { productCategory: term },
-
-              /* flat spec helpers */
-              { storageRam: term },
-              { Storage: term },
-
-              /* search inside **each element** of baseSpecs[] */
-              {
-                baseSpecs: {
-                  $elemMatch: {
-                    $or: [
-                      { baseCPU: term },
-                      { baseRam: term },
-                      { baseStorage: term },
-                      { serialNumber: term },
-                    ],
-                  },
-                },
-              },
-            ],
-          }
-        : {},
-
-      /* optional category drop-down */
+      ...(tokenConditions.length ? tokenConditions : [{}]),
       category ? { productCategory: category } : {},
     ],
   };
