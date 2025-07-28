@@ -28,6 +28,38 @@ const BulkAddProduct = () => {
   );
   const [loading, setLoading] = useState(false);
 
+  /* ───── Excel ⇢ table ───── */
+  const handlePaste = (e) => {
+    const text = e.clipboardData?.getData("text");
+    if (!text) return;
+    e.preventDefault(); // stop the default “paste into one cell”
+
+    const lines = text.trim().split(/\r?\n/);
+    const parsedRows = lines.map((line) => {
+      const cells = line.split("\t"); // Excel → tab-separated
+      return {
+        productName: cells[0] || "",
+        brand: cells[1] || "",
+        baseCPU: cells[2] || "",
+        baseRam: cells[3] || "",
+        baseStorage: cells[4] || "",
+        serialNumber: cells[5] || "",
+        supplier: cells[6] || "",
+      };
+    });
+
+    setRows((prev) => {
+      const copy = [...prev];
+      // overwrite / extend existing rows
+      parsedRows.forEach((row, idx) => {
+        copy[idx] = { ...(copy[idx] || createEmptyRow()), ...row };
+      });
+      // ensure at least 10 blank rows stay visible
+      while (copy.length < 10) copy.push(createEmptyRow());
+      return copy;
+    });
+  };
+
   const handleChange = (idx, field, value) => {
     setRows((prevRows) =>
       prevRows.map((row, i) => (i === idx ? { ...row, [field]: value } : row))
@@ -60,7 +92,7 @@ const BulkAddProduct = () => {
     <div className="p-6 bg-white rounded shadow">
       <h2 className="text-xl font-bold mb-4">Bulk Add Products</h2>
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto" onPaste={handlePaste}>
         <table className="min-w-full table-auto border">
           <thead>
             <tr className="bg-gray-100 text-left text-sm font-medium">

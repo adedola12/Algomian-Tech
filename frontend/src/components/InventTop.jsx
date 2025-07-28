@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import * as XLSX from "xlsx";
 import { Link } from "react-router-dom";
 import { FiDownload, FiBox } from "react-icons/fi";
 import api from "../api";
@@ -68,12 +69,59 @@ const InventTop = () => {
     );
   };
 
+  /* ───────── EXPORT TO EXCEL ───────── */
+  const handleExport = async () => {
+    try {
+      // grab everything (raise limit as needed)
+      const { data } = await api.get("/api/products", {
+        params: { limit: 10000 },
+      });
+      const products = data.products || [];
+
+      // map only the columns you want in Excel
+      const rows = products.map((p) => ({
+        Name: p.productName,
+        Brand: p.brand,
+        CPU: p.baseSpecs?.[0]?.baseCPU || "",
+        RAM: p.baseSpecs?.[0]?.baseRam || "",
+        Storage: p.baseSpecs?.[0]?.baseStorage || "",
+        SerialNumber: p.baseSpecs?.[0]?.serialNumber || "",
+        Supplier: p.supplier || "",
+        Quantity: p.quantity,
+        SellingPrice: p.sellingPrice,
+        CostPrice: p.costPrice,
+        Status:
+          p.quantity === 0
+            ? "Out of stock"
+            : p.quantity <= p.reorderLevel
+            ? "Low stock"
+            : "In stock",
+        DateAdded: new Date(p.createdAt).toLocaleDateString("en-GB"),
+      }));
+
+      // SheetJS magic
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Products");
+      XLSX.writeFile(
+        wb,
+        `products_${new Date().toISOString().slice(0, 10)}.xlsx`
+      );
+    } catch (err) {
+      console.error(err);
+      toast.error("Export failed 🙁");
+    }
+  };
+
   return (
     <div className="w-full">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
         <h2 className="text-2xl font-semibold text-gray-800">Inventory</h2>
         <div className="flex gap-3">
-          <button className="border border-purple-600 text-purple-700 px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 hover:bg-purple-50 transition">
+          <button
+            onClick={handleExport}
+            className="border border-purple-600 text-purple-700 px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 hover:bg-purple-50 transition"
+          >
             <FiDownload />
             Export
           </button>
