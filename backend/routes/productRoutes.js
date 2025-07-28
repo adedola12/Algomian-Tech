@@ -10,6 +10,7 @@ import {
   getBrands,
   getCategories,
   getBaseSpecs,
+  bulkCreateProduct,
 } from "../controllers/productController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
@@ -23,6 +24,7 @@ router
 
 router.get("/brands", getBrands);
 router.get("/categories", getCategories);
+router.post("/bulk", protect, bulkCreateProduct);
 
 router
   .route("/:id")

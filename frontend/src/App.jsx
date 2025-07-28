@@ -46,6 +46,7 @@ import ResetPassword from "./pages/ResetPassword";
 import InvMan from "./pages/InvMan";
 import InvManOrderDetails from "./components/InventoryManager/InvManOrderDetails";
 import InvManViewOrder from "./components/InventoryManager/InvManViewOrder";
+import BulkAddProduct from "./pages/Inventory/BulkAddProduct";
 
 export default function App() {
   return (
@@ -114,6 +115,7 @@ export default function App() {
               path="inventory/edit-product/:id"
               element={<EditProduct />}
             />
+            <Route path="inventory/bulk-product" element={<BulkAddProduct />} />
           </Route>
         </Route>
 

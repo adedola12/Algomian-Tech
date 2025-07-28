@@ -245,3 +245,39 @@ export const getProduct = asyncHandler(async (req, res) => {
   }
   res.json(product);
 });
+
+export const bulkCreateProduct = asyncHandler(async (req, res) => {
+  const { products = [] } = req.body;
+
+  if (!Array.isArray(products) || !products.length) {
+    res.status(400);
+    throw new Error("No valid product data submitted.");
+  }
+
+  const created = await Product.insertMany(
+    products.map((p) => ({
+      productName: p.productName,
+      brand: p.brand,
+      baseSpecs: [
+        {
+          baseCPU: p.baseCPU || "",
+          baseRam: p.baseRam || "",
+          baseStorage: p.baseStorage || "",
+          serialNumber: p.serialNumber || "",
+        },
+      ],
+      supplier: p.supplier || "",
+      productCategory: "Laptops",
+      productCondition: "UK Used",
+      quantity: 1,
+      availability: "restocking",
+      status: "Status",
+    })),
+    { ordered: false } // Skip duplicates
+  );
+
+  res.status(201).json({
+    added: created.length,
+    message: "Bulk products added successfully.",
+  });
+});
