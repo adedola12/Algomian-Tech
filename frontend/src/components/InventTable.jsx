@@ -245,6 +245,7 @@ export default function InventTable() {
                       ]
                     : []),
                   ["Status", "status"],
+                  ["Date Added", "createdAt"],
                   ["Action", ""],
                 ].map(([label, key]) => (
                   <th
@@ -324,6 +325,14 @@ export default function InventTable() {
                         ? "Low stock"
                         : "In stock"}
                     </span>
+                  </td>
+
+                  <td className="py-3">
+                    {new Date(p.createdAt).toLocaleDateString("en-GB", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })}
                   </td>
 
                   {/* three-dot menu */}

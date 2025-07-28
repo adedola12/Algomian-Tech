@@ -83,6 +83,12 @@ const InventTop = () => {
           >
             + Add Product
           </Link>
+          <Link
+            to="/inventory/add-product"
+            className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md text-sm font-semibold transition"
+          >
+            + Bulk Add Product
+          </Link>
         </div>
       </div>
 
