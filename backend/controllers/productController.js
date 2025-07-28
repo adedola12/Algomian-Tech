@@ -16,7 +16,7 @@ export const parseMaybeJSON = (val, fallback = null) => {
 /* ─────────────  CREATE  ───────────── */
 export const createProduct = asyncHandler(async (req, res) => {
   /* ---------- DUPLICATE CHECK (case-insensitive) ---------- */
-  const { productName = "" } = req.body;
+  // const { productName = "" } = req.body;
   // const existing = await Product.findOne({
   //   productName: { $regex: `^${productName}$`, $options: "i" },
   // });

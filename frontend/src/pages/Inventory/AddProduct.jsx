@@ -60,7 +60,7 @@ export default function AddProduct() {
   }
 
   /* ---------- duplicate-modal state ---------------------- */
-  const [dupModalId, setDupModalId] = useState(null); // null ⇢ hidden
+  // const [dupModalId, setDupModalId] = useState(null); // null ⇢ hidden
 
   /* ---- react-hook-form ------------------------------------- */
   const {
@@ -715,7 +715,7 @@ export default function AddProduct() {
       </form>
 
       {/* ========== DUPLICATE MODAL ========== */}
-      {dupModalId && (
+      {/* {dupModalId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-[90%] max-w-sm rounded-lg bg-white p-6 text-center space-y-6 shadow-lg">
             <h3 className="text-lg font-semibold text-gray-800">
@@ -740,7 +740,7 @@ export default function AddProduct() {
             </button>
           </div>
         </div>
-      )}
+      )} */}
     </>
   );
 }
