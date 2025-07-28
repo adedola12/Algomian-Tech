@@ -272,8 +272,9 @@ export const bulkCreateProduct = asyncHandler(async (req, res) => {
       quantity: 1,
       availability: "restocking",
       status: "Status",
+      productId: uuid(), // ✅ add this line to avoid duplicate nulls
     })),
-    { ordered: false } // Skip duplicates
+    { ordered: false }
   );
 
   res.status(201).json({

@@ -50,6 +50,7 @@ const BulkAddProduct = () => {
       setRows(Array.from({ length: 10 }, () => createEmptyRow()));
     } catch (e) {
       toast.error(e.response?.data?.message || "Error adding products");
+      console.error("Bulk add error:", e);
     } finally {
       setLoading(false);
     }
