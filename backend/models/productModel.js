@@ -61,9 +61,9 @@ const productSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-productSchema.index(
-  { productName: 1 },
-  { unique: true, collation: { locale: "en", strength: 2 } } // case-insensitive
-);
+// productSchema.index(
+//   { productName: 1 },
+//   { unique: true, collation: { locale: "en", strength: 2 } } // case-insensitive
+// );
 
 export default mongoose.model("Product", productSchema);
