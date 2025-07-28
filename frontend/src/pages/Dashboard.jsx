@@ -1,9 +1,17 @@
 /*  src/pages/Dashboard.jsx  */
 import React, { useEffect, useState, useMemo } from "react";
+import { useAuth } from "../context/AuthContext";
 import {
-  PieChart, Pie, Cell,
-  LineChart, Line,
-  XAxis, YAxis, Tooltip, CartesianGrid, Legend,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  Legend,
   ResponsiveContainer,
 } from "recharts";
 import {
@@ -18,8 +26,16 @@ import { toast } from "react-toastify";
 
 /* ────────── helpers / constants ────────── */
 const COLORS = [
-  "#ff6600", "#fec06b", "#4f75ff", "#a4c638", "#8b5cf6",
-  "#ef4444", "#14b8a6", "#eab308", "#6366f1", "#d946ef",
+  "#ff6600",
+  "#fec06b",
+  "#4f75ff",
+  "#a4c638",
+  "#8b5cf6",
+  "#ef4444",
+  "#14b8a6",
+  "#eab308",
+  "#6366f1",
+  "#d946ef",
 ];
 const fmt = (v) => (+v || 0).toLocaleString();
 const monthKey = (d) =>
@@ -27,9 +43,11 @@ const monthKey = (d) =>
 
 /* ────────── component ────────── */
 export default function Dashboard() {
-  const [loading,  setLoading]  = useState(true);
-  const [users,    setUsers]    = useState([]);
-  const [orders,   setOrders]   = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState([]);
+  const { user } = useAuth();
+  const isAdmin = user?.userType === "Admin";
+  const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
 
   /* fetch all three collections in parallel */
@@ -37,15 +55,20 @@ export default function Dashboard() {
     (async () => {
       try {
         const [uRes, oRes, pRes] = await Promise.all([
-          api.get("/api/users/all",  { withCredentials: true }),
-          api.get("/api/orders",     { withCredentials: true }),
-          api.get("/api/products",   { withCredentials: true }),
+          api.get("/api/users/all", { withCredentials: true }),
+          api.get("/api/orders", { withCredentials: true }),
+          api.get("/api/products", { withCredentials: true }),
         ]);
 
-        setUsers(   Array.isArray(uRes.data)            ? uRes.data            : []);
-        setOrders(  Array.isArray(oRes.data)            ? oRes.data            : []);
-        setProducts(Array.isArray(pRes.data?.products)  ? pRes.data.products
-                    : Array.isArray(pRes.data)          ? pRes.data            : []);
+        setUsers(Array.isArray(uRes.data) ? uRes.data : []);
+        setOrders(Array.isArray(oRes.data) ? oRes.data : []);
+        setProducts(
+          Array.isArray(pRes.data?.products)
+            ? pRes.data.products
+            : Array.isArray(pRes.data)
+            ? pRes.data
+            : []
+        );
       } catch (err) {
         toast.error(err.response?.data?.message || err.message);
       } finally {
@@ -56,15 +79,20 @@ export default function Dashboard() {
 
   /* ────────── aggregated metrics ────────── */
   const metrics = useMemo(() => {
-    const usersWithOrders = new Set(orders.map((o) => o.user?._id || o.user)).size;
+    const usersWithOrders = new Set(orders.map((o) => o.user?._id || o.user))
+      .size;
 
-    const inventoryValue  = products.reduce(
-      (sum, p) => sum + (+p.costPrice || 0) * (+p.quantity || 0), 0);
+    const inventoryValue = products.reduce(
+      (sum, p) => sum + (+p.costPrice || 0) * (+p.quantity || 0),
+      0
+    );
 
     const totalSalesValue = orders.reduce(
-      (sum, o) => sum + (+o.totalPrice || 0), 0);
+      (sum, o) => sum + (+o.totalPrice || 0),
+      0
+    );
 
-    const countsByRole   = users.reduce((acc, u) => {
+    const countsByRole = users.reduce((acc, u) => {
       acc[u.userType] = (acc[u.userType] || 0) + 1;
       return acc;
     }, {});
@@ -75,58 +103,63 @@ export default function Dashboard() {
     }, {});
 
     return {
-      totalUsers      : users.length,
+      totalUsers: users.length,
       usersWithOrders,
       countsByRole,
       countsByStatus,
-      totalProducts   : products.length,
+      totalProducts: products.length,
       inventoryValue,
-      totalOrders     : orders.length,
+      totalOrders: orders.length,
       totalSalesValue,
     };
   }, [users, orders, products]);
 
   /* ────────── 6-month per-role line data (Total Users card) ────────── */
   const userLineData = useMemo(() => {
-    const now    = new Date();
+    const now = new Date();
     const months = [...Array(6)].map((_, i) =>
-      monthKey(new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)));
+      monthKey(new Date(now.getFullYear(), now.getMonth() - (5 - i), 1))
+    );
 
     const rows = months.map((m) => ({ month: m }));
     users.forEach((u) => {
-      const m   = monthKey(u.createdAt);
+      const m = monthKey(u.createdAt);
       const row = rows.find((r) => r.month === m);
       if (row) row[u.userType] = (row[u.userType] || 0) + 1;
     });
 
     const roles = Object.keys(metrics.countsByRole);
     return rows.map((r) =>
-      roles.reduce((acc, role) => ({ ...acc, [role]: r[role] || 0 }), r));
+      roles.reduce((acc, role) => ({ ...acc, [role]: r[role] || 0 }), r)
+    );
   }, [users, metrics.countsByRole]);
 
   /* ────────── 6-month per-status line data (Total Sales card) ───────── */
   const salesLineData = useMemo(() => {
-    const now    = new Date();
+    const now = new Date();
     const months = [...Array(6)].map((_, i) =>
-      monthKey(new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)));
+      monthKey(new Date(now.getFullYear(), now.getMonth() - (5 - i), 1))
+    );
 
     const rows = months.map((m) => ({ month: m }));
     orders.forEach((o) => {
-      const m   = monthKey(o.createdAt);
+      const m = monthKey(o.createdAt);
       const row = rows.find((r) => r.month === m);
       if (row) row[o.status] = (row[o.status] || 0) + 1;
     });
 
     const statuses = Object.keys(metrics.countsByStatus);
     return rows.map((r) =>
-      statuses.reduce((acc, s) => ({ ...acc, [s]: r[s] || 0 }), r));
+      statuses.reduce((acc, s) => ({ ...acc, [s]: r[s] || 0 }), r)
+    );
   }, [orders, metrics.countsByStatus]);
 
   /* ────────── Products vs Orders comparison (row 3) ────────── */
   const compLineData = useMemo(() => {
-    const now    = new Date();
+    const now = new Date();
     const months = [...Array(6)].map((_, i) =>
-      monthKey(new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)));
+      monthKey(new Date(now.getFullYear(), now.getMonth() - (5 - i), 1))
+    );
 
     const byMonth = (arr) => {
       const m = {};
@@ -138,32 +171,39 @@ export default function Dashboard() {
     };
 
     const productSeries = byMonth(products);
-    const orderSeries   = byMonth(orders);
+    const orderSeries = byMonth(orders);
 
     return months.map((label, idx) => ({
-      month   : label,
+      month: label,
       products: productSeries[idx],
-      orders  : orderSeries[idx],
+      orders: orderSeries[idx],
     }));
   }, [products, orders]);
 
   /* ────────── CSV export helper ────────── */
   const exportUsersCSV = () => {
     const rows = users.map((u) => [
-      `${u.firstName} ${u.lastName}`, u.email, u.whatAppNumber || "", u.userType,
+      `${u.firstName} ${u.lastName}`,
+      u.email,
+      u.whatAppNumber || "",
+      u.userType,
     ]);
-    const csv  = ["Name,Email,Phone,Role", ...rows.map((r) => r.join(","))].join("\n");
+    const csv = ["Name,Email,Phone,Role", ...rows.map((r) => r.join(","))].join(
+      "\n"
+    );
     const blob = new Blob([csv], { type: "text/csv" });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
-    a.href     = url;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
     a.download = `users_${Date.now()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
   if (loading)
-    return <p className="px-4 py-10 text-sm text-gray-500">Loading dashboard…</p>;
+    return (
+      <p className="px-4 py-10 text-sm text-gray-500">Loading dashboard…</p>
+    );
 
   /* ────────── UI ────────── */
   return (
@@ -171,14 +211,16 @@ export default function Dashboard() {
       {/* header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between">
         <h1 className="text-2xl font-semibold text-gray-800">Dashboard</h1>
-        <button
-          onClick={exportUsersCSV}
-          className="mt-4 md:mt-0 inline-flex items-center px-4 py-2
+        {isAdmin && (
+          <button
+            onClick={exportUsersCSV}
+            className="mt-4 md:mt-0 inline-flex items-center px-4 py-2
                      border border-gray-300 rounded-lg text-sm text-gray-700
                      hover:bg-gray-50"
-        >
-          <FiDownload className="mr-2 text-gray-500" /> Export Users
-        </button>
+          >
+            <FiDownload className="mr-2 text-gray-500" /> Export Users
+          </button>
+        )}
       </div>
 
       {/* ROW 1 */}
@@ -190,15 +232,31 @@ export default function Dashboard() {
           big={metrics.totalUsers}
           footer={<Badges counts={metrics.countsByRole} />}
         >
-          <LineBlock data={userLineData} keys={metrics.countsByRole} startColorIdx={0} />
+          <LineBlock
+            data={userLineData}
+            keys={metrics.countsByRole}
+            startColorIdx={0}
+          />
         </Card>
 
         {/* Users Who Ordered */}
-        <Card title="Users Who Ordered" Icon={FiUserCheck} big={metrics.usersWithOrders}>
-          <PieBlock data={[
-            { name: "Ordered",   value: metrics.usersWithOrders },
-            { name: "No Orders", value: Math.max(metrics.totalUsers - metrics.usersWithOrders, 0) },
-          ]}/>
+        <Card
+          title="Users Who Ordered"
+          Icon={FiUserCheck}
+          big={metrics.usersWithOrders}
+        >
+          <PieBlock
+            data={[
+              { name: "Ordered", value: metrics.usersWithOrders },
+              {
+                name: "No Orders",
+                value: Math.max(
+                  metrics.totalUsers - metrics.usersWithOrders,
+                  0
+                ),
+              },
+            ]}
+          />
         </Card>
       </div>
 
@@ -211,7 +269,9 @@ export default function Dashboard() {
           big={metrics.totalProducts}
           sub={`Inventory ₦${fmt(metrics.inventoryValue)}`}
         >
-          <PieBlock data={[{ name: "Products", value: metrics.totalProducts }]} />
+          <PieBlock
+            data={[{ name: "Products", value: metrics.totalProducts }]}
+          />
         </Card>
 
         {/* Total Sales */}
@@ -241,12 +301,22 @@ export default function Dashboard() {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" />
               <YAxis />
-              <Tooltip formatter={(v)=>fmt(v)} />
+              <Tooltip formatter={(v) => fmt(v)} />
               <Legend />
-              <Line type="monotone" dataKey="products" name="Products added"
-                    stroke={COLORS[1]} strokeWidth={2} />
-              <Line type="monotone" dataKey="orders" name="Orders placed"
-                    stroke={COLORS[3]} strokeWidth={2} />
+              <Line
+                type="monotone"
+                dataKey="products"
+                name="Products added"
+                stroke={COLORS[1]}
+                strokeWidth={2}
+              />
+              <Line
+                type="monotone"
+                dataKey="orders"
+                name="Orders placed"
+                stroke={COLORS[3]}
+                strokeWidth={2}
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -285,7 +355,9 @@ function Badges({ counts, startColorIdx = 0 }) {
       {keys.map((k, idx) => (
         <div key={k} className="flex items-center text-xs">
           <span
-            style={{ background: COLORS[(startColorIdx + idx) % COLORS.length] }}
+            style={{
+              background: COLORS[(startColorIdx + idx) % COLORS.length],
+            }}
             className="inline-block w-3 h-3 rounded-full mr-1"
           />
           {k}:&nbsp;<span className="font-medium">{fmt(counts[k])}</span>
@@ -305,7 +377,7 @@ function LineBlock({ data, keys, startColorIdx = 0 }) {
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="month" />
           <YAxis />
-          <Tooltip formatter={(v)=>fmt(v)} />
+          <Tooltip formatter={(v) => fmt(v)} />
           <Legend />
           {series.map((s, idx) => (
             <Line

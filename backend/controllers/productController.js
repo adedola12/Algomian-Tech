@@ -17,19 +17,19 @@ export const parseMaybeJSON = (val, fallback = null) => {
 export const createProduct = asyncHandler(async (req, res) => {
   /* ---------- DUPLICATE CHECK (case-insensitive) ---------- */
   const { productName = "" } = req.body;
-  const existing = await Product.findOne({
-    productName: { $regex: `^${productName}$`, $options: "i" },
-  });
+  // const existing = await Product.findOne({
+  //   productName: { $regex: `^${productName}$`, $options: "i" },
+  // });
 
-  if (existing) {
-    res
-      .status(409) // Conflict
-      .json({
-        message: `“${existing.productName}” already exists. Use Update instead.`,
-        productId: existing._id,
-      });
-    return;
-  }
+  // if (existing) {
+  //   res
+  //     .status(409) // Conflict
+  //     .json({
+  //       message: `“${existing.productName}” already exists. Use Update instead.`,
+  //       productId: existing._id,
+  //     });
+  //   return;
+  // }
 
   const {
     productCondition,
