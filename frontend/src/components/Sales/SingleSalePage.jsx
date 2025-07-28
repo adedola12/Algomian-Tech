@@ -26,7 +26,7 @@ const buildLine = (p) => {
     baseRam: first.baseRam || "",
     baseStorage: first.baseStorage || "",
     baseCPU: first.baseCPU || "",
-    price: p.sellingPrice,
+    price: Number(p.sellingPrice ?? 0),
     qty: 1,
     maxQty: p.quantity,
     variants: p.variants || [],
@@ -379,7 +379,9 @@ export default function SingleSalePage({ onClose, onBack, mode = "sale" }) {
                   <div className="min-w-0">
                     <p className="text-xs truncate">{p.productName}</p>
                     <p className="text-[11px] font-semibold">
-                      ₦{p.sellingPrice.toLocaleString()}
+                      {/* ₦{p.sellingPrice.toLocaleString()}
+                       */}
+                      ₦{Number(p.sellingPrice ?? 0).toLocaleString()}
                     </p>
                   </div>
                 </label>
@@ -410,8 +412,8 @@ export default function SingleSalePage({ onClose, onBack, mode = "sale" }) {
           <h3 className="text-lg font-semibold">Delivery</h3>
           <div className="flex gap-4 flex-wrap">
             {[
-              ["order", "In-person Order"],
-              ["pickup", "In-person Pick-up"],
+              ["order", "Walk In"],
+              ["pickup", "Online Order"],
             ].map(([v, lbl]) => (
               <button
                 key={v}
@@ -442,13 +444,72 @@ export default function SingleSalePage({ onClose, onBack, mode = "sale" }) {
               </div>
 
               {method === "logistics" && (
-                <textarea
-                  rows={2}
-                  value={shipAddr}
-                  onChange={(e) => setShip(e.target.value)}
-                  placeholder="Shipping address"
-                  className="w-full border rounded-lg px-3 py-2"
-                />
+                <div>
+                  <textarea
+                    rows={2}
+                    value={shipAddr}
+                    onChange={(e) => setShip(e.target.value)}
+                    placeholder="Shipping address"
+                    className="w-full border rounded-lg px-3 py-2"
+                  />
+
+                  <textarea
+                    rows={2}
+                    value={shipAddr}
+                    onChange={(e) => setShip(e.target.value)}
+                    placeholder="Receiver name"
+                    className="w-full border rounded-lg px-3 py-2"
+                  />
+
+                  <textarea
+                    rows={2}
+                    value={shipAddr}
+                    onChange={(e) => setShip(e.target.value)}
+                    placeholder="Receiver number"
+                    className="w-full border rounded-lg px-3 py-2"
+                  />
+
+                  <textarea
+                    rows={2}
+                    value={shipAddr}
+                    onChange={(e) => setShip(e.target.value)}
+                    placeholder="Name on Receipt"
+                    className="w-full border rounded-lg px-3 py-2"
+                  />
+
+                  <textarea
+                    rows={2}
+                    value={shipAddr}
+                    onChange={(e) => setShip(e.target.value)}
+                    placeholder="Amount on Receipt"
+                    className="w-full border rounded-lg px-3 py-2"
+                  />
+
+                  <textarea
+                    rows={2}
+                    value={shipAddr}
+                    onChange={(e) => setShip(e.target.value)}
+                    placeholder="Mode of Delivery"
+                    className="w-full border rounded-lg px-3 py-2"
+                  />
+
+                  <textarea
+                    rows={2}
+                    value={shipAddr}
+                    onChange={(e) => setShip(e.target.value)}
+                    placeholder="Additional note"
+                    className="w-full border rounded-lg px-3 py-2"
+                  />
+
+                  <textarea
+                    rows={2}
+                    value={shipAddr}
+                    onChange={(e) => setShip(e.target.value)}
+                    placeholder="Delivery Payment Status"
+                    className="w-full border rounded-lg px-3 py-2"
+                  />
+                  {/* Paid or Not Paid */}
+                </div>
               )}
               {method === "park" && (
                 <input
