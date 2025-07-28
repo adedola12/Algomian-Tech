@@ -69,6 +69,13 @@ const orderSchema = new mongoose.Schema(
       country: { type: String, required: true },
     },
 
+    receiverName: { type: String },
+    receiverPhone: { type: String },
+    receiptName: { type: String },
+    receiptAmount: { type: Number, default: 0 },
+    deliveryNote: { type: String },
+    deliveryPaid: { type: Boolean, default: true },
+
     paymentMethod: {
       type: String,
       required: function () {

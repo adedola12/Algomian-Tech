@@ -135,6 +135,14 @@ export default function SingleSalePage({ onClose, onBack, mode = "sale" }) {
   const [shipAddr, setShip] = useState("");
   const [park, setPark] = useState("");
 
+  /* NEW – per-delivery details */
+  const [receiverName, setReceiverName] = useState("");
+  const [receiverPhone, setReceiverPhone] = useState("");
+  const [receiptName, setReceiptName] = useState("");
+  const [receiptAmount, setReceiptAmount] = useState("");
+  const [deliveryNote, setDeliveryNote] = useState("");
+  const [deliveryPaid, setDeliveryPaid] = useState(true); // Paid / Not-paid
+
   /* --------------- payment -------------------- */
   const [taxPct, setTax] = useState(0);
   const [payMethod, setPayMethod] = useState("cash");
@@ -193,6 +201,13 @@ export default function SingleSalePage({ onClose, onBack, mode = "sale" }) {
         referralName: refName,
         referralPhone: refPhone,
         referralId: refId,
+        deliveryMethod: method, // ← already present in BE schema
+        receiverName: receiverName,
+        receiverPhone: receiverPhone,
+        receiptName: receiptName,
+        receiptAmount: Number(receiptAmount || 0),
+        deliveryNote: deliveryNote,
+        deliveryPaid: deliveryPaid, // boolean
       });
       toast.success("Sale completed 🎉");
       onClose?.();
@@ -434,114 +449,94 @@ export default function SingleSalePage({ onClose, onBack, mode = "sale" }) {
             <>
               <div className="flex gap-4 flex-wrap">
                 {[
-                  ["logistics", "Logistics Pick-up"],
-                  ["park", "Park Pick-up"],
+                  ["logistics", "Logistics"],
+                  ["park", "Park"],
                 ].map(([k, lbl]) => (
-                  <button key={k} onClick={() => setMethod(k)}>
+                  <button
+                    key={k}
+                    onClick={() => setMethod(k)}
+                    className={`px-4 py-1.5 rounded-lg border ${
+                      method === k
+                        ? "bg-orange-600 text-white border-orange-600"
+                        : "border-gray-300 text-gray-700"
+                    }`}
+                  >
                     {lbl}
                   </button>
                 ))}
               </div>
 
-              {method === "logistics" && (
-                <div>
+              {/* ───────── common fields for BOTH methods ───────── */}
+              {(method === "logistics" || method === "park") && (
+                <div className="grid gap-4 md:grid-cols-2">
                   <textarea
                     rows={2}
                     value={shipAddr}
                     onChange={(e) => setShip(e.target.value)}
-                    placeholder="Shipping address"
-                    className="w-full border rounded-lg px-3 py-2"
+                    placeholder="Shipping / Park address"
+                    className="border rounded-lg px-3 py-2"
                   />
 
                   <textarea
                     rows={2}
-                    value={shipAddr}
-                    onChange={(e) => setShip(e.target.value)}
+                    value={receiverName}
+                    onChange={(e) => setReceiverName(e.target.value)}
                     placeholder="Receiver name"
-                    className="w-full border rounded-lg px-3 py-2"
+                    className="border rounded-lg px-3 py-2"
+                  />
+
+                  <input
+                    value={receiverPhone}
+                    onChange={(e) => setReceiverPhone(e.target.value)}
+                    placeholder="Receiver phone"
+                    className="border rounded-lg px-3 py-2"
+                  />
+
+                  <input
+                    value={receiptName}
+                    onChange={(e) => setReceiptName(e.target.value)}
+                    placeholder="Name on receipt"
+                    className="border rounded-lg px-3 py-2"
+                  />
+
+                  <input
+                    type="number"
+                    value={receiptAmount}
+                    onChange={(e) => setReceiptAmount(e.target.value)}
+                    placeholder="Amount on receipt"
+                    className="border rounded-lg px-3 py-2"
                   />
 
                   <textarea
                     rows={2}
-                    value={shipAddr}
-                    onChange={(e) => setShip(e.target.value)}
-                    placeholder="Receiver number"
-                    className="w-full border rounded-lg px-3 py-2"
-                  />
-
-                  <textarea
-                    rows={2}
-                    value={shipAddr}
-                    onChange={(e) => setShip(e.target.value)}
-                    placeholder="Name on Receipt"
-                    className="w-full border rounded-lg px-3 py-2"
-                  />
-
-                  <textarea
-                    rows={2}
-                    value={shipAddr}
-                    onChange={(e) => setShip(e.target.value)}
-                    placeholder="Amount on Receipt"
-                    className="w-full border rounded-lg px-3 py-2"
-                  />
-
-                  <textarea
-                    rows={2}
-                    value={shipAddr}
-                    onChange={(e) => setShip(e.target.value)}
-                    placeholder="Mode of Delivery"
-                    className="w-full border rounded-lg px-3 py-2"
-                  />
-
-                  <textarea
-                    rows={2}
-                    value={shipAddr}
-                    onChange={(e) => setShip(e.target.value)}
+                    value={deliveryNote}
+                    onChange={(e) => setDeliveryNote(e.target.value)}
                     placeholder="Additional note"
-                    className="w-full border rounded-lg px-3 py-2"
+                    className="border rounded-lg px-3 py-2 md:col-span-2"
                   />
 
-                  <textarea
-                    rows={2}
-                    value={shipAddr}
-                    onChange={(e) => setShip(e.target.value)}
-                    placeholder="Delivery Payment Status"
-                    className="w-full border rounded-lg px-3 py-2"
-                  />
-                  {/* Paid or Not Paid */}
+                  {/* Delivery payment status */}
+                  <div className="flex items-center gap-6 col-span-full">
+                    <span className="text-sm">Delivery paid?</span>
+                    <label className="flex items-center gap-1">
+                      <input
+                        type="radio"
+                        checked={deliveryPaid}
+                        onChange={() => setDeliveryPaid(true)}
+                      />{" "}
+                      Paid
+                    </label>
+                    <label className="flex items-center gap-1">
+                      <input
+                        type="radio"
+                        checked={!deliveryPaid}
+                        onChange={() => setDeliveryPaid(false)}
+                      />{" "}
+                      Not paid
+                    </label>
+                  </div>
                 </div>
               )}
-              {method === "park" && (
-                <input
-                  value={park}
-                  onChange={(e) => setPark(e.target.value)}
-                  placeholder="Nearest bus park"
-                  className="w-full border rounded-lg px-3 py-2"
-                />
-              )}
-
-              {/* paid / not-paid toggle */}
-              <div className="flex gap-4 items-center">
-                <span className="text-sm">Paid?</span>
-                <label className="flex items-center gap-1">
-                  <input
-                    type="radio"
-                    name="paid"
-                    checked={paid}
-                    onChange={() => setPaid(true)}
-                  />{" "}
-                  Yes
-                </label>
-                <label className="flex items-center gap-1">
-                  <input
-                    type="radio"
-                    name="paid"
-                    checked={!paid}
-                    onChange={() => setPaid(false)}
-                  />{" "}
-                  No
-                </label>
-              </div>
             </>
           )}
         </section>

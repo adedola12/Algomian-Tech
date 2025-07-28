@@ -87,9 +87,12 @@ export default function InventTable() {
           };
         })
       );
+      const inStockOnly = verified.filter((p) => p.quantity > 0);
 
-      setRows(verified);
-      setTotal(grandTotal);
+      // setRows(verified);
+      // setTotal(grandTotal);
+      setRows(inStockOnly);
+      setTotal(inStockOnly.length);
       setError(null);
     } catch (e) {
       setError(e.response?.data?.message || e.message);

@@ -68,6 +68,12 @@ export const addOrderItems = asyncHandler(async (req, res) => {
     referralId,
     referralName,
     referralPhone,
+    receiverName = "",
+    receiverPhone = "",
+    receiptName = "",
+    receiptAmount = 0,
+    deliveryNote = "",
+    deliveryPaid = true,
   } = req.body;
 
   if (!orderItems || orderItems.length === 0) {
@@ -153,6 +159,13 @@ export const addOrderItems = asyncHandler(async (req, res) => {
     shippingPrice,
     taxPrice,
     totalPrice,
+    deliveryMethod,
+    receiverName,
+    receiverPhone,
+    receiptName,
+    receiptAmount,
+    deliveryNote,
+    deliveryPaid,
   };
 
   // ─── specialise ────────────────────────────────
