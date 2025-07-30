@@ -107,7 +107,7 @@ export default function StockManagementView() {
 
         <button
           onClick={updateAllReorderLevels}
-          className="bg-blue-600 text-white text-sm px-4 py-2 rounded hover:bg-blue-700"
+          className="bg-orange-500 text-white text-sm px-4 py-2 rounded hover:bg-orange-600"
         >
           Save All Reorder Levels
         </button>
