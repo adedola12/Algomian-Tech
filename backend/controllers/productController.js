@@ -16,8 +16,14 @@ export const parseMaybeJSON = (val, fallback = null) => {
 export const getGroupedStock = asyncHandler(async (req, res) => {
   const grouped = await Product.aggregate([
     {
+      $addFields: {
+        normalizedName: { $toLower: "$productName" },
+      },
+    },
+    {
       $group: {
-        _id: "$productName",
+        _id: "$normalizedName", // 👈 Group by lowercase name
+        displayName: { $first: "$productName" }, // For display
         totalQuantity: { $sum: "$quantity" },
         reorderLevel: { $first: "$reorderLevel" },
         productIds: { $push: "$_id" },
@@ -26,11 +32,15 @@ export const getGroupedStock = asyncHandler(async (req, res) => {
         createdAt: { $first: "$createdAt" },
       },
     },
-    { $sort: { _id: 1 } },
+    { $sort: { displayName: 1 } },
   ]);
 
-  res.json(grouped);
+  // Calculate grand total
+  const totalStock = grouped.reduce((sum, item) => sum + item.totalQuantity, 0);
+
+  res.json({ grouped, totalStock });
 });
+
 
 /* ─────────────  CREATE  ───────────── */
 export const createProduct = asyncHandler(async (req, res) => {
