@@ -11,6 +11,7 @@ import {
   getCategories,
   getBaseSpecs,
   bulkCreateProduct,
+  getGroupedStock,
 } from "../controllers/productController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
@@ -21,6 +22,8 @@ router
   .route("/")
   .get(getProducts) //  ← LIST
   .post(protect, upload.array("images", 10), createProduct);
+
+router.get("/grouped", protect, getGroupedStock); // 👈 New route
 
 router.get("/brands", getBrands);
 router.get("/categories", getCategories);

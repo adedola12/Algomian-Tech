@@ -12,6 +12,7 @@ import {
   FiSettings,
   FiLogOut,
   FiX,
+  FiSave,
 } from "react-icons/fi";
 import { BsClipboard } from "react-icons/bs";
 import { assets } from "../assets/assets";
@@ -33,11 +34,22 @@ const ALL = [
 ];
 
 const NAV_LINKS = [
-  { path: "/dashboard", label: "Dashboard", icon: <FiHome />, perm: null }, // everyone
+  {
+    path: "/dashboard",
+    label: "Dashboard",
+    icon: <FiHome />,
+    perm: null,
+  },
   {
     path: "/inventory",
     label: "Inventory",
     icon: <BsClipboard />,
+    perm: "product.view",
+  },
+  {
+    path: "/stock",
+    label: "Stock Management",
+    icon: <FiSave />,
     perm: "product.view",
   },
   {
@@ -70,7 +82,12 @@ const NAV_LINKS = [
     icon: <FiUsers />,
     perm: "order.view",
   },
-  { path: "/settings", label: "Settings", icon: <FiSettings />, perm: null },
+  {
+    path: "/settings",
+    label: "Settings",
+    icon: <FiSettings />,
+    perm: null,
+  },
 ];
 
 /* 2️⃣  SIDEBAR COMPONENT -------------------------------------------------- */

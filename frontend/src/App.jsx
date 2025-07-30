@@ -47,6 +47,7 @@ import InvMan from "./pages/InvMan";
 import InvManOrderDetails from "./components/InventoryManager/InvManOrderDetails";
 import InvManViewOrder from "./components/InventoryManager/InvManViewOrder";
 import BulkAddProduct from "./pages/Inventory/BulkAddProduct";
+import StockManagementView from "./components/StockManager/StockManagementView";
 
 export default function App() {
   return (
@@ -110,6 +111,7 @@ export default function App() {
             </Route>
 
             <Route path="settings" element={<Settings />} />
+            <Route path="/stock" element={<StockManagementView />} />
             <Route path="inventory/add-product" element={<AddProduct />} />
             <Route
               path="inventory/edit-product/:id"

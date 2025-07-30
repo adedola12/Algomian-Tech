@@ -13,6 +13,25 @@ export const parseMaybeJSON = (val, fallback = null) => {
   } // ← if it’s plain text just return it
 };
 
+export const getGroupedStock = asyncHandler(async (req, res) => {
+  const grouped = await Product.aggregate([
+    {
+      $group: {
+        _id: "$productName",
+        totalQuantity: { $sum: "$quantity" },
+        reorderLevel: { $first: "$reorderLevel" },
+        productIds: { $push: "$_id" },
+        brand: { $first: "$brand" },
+        category: { $first: "$productCategory" },
+        createdAt: { $first: "$createdAt" },
+      },
+    },
+    { $sort: { _id: 1 } },
+  ]);
+
+  res.json(grouped);
+});
+
 /* ─────────────  CREATE  ───────────── */
 export const createProduct = asyncHandler(async (req, res) => {
   /* ---------- DUPLICATE CHECK (case-insensitive) ---------- */
