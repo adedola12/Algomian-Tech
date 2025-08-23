@@ -162,7 +162,14 @@ export default function SalesTable() {
 
   /* =================================================================== */
   return showForm ? (
-    <SingleSalePage mode={showForm.mode} onClose={() => setShowForm(null)} />
+    <SingleSalePage
+      mode={showForm.mode}
+      orderId={showForm.id}
+      onClose={() => {
+        setShowForm(null);
+        fetchOrders();
+      }}
+    />
   ) : (
     <div className="bg-white rounded-2xl shadow p-4 sm:p-6">
       {/* ---------- top bar ---------- */}
@@ -314,6 +321,15 @@ export default function SalesTable() {
 
                       {actionsOpenFor === r.id && (
                         <div className="absolute right-0 mt-2 w-40 bg-white border rounded-lg shadow-lg z-10">
+                          <button
+                            onClick={() => {
+                              setShowForm({ mode: "edit", id: r.id }); // <── open editor
+                              setActionsOpenFor(null);
+                            }}
+                            className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+                          >
+                            Edit Sale
+                          </button>
                           <button
                             onClick={() => {
                               deleteOrder(r.id);

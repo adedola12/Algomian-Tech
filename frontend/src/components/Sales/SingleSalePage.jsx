@@ -13,7 +13,7 @@ import { toast } from "react-toastify";
 
 import SelectedItemCard from "./SelectedItemCard";
 import { lineTotal } from "../../utils/money";
-import { fetchProducts, createOrder } from "../../api";
+import api, { fetchProducts, createOrder, fetchOrderById } from "../../api";
 
 /* ---------- helpers ---------- */
 const buildLine = (p) => {
@@ -37,10 +37,16 @@ const buildLine = (p) => {
 };
 
 /* ---------- component ---------- */
-export default function SingleSalePage({ onClose, onBack, mode = "sale" }) {
+export default function SingleSalePage({
+  onClose,
+  onBack,
+  mode = "sale",
+  orderId,
+}) {
   /* --------------- catalogue ---------------- */
   const [catalogue, setCatalogue] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [deliveryFee, setDeliveryFee] = useState(0);
 
   /* ───── seed from <InventTable> … nav("/sales", {state:{product}}) ───── */
   const location = useLocation();
@@ -66,6 +72,82 @@ export default function SingleSalePage({ onClose, onBack, mode = "sale" }) {
       }
     })();
   }, []);
+
+  // ─── Prefill when editing ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!orderId) return;
+    (async () => {
+      try {
+        // const { data: order } = await axios.get(`/api/orders/${orderId}`, {
+          
+        // });
+        const order = await fetchOrderById(orderId);
+        // items
+        setItems(
+          Array.isArray(order.orderItems)
+            ? order.orderItems.map(buildLineFromOrderItem)
+            : []
+        );
+        // customer + POS
+        setCustName(
+          order.user
+            ? `${order.user.firstName || ""} ${
+                order.user.lastName || ""
+              }`.trim()
+            : ""
+        );
+        setCustPhone(order.user?.whatAppNumber || "");
+        setPOS(order.pointOfSale || "");
+        // delivery
+        const dlvMethod = order.deliveryMethod || "self";
+        setMethod(dlvMethod);
+        setOrderType(dlvMethod === "self" ? "order" : "pickup");
+        setDeliveryFee(Number(order.shippingPrice || 0));
+        setDeliveryPaid(!!order.deliveryPaid);
+        setShip(order.shippingAddress?.address || "");
+        setPark(order.pointOfSale || "");
+        setReceiverName(order.receiverName || "");
+        setReceiverPhone(order.receiverPhone || "");
+        setReceiptName(order.receiptName || "");
+        setReceiptAmount(order.receiptAmount || 0);
+        setDeliveryNote(order.deliveryNote || "");
+        // payment
+        setPayMethod(order.paymentMethod || "cash");
+        const itemsP = Number(order.itemsPrice || 0);
+        const taxP = Number(order.taxPrice || 0);
+        setTax(itemsP ? (taxP / itemsP) * 100 : 0); // back-calc %
+      } catch (err) {
+        toast.error(err.response?.data?.message || "Failed to load order");
+      }
+    })();
+  }, [orderId]);
+
+  const buildLineFromOrderItem = (oi) => {
+    const spec = (oi.soldSpecs && oi.soldSpecs[0]) || {};
+    const variantSelections = Array.isArray(oi.variantSelections)
+      ? oi.variantSelections
+      : [];
+    const variantCost = variantSelections.reduce(
+      (s, v) => s + (Number(v.cost) || 0),
+      0
+    );
+
+    return {
+      id: oi.product,
+      image: oi.image || "",
+      name: oi.name || "",
+      baseRam: spec.baseRam || oi.baseRam || "",
+      baseStorage: spec.baseStorage || oi.baseStorage || "",
+      baseCPU: spec.baseCPU || oi.baseCPU || "",
+      price: Number(oi.price || 0),
+      qty: Number(oi.qty || 1),
+      maxQty: Number(oi.maxQty || 9999),
+      variants: [],
+      variantSelections,
+      variantCost,
+      expanded: false,
+    };
+  };
 
   /* --------------- product picker ------------- */
   const [query, setQuery] = useState("");
@@ -159,7 +241,8 @@ export default function SingleSalePage({ onClose, onBack, mode = "sale" }) {
     [items]
   );
   const taxTotal = (subtotal * taxPct) / 100;
-  const grand = subtotal + taxTotal;
+  const deliveryIncluded = deliveryPaid ? Number(deliveryFee || 0) : 0;
+  const grand = subtotal + taxTotal + deliveryIncluded;
 
   /* --------------- save ----------------------- */
   const saveSale = async () => {
@@ -172,7 +255,8 @@ export default function SingleSalePage({ onClose, onBack, mode = "sale" }) {
       return toast.error("Select a payment method");
 
     try {
-      await createOrder({
+      // await createOrder({
+      const payload = {
         orderItems: items.map((l) => ({
           product: l.id,
           qty: l.qty,
@@ -193,14 +277,20 @@ export default function SingleSalePage({ onClose, onBack, mode = "sale" }) {
         isPaid: orderType === "order" ? true : paid,
         paymentMethod:
           mode === "invoice" ? undefined : paid ? payMethod : undefined,
-        taxPrice: taxTotal,
+
         itemsPrice: subtotal,
+        taxPrice: taxTotal,
+        shippingPrice: Number(deliveryFee || 0), // NEW
+        totalPrice:
+          subtotal + taxTotal + (deliveryPaid ? Number(deliveryFee || 0) : 0), // NEW (defensive)
+
         customerName: custName,
         customerPhone: custPhone,
         selectedCustomerId: custId,
         referralName: refName,
         referralPhone: refPhone,
         referralId: refId,
+
         deliveryMethod: method, // ← already present in BE schema
         receiverName: receiverName,
         receiverPhone: receiverPhone,
@@ -208,7 +298,16 @@ export default function SingleSalePage({ onClose, onBack, mode = "sale" }) {
         receiptAmount: Number(receiptAmount || 0),
         deliveryNote: deliveryNote,
         deliveryPaid: deliveryPaid, // boolean
-      });
+      };
+
+      if (mode === "edit" && orderId) {
+        await axios.patch(`/api/orders/${orderId}`, payload, {
+          withCredentials: true,
+        });
+      } else {
+        await createOrder(payload);
+      }
+
       toast.success("Sale completed 🎉");
       onClose?.();
     } catch (err) {
@@ -447,28 +546,10 @@ export default function SingleSalePage({ onClose, onBack, mode = "sale" }) {
           {/* ─── extra choices only for pick-up ─── */}
           {orderType === "pickup" && (
             <>
-              <div className="flex gap-4 flex-wrap">
-                {[
-                  ["logistics", "Logistics"],
-                  ["park", "Park"],
-                ].map(([k, lbl]) => (
-                  <button
-                    key={k}
-                    onClick={() => setMethod(k)}
-                    className={`px-4 py-1.5 rounded-lg border ${
-                      method === k
-                        ? "bg-orange-600 text-white border-orange-600"
-                        : "border-gray-300 text-gray-700"
-                    }`}
-                  >
-                    {lbl}
-                  </button>
-                ))}
-              </div>
-
-              {/* ───────── common fields for BOTH methods ───────── */}
+              {/* … existing delivery UI … */}
               {(method === "logistics" || method === "park") && (
                 <div className="grid gap-4 md:grid-cols-2">
+                  {/* address, receiver, receipt name, receipt amount (keep first one) */}
                   <textarea
                     rows={2}
                     value={shipAddr}
@@ -476,7 +557,6 @@ export default function SingleSalePage({ onClose, onBack, mode = "sale" }) {
                     placeholder="Shipping / Park address"
                     className="border rounded-lg px-3 py-2"
                   />
-
                   <textarea
                     rows={2}
                     value={receiverName}
@@ -484,26 +564,32 @@ export default function SingleSalePage({ onClose, onBack, mode = "sale" }) {
                     placeholder="Receiver name"
                     className="border rounded-lg px-3 py-2"
                   />
-
                   <input
                     value={receiverPhone}
                     onChange={(e) => setReceiverPhone(e.target.value)}
                     placeholder="Receiver phone"
                     className="border rounded-lg px-3 py-2"
                   />
-
                   <input
                     value={receiptName}
                     onChange={(e) => setReceiptName(e.target.value)}
                     placeholder="Name on receipt"
                     className="border rounded-lg px-3 py-2"
                   />
-
                   <input
                     type="number"
                     value={receiptAmount}
                     onChange={(e) => setReceiptAmount(e.target.value)}
                     placeholder="Amount on receipt"
+                    className="border rounded-lg px-3 py-2"
+                  />
+
+                  {/* NEW — Delivery fee input (replaces the duplicated receipt input) */}
+                  <input
+                    type="number"
+                    value={deliveryFee}
+                    onChange={(e) => setDeliveryFee(e.target.value)}
+                    placeholder="Delivery fee (₦)"
                     className="border rounded-lg px-3 py-2"
                   />
 
@@ -625,6 +711,11 @@ export default function SingleSalePage({ onClose, onBack, mode = "sale" }) {
         <div className="flex justify-between text-gray-600">
           <span>Tax</span>
           <span>₦{taxTotal.toLocaleString()}</span>
+        </div>
+        {/* NEW — always show delivery line; tag as unpaid if not paid */}
+        <div className="flex justify-between text-gray-600">
+          <span>Delivery {deliveryPaid ? "" : "(unpaid)"}</span>
+          <span>₦{Number(deliveryFee || 0).toLocaleString()}</span>
         </div>
         <div className="flex justify-between font-semibold">
           <span>Total</span>

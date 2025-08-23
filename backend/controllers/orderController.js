@@ -1,4 +1,5 @@
 import asyncHandler from "express-async-handler";
+import mongoose from "mongoose";
 import Order from "../models/orderModel.js";
 import User from "../models/userModel.js"; // ✅ Add this
 import Product from "../models/productModel.js";
@@ -144,7 +145,14 @@ export const addOrderItems = asyncHandler(async (req, res) => {
         (it.price + it.variantSelections.reduce((p, v) => p + v.cost, 0)),
     0
   );
-  const totalPrice = itemsPrice + Number(shippingPrice) + Number(taxPrice);
+
+  const items = Number(itemsPrice || 0);
+  const tax = Number(taxPrice || 0);
+  const shipping = Number(shippingPrice || 0);
+  const includeShipping = deliveryPaid ? shipping : 0;
+
+  const totalPrice = items + tax + includeShipping;
+  // const totalPrice = itemsPrice + Number(shippingPrice) + Number(taxPrice);
 
   const base = {
     trackingId: crypto.randomBytes(4).toString("hex").toUpperCase(),
@@ -394,6 +402,40 @@ export const updateOrderDetails = asyncHandler(async (req, res) => {
   if (req.body.pointOfSale !== undefined)
     order.pointOfSale = req.body.pointOfSale;
 
+  /* ---------- delivery + prices + flags ---------- */
+  if (req.body.deliveryMethod) order.deliveryMethod = req.body.deliveryMethod;
+  if (req.body.receiverName !== undefined)
+    order.receiverName = req.body.receiverName;
+  if (req.body.receiverPhone !== undefined)
+    order.receiverPhone = req.body.receiverPhone;
+  if (req.body.receiptName !== undefined)
+    order.receiptName = req.body.receiptName;
+  if (req.body.receiptAmount !== undefined)
+    order.receiptAmount = Number(req.body.receiptAmount || 0);
+  if (req.body.deliveryNote !== undefined)
+    order.deliveryNote = req.body.deliveryNote;
+  if (req.body.deliveryPaid !== undefined)
+    order.deliveryPaid = !!req.body.deliveryPaid;
+
+  if (req.body.itemsPrice !== undefined)
+    order.itemsPrice = Number(req.body.itemsPrice || 0);
+  if (req.body.taxPrice !== undefined)
+    order.taxPrice = Number(req.body.taxPrice || 0);
+  if (req.body.shippingPrice !== undefined)
+    order.shippingPrice = Number(req.body.shippingPrice || 0);
+  if (req.body.paymentMethod !== undefined)
+    order.paymentMethod = req.body.paymentMethod || undefined;
+  if (req.body.isPaid !== undefined) {
+    order.isPaid = !!req.body.isPaid;
+    order.paidAt = order.isPaid ? order.paidAt || Date.now() : undefined;
+  }
+
+  const items = Number(order.itemsPrice || 0);
+  const tax = Number(order.taxPrice || 0);
+  const shipping = Number(order.shippingPrice || 0);
+  const includeShipping = order.deliveryPaid ? shipping : 0;
+  order.totalPrice = items + tax + includeShipping;
+
   const saved = await order.save();
   res.json(saved);
 });
@@ -408,21 +450,15 @@ export const getOrders = asyncHandler(async (req, res) => {
   res.json(orders);
 });
 
-export const deleteOrder = async (id) => {
-  const confirmed = window.confirm("Really delete this order?");
-  if (!confirmed) return;
-
-  try {
-    await api.delete(`/api/orders/${id}`, { withCredentials: true });
-    setOrders((prev) => prev.filter((order) => order._id !== id));
-  } catch (err) {
-    alert(
-      "Failed to delete order: " + (err.response?.data?.message || err.message)
-    );
-  } finally {
-    setActionsOpenFor(null); // close dropdown after action
+export const deleteOrder = asyncHandler(async (req, res) => {
+  const order = await Order.findById(req.params.id);
+  if (!order) {
+    res.status(404);
+    throw new Error("Order not found");
   }
-};
+  await order.deleteOne();
+  res.json({ message: "Order deleted" });
+});
 
 export const getNewOrdersCount = asyncHandler(async (req, res) => {
   let { since } = req.query;
