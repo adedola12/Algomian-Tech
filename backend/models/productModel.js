@@ -33,7 +33,7 @@ const productSchema = new mongoose.Schema(
     /* pricing & qty */
     quantity: { type: Number, default: 1 },
     costPrice: { type: Number },
-    stockLocation: String,
+    stockLocation: { type: String, default: "Lagos" },
     supplier: String,
 
     storageRam: String,

@@ -39,6 +39,7 @@ export const registerUser = asyncHandler(async (req, res) => {
     whatAppNumber,
     email: email.toLowerCase(),
     password,
+    location: req.body.location?.trim?.() || "Lagos",
     userType: "Customer",
     profileImage:
       req.body.profileImage ||
@@ -108,6 +109,7 @@ export const adminCreateUser = asyncHandler(async (req, res) => {
     email: email.toLowerCase(),
     password,
     userType,
+    location: req.body.location?.trim?.() || "Lagos",
     profileImage:
       req.body.profileImage ||
       `https://api.dicebear.com/7.x/personas/svg?seed=${encodeURIComponent(firstName + lastName)}`,
@@ -222,6 +224,7 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
     profileImage: req.body.profileImage ?? user.profileImage,
     jobTitle: req.body.jobTitle ?? user.jobTitle,
     userType: req.body.userType ?? user.userType, // ✅ allow change in dashboard
+    location: req.body.location ?? user.location,
   });
 
   if (req.body.password) {
@@ -415,6 +418,7 @@ const safeUser = (u) => ({
   userType: u.userType,
   profileImage: u.profileImage,
   jobTitle: u.jobTitle,
+  location: u.location,
 });
 
 const cookieOpts = {

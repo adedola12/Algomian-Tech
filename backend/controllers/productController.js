@@ -41,7 +41,6 @@ export const getGroupedStock = asyncHandler(async (req, res) => {
   res.json({ grouped, totalStock });
 });
 
-
 /* ─────────────  CREATE  ───────────── */
 export const createProduct = asyncHandler(async (req, res) => {
   /* ---------- DUPLICATE CHECK (case-insensitive) ---------- */
@@ -108,7 +107,7 @@ export const createProduct = asyncHandler(async (req, res) => {
     availability,
     status,
     reorderLevel: Number(reorderLevel),
-    stockLocation,
+    stockLocation: stockLocation?.trim?.() ? stockLocation : "Lagos",
     productId,
     description,
     variants,
@@ -302,6 +301,7 @@ export const bulkCreateProduct = asyncHandler(async (req, res) => {
       availability: "restocking",
       status: "Status",
       productId: uuid(), // ✅ add this line to avoid duplicate nulls
+      stockLocation: "Lagos",
     })),
     { ordered: false }
   );
