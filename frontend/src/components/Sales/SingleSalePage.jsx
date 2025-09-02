@@ -79,7 +79,7 @@ export default function SingleSalePage({
     (async () => {
       try {
         // const { data: order } = await axios.get(`/api/orders/${orderId}`, {
-          
+
         // });
         const order = await fetchOrderById(orderId);
         // items
@@ -212,7 +212,7 @@ export default function SingleSalePage({
   /* --------------- delivery ------------------- */
   // const [method, setMethod] = useState("self");
   const [orderType, setOrderType] = useState("order"); // "order" | "pickup"
-  const [method, setMethod] = useState("logistics"); // default for pick-up
+  const [method, setMethod] = useState("self"); // default for pick-up
   const [paid, setPaid] = useState(true); // for pick-up only
   const [shipAddr, setShip] = useState("");
   const [park, setPark] = useState("");

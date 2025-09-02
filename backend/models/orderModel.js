@@ -59,14 +59,12 @@ const orderSchema = new mongoose.Schema(
     shippingAddress: {
       address: {
         type: String,
-        required: function () {
-          return this.deliveryMethod !== "self"; // custom rule
-        },
+        default: "",
       },
 
-      city: { type: String },
-      postalCode: { type: String },
-      country: { type: String },
+      city: { type: String, default: "" },
+      postalCode: { type: String, default: "" },
+      country: { type: String, default: "" },
     },
 
     receiverName: { type: String },
