@@ -64,9 +64,9 @@ const orderSchema = new mongoose.Schema(
         },
       },
 
-      city: { type: String, required: true },
-      postalCode: { type: String, required: true },
-      country: { type: String, required: true },
+      city: { type: String },
+      postalCode: { type: String },
+      country: { type: String },
     },
 
     receiverName: { type: String },
@@ -90,8 +90,8 @@ const orderSchema = new mongoose.Schema(
     },
     itemsPrice: { type: Number, required: true },
     shippingPrice: { type: Number, default: 0 },
-    taxPrice: { type: Number, required: true },
-    totalPrice: { type: Number, required: true },
+    taxPrice: { type: Number },
+    totalPrice: { type: Number },
 
     status: {
       type: String,
