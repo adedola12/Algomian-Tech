@@ -89,7 +89,7 @@ const orderSchema = new mongoose.Schema(
       email_address: String,
     },
     itemsPrice: { type: Number, required: true },
-    shippingPrice: { type: Number, default: 0, required: true },
+    shippingPrice: { type: Number, default: 0 },
     taxPrice: { type: Number, required: true },
     totalPrice: { type: Number, required: true },
 
