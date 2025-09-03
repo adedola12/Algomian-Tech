@@ -274,6 +274,44 @@ export const getProduct = asyncHandler(async (req, res) => {
   res.json(product);
 });
 
+// export const bulkCreateProduct = asyncHandler(async (req, res) => {
+//   const { products = [] } = req.body;
+
+//   if (!Array.isArray(products) || !products.length) {
+//     res.status(400);
+//     throw new Error("No valid product data submitted.");
+//   }
+
+//   const created = await Product.insertMany(
+//     products.map((p) => ({
+//       productName: p.productName,
+//       brand: p.brand,
+//       baseSpecs: [
+//         {
+//           baseCPU: p.baseCPU || "",
+//           baseRam: p.baseRam || "",
+//           baseStorage: p.baseStorage || "",
+//           serialNumber: p.serialNumber || "",
+//         },
+//       ],
+//       supplier: p.supplier || "",
+//       productCategory: "Laptops",
+//       productCondition: "UK Used",
+//       quantity: 1,
+//       availability: "restocking",
+//       status: "Status",
+//       productId: uuid(), // ✅ add this line to avoid duplicate nulls
+//       stockLocation: "Lagos",
+//     })),
+//     { ordered: false }
+//   );
+
+//   res.status(201).json({
+//     added: created.length,
+//     message: "Bulk products added successfully.",
+//   });
+// });
+
 export const bulkCreateProduct = asyncHandler(async (req, res) => {
   const { products = [] } = req.body;
 
@@ -282,10 +320,23 @@ export const bulkCreateProduct = asyncHandler(async (req, res) => {
     throw new Error("No valid product data submitted.");
   }
 
-  const created = await Product.insertMany(
-    products.map((p) => ({
-      productName: p.productName,
-      brand: p.brand,
+  // Pre-validate: we only require productName. Collect skipped rows here.
+  const docs = [];
+  const skipped = []; // rows we didn't attempt because productName is missing
+
+  products.forEach((p, idx) => {
+    const name = (p.productName || "").trim();
+    if (!name) {
+      skipped.push({
+        name: p.productName || `(row ${idx + 1})`,
+        reason: "Missing productName",
+      });
+      return;
+    }
+
+    docs.push({
+      productName: name,
+      brand: p.brand || "", // ⬅️ can be blank
       baseSpecs: [
         {
           baseCPU: p.baseCPU || "",
@@ -300,14 +351,55 @@ export const bulkCreateProduct = asyncHandler(async (req, res) => {
       quantity: 1,
       availability: "restocking",
       status: "Status",
-      productId: uuid(), // ✅ add this line to avoid duplicate nulls
+      productId: uuid(),
       stockLocation: "Lagos",
-    })),
-    { ordered: false }
-  );
+    });
+  });
+
+  let created = [];
+  let failed = [];
+
+  if (docs.length) {
+    try {
+      created = await Product.insertMany(docs, { ordered: false });
+    } catch (err) {
+      // Mongoose continues insertion with ordered:false but throws. Gather successes & failures.
+      created = err.insertedDocs || [];
+
+      // Common shapes where writeErrors live:
+      const writeErrors =
+        err?.writeErrors ||
+        err?.result?.result?.writeErrors ||
+        err?.result?.writeErrors ||
+        [];
+
+      failed = writeErrors.map((we) => {
+        const idx = we.index ?? -1;
+        return {
+          name: docs[idx]?.productName || `(row ${idx + 1})`,
+          reason: we.errmsg || we.err?.message || "Validation/duplicate error",
+        };
+      });
+
+      // If we somehow got a validation error set without writeErrors
+      if (!failed.length && err?.errors) {
+        // Fallback: treat all docs as failed if none inserted
+        if (!created.length) {
+          failed = docs.map((d, i) => ({
+            name: d.productName || `(row ${i + 1})`,
+            reason: "Validation error",
+          }));
+        }
+      }
+    }
+  }
+
+  const added = created.length;
 
   res.status(201).json({
-    added: created.length,
-    message: "Bulk products added successfully.",
+    added,
+    failed, // [{name, reason}]
+    skipped, // [{name, reason}]
+    message: `Bulk products added: ${added}`,
   });
 });

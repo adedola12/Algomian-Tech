@@ -17,8 +17,8 @@ const productSchema = new mongoose.Schema(
       enum: ["New", "UK Used", "Fairly Used"],
       required: true,
     },
-    productCategory: { type: String, required: true },
-    brand: { type: String, required: true },
+    productCategory: { type: String },
+    brand: { type: String },
 
     /* base specs */
     baseSpecs: [

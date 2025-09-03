@@ -28,70 +28,6 @@ const BulkAddProduct = () => {
   );
   const [loading, setLoading] = useState(false);
 
-  // /* ───── Excel ⇢ table ───── */
-  // const handlePaste = (e) => {
-  //   const text = e.clipboardData?.getData("text");
-  //   if (!text) return;
-  //   e.preventDefault(); // stop the default “paste into one cell”
-
-  //   // const lines = text.trim().split(/\r?\n/);
-  //   // const parsedRows = lines.map((line) => {
-  //   //   const cells = line.split("\t"); // Excel → tab-separated
-  //   //   return {
-  //   //     productName: cells[0] || "",
-  //   //     brand: cells[1] || "",
-  //   //     baseCPU: cells[2] || "",
-  //   //     baseRam: cells[3] || "",
-  //   //     baseStorage: cells[4] || "",
-  //   //     serialNumber: cells[5] || "",
-  //   //     supplier: cells[6] || "",
-  //   //   };
-  //   // });
-
-  //   // setRows((prev) => {
-  //   //   const copy = [...prev];
-  //   //   // overwrite / extend existing rows
-  //   //   parsedRows.forEach((row, idx) => {
-  //   //     copy[idx] = { ...(copy[idx] || createEmptyRow()), ...row };
-  //   //   });
-  //   //   // ensure at least 10 blank rows stay visible
-  //   //   while (copy.length < 10) copy.push(createEmptyRow());
-  //   //   return copy;
-  //   // });
-
-  //   /** 1️⃣ split rows & cells (tab-separated) */
-  //   const newRows = text
-  //     .trim()
-  //     .split(/\r?\n/)
-  //     .map((line) => {
-  //       const c = line.split("\t");
-  //       return {
-  //         productName: c[0] ?? "",
-  //         brand: c[1] ?? "",
-  //         baseCPU: c[2] ?? "",
-  //         baseRam: c[3] ?? "",
-  //         baseStorage: c[4] ?? "",
-  //         serialNumber: c[5] ?? "",
-  //         supplier: c[6] ?? "",
-  //       };
-  //     });
-  //   /** 2️⃣ merge – APPEND when we run out of existing blank rows */
-  //   setRows((prev) => {
-  //     const out = [...prev];
-  //     newRows.forEach((row, i) => {
-  //       const idx = i; // row number inside paste block
-  //       if (idx < out.length) {
-  //         out[idx] = { ...out[idx], ...row };
-  //       } else {
-  //         out.push({ ...createEmptyRow(), ...row });
-  //       }
-  //     });
-  //     /** 3️⃣ keep at least 10 empty rows underneath */
-  //     while (out.length < 10) out.push(createEmptyRow());
-  //     return out;
-  //   });
-  // };
-
   const FIELDS = [
     "productName",
     "brand",
@@ -102,11 +38,6 @@ const BulkAddProduct = () => {
     "supplier",
   ];
 
-  /** Excel / Google-Sheets paste -- handles
-   *  • single value  -> fill-down
-   *  • row block     -> paste vertically
-   *  • row+col block -> paste matrix
-   */
   const handleCellPaste = (e, rowIdx, colIdx) => {
     const text = e.clipboardData?.getData("text");
     if (!text) return;
@@ -117,12 +48,12 @@ const BulkAddProduct = () => {
     setRows((prev) => {
       const out = [...prev];
 
-      /* 1️⃣  MULTI-ROW (one or several columns) -------------------- */
+      // Multi-row or multi-col paste
       if (lines.length > 1 || lines[0].includes("\t")) {
         lines.forEach((line, r) => {
           const cells = line.split("\t");
           const targetRow = rowIdx + r;
-          if (targetRow >= out.length) out.push(createEmptyRow()); // extend sheet
+          if (targetRow >= out.length) out.push(createEmptyRow());
           cells.forEach((cell, c) => {
             const f = FIELDS[colIdx + c];
             if (f) out[targetRow][f] = cell.trim();
@@ -132,7 +63,7 @@ const BulkAddProduct = () => {
         return out;
       }
 
-      /* 2️⃣  SINGLE value  ->  fill-down in the current column ------ */
+      // Single value -> fill-down
       const value = lines[0].trim();
       for (let r = rowIdx; r < out.length; r++) {
         out[r][FIELDS[colIdx]] = value;
@@ -152,14 +83,35 @@ const BulkAddProduct = () => {
   };
 
   const handleSubmit = async () => {
-    const validRows = rows.filter((row) => row.productName && row.brand);
+    // ✅ Only require productName (brand is optional now)
+    const validRows = rows
+      .filter((row) => row.productName && row.productName.trim())
+      .map((r) => ({
+        ...r,
+        productName: r.productName.trim(),
+        brand: (r.brand || "").trim(), // may be empty
+      }));
+
     if (!validRows.length)
-      return toast.error("Please fill at least one product correctly");
+      return toast.error("Please fill at least one product name");
 
     try {
       setLoading(true);
-      await api.post("/api/products/bulk", { products: validRows });
-      toast.success("Products added successfully!");
+      const { data } = await api.post("/api/products/bulk", {
+        products: validRows,
+      });
+
+      // Popup summary
+      toast.success(`${data.added} product(s) added successfully`);
+
+      if (data.failed > 0 && Array.isArray(data.failures)) {
+        const names = data.failures.map((f) => f.name).join(", ");
+        toast.warn(`Couldn't add: ${names}`);
+        // Optional: see reasons in console
+        console.warn("Failures:", data.failures);
+      }
+
+      // reset table
       setRows(Array.from({ length: 10 }, () => createEmptyRow()));
     } catch (e) {
       toast.error(e.response?.data?.message || "Error adding products");
@@ -203,6 +155,7 @@ const BulkAddProduct = () => {
                     onChange={(e) => handleChange(idx, "brand", e.target.value)}
                     onPasteCapture={(e) => handleCellPaste(e, idx, 1)}
                     className="w-full border px-2 py-1 rounded"
+                    placeholder="(optional)"
                   />
                 </td>
                 <td className="p-2 border">
@@ -263,7 +216,7 @@ const BulkAddProduct = () => {
 
       <div className="flex gap-4 mt-4">
         <button
-          onClick={addNewRow}
+          onClick={() => setRows((prev) => [...prev, createEmptyRow()])}
           className="px-4 py-2 border rounded hover:bg-gray-100"
         >
           + Add Row
