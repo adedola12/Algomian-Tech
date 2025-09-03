@@ -10,16 +10,292 @@ import { sendWhatsApp } from "../utils/sendWhatsApp.js";
 
 import { PassThrough } from "stream";
 
-const hasChangeStream = () => {
-  // mongoose.connection.db.topology.s.hosts exists only on repl-set
-  return !!mongoose.connection?.db?.topology?.s?.hosts;
-};
+// const hasChangeStream = () => {
+//   // mongoose.connection.db.topology.s.hosts exists only on repl-set
+//   return !!mongoose.connection?.db?.topology?.s?.hosts;
+// };
 /**
  * @desc   Create new order
  * @route  POST /api/orders
  * @access Private
  */
 
+// const makeOrderLine = async (src) => {
+//   const prod = await Product.findById(src.product);
+//   if (!prod) throw new Error(`Product not found: ${src.product}`);
+//   if (prod.quantity < src.qty)
+//     throw new Error(
+//       `Insufficient stock for ${prod.productName} – have ${prod.quantity}`
+//     );
+
+//   return {
+//     product: prod._id,
+//     name: prod.productName,
+
+//     baseRam: src.baseRam ?? "",
+//     baseStorage: src.baseStorage ?? "",
+//     baseCPU: src.baseCPU ?? "",
+
+//     /* array of {label,cost} coming from UI */
+//     variantSelections: Array.isArray(src.variantSelections)
+//       ? src.variantSelections.map((v) => ({
+//           label: v.label || "",
+//           cost: Number(v.cost) || 0,
+//         }))
+//       : [],
+
+//     qty: src.qty,
+//     price: src.price,
+//     image: prod.images?.[0] || "",
+//     maxQty: prod.quantity,
+//   };
+// };
+
+// export const addOrderItems = asyncHandler(async (req, res) => {
+//   const {
+//     orderItems = [],
+//     shippingAddress = {},
+//     paymentMethod,
+//     orderType = "sale",
+//     isPaid = true,
+//     shippingPrice = 0,
+//     taxPrice = 0,
+//     pointOfSale,
+//     selectedCustomerId,
+//     customerName,
+//     customerPhone,
+//     deliveryMethod = "self",
+//     parkLocation = "",
+//     referralId,
+//     referralName,
+//     referralPhone,
+//     receiverName = "",
+//     receiverPhone = "",
+//     receiptName = "",
+//     receiptAmount = 0,
+//     deliveryNote = "",
+//     deliveryPaid = true,
+//   } = req.body;
+
+//   if (!orderItems || orderItems.length === 0) {
+//     res.status(400);
+//     throw new Error("No order items provided");
+//   }
+//   /* ───── explode every line (validates stock) ───── */
+//   const detailedItems = await Promise.all(orderItems.map(makeOrderLine));
+//   // const trackingId = crypto.randomBytes(4).toString("hex").toUpperCase();
+
+//   let userId = req.user._id;
+//   if (selectedCustomerId) {
+//     const customer = await User.findById(selectedCustomerId);
+//     if (!customer || customer.userType !== "Customer") {
+//       res.status(400);
+//       throw new Error("Invalid customer ID");
+//     }
+//     userId = customer._id;
+//   } else if (customerName && customerPhone) {
+//     const existingUser = await User.findOne({ whatAppNumber: customerPhone });
+
+//     if (existingUser) {
+//       userId = existingUser._id;
+//     } else {
+//       const [firstName, ...rest] = customerName.trim().split(" ");
+//       const lastName = rest.join(" ") || "-";
+
+//       const newCustomer = await User.create({
+//         firstName: firstName || "Unnamed",
+//         lastName: lastName || "-",
+//         whatAppNumber: customerPhone,
+//         email: `${customerPhone}@generated.com`,
+//         password: customerPhone + "123",
+//         userType: "Customer",
+//       });
+
+//       userId = newCustomer._id;
+//     }
+//   }
+
+//   /* ----- referral: optional ----- */
+//   let refUserId = null;
+//   if (referralId) {
+//     refUserId = referralId;
+//   } else if (referralName && referralPhone) {
+//     const existingRef = await User.findOne({ whatAppNumber: referralPhone });
+//     if (existingRef) {
+//       refUserId = existingRef._id;
+//     } else {
+//       const [first, ...rest] = referralName.trim().split(" ");
+//       const newRef = await User.create({
+//         firstName: first || "Ref",
+//         lastName: rest.join(" ") || "-",
+//         email: `${referralPhone}@ref.generated`,
+//         password: referralPhone + "123",
+//         userType: "Customer",
+//         whatAppNumber: referralPhone,
+//       });
+//       refUserId = newRef._id;
+//     }
+//   }
+
+//   /* money (base price + ALL variant costs) */
+//   const itemsPrice = detailedItems.reduce(
+//     (s, it) =>
+//       s +
+//       it.qty *
+//         (it.price + it.variantSelections.reduce((p, v) => p + v.cost, 0)),
+//     0
+//   );
+
+//   const items = Number(itemsPrice || 0);
+//   const tax = Number(taxPrice || 0);
+//   const shipping = Number(shippingPrice || 0);
+//   const includeShipping = deliveryPaid ? shipping : 0;
+
+//   const totalPrice = items + tax + includeShipping;
+//   // const totalPrice = itemsPrice + Number(shippingPrice) + Number(taxPrice);
+
+//   const base = {
+//     trackingId: crypto.randomBytes(4).toString("hex").toUpperCase(),
+//     user: userId,
+//     referral: refUserId, // <— store reference
+//     referralName: referralName || "", // keep raw text, useful for history
+//     referralPhone: referralPhone || "",
+//     pointOfSale,
+//     orderItems: detailedItems,
+//     shippingAddress,
+//     itemsPrice,
+//     shippingPrice,
+//     taxPrice,
+//     totalPrice,
+//     deliveryMethod,
+//     receiverName,
+//     receiverPhone,
+//     receiptName,
+//     receiptAmount,
+//     deliveryNote,
+//     deliveryPaid,
+//   };
+
+//   // ─── specialise ────────────────────────────────
+//   let doc;
+//   if (orderType === "invoice") {
+//     doc = {
+//       ...base,
+//       status: "Invoice",
+//       isPaid: false,
+//       paymentMethod: undefined, // not needed yet
+//     };
+//   } else {
+//     doc = { ...base, paymentMethod };
+//   }
+
+//   // const order = await Order.create({
+//   //   trackingId: crypto.randomBytes(4).toString("hex").toUpperCase(),
+//   //   user: userId,
+//   //   referral: refUserId, // <— store reference
+//   //   referralName: referralName || "", // keep raw text, useful for history
+//   //   referralPhone: referralPhone || "",
+//   //   pointOfSale,
+//   //   orderItems: detailedItems,
+//   //   shippingAddress,
+//   //   paymentMethod: isPaid ? paymentMethod : undefined,
+//   //   isPaid,
+//   //   itemsPrice,
+//   //   shippingPrice,
+//   //   taxPrice,
+//   //   totalPrice,
+//   // });
+
+//   const order = await Order.create(doc);
+
+//   const createdOrder = await order.save();
+
+//   /* ───── WhatsApp notification (fire-and-forget) ───── */
+//   (async () => {
+//     try {
+//       if (customerPhone) {
+//         // normalise: 07067…  →  2347067…
+//         const msisdn = customerPhone
+//           .replace(/^0/, "234") // NG specific, tweak for other CCs
+//           .replace(/\D/g, "");
+
+//         const msg = [
+//           `Hello ${customerName || "Customer"},`,
+//           ``,
+//           `Your order *${createdOrder.trackingId}* has been received ✅`,
+//           `Status : ${createdOrder.status}`,
+//           `Delivery: ${
+//             deliveryMethod === "logistics"
+//               ? `Logistics — ${shippingAddress.address}`
+//               : deliveryMethod === "park"
+//                 ? `Park Pick-Up — ${parkLocation}`
+//                 : "Self Pick-Up"
+//           }`,
+//           `Total  : ₦${createdOrder.totalPrice.toLocaleString()}`,
+//           ``,
+//           `Thank you for shopping with us!`,
+//         ].join("\n");
+
+//         await sendWhatsApp({ to: msisdn, body: msg });
+//       }
+//     } catch (err) {
+//       console.error("⚠️ WhatsApp message failed:", err.message);
+//       // never block order creation – just log
+//     }
+//   })();
+
+//   // Link to user
+//   const linkedUser = await User.findById(userId);
+//   if (linkedUser && Array.isArray(linkedUser.orders)) {
+//     linkedUser.orders.push(createdOrder._id);
+//     await linkedUser.save();
+//   }
+
+//   // Reduce stock and collect low stock warnings
+//   const lowStockWarnings = [];
+
+//   await Promise.all(
+//     detailedItems.map(async (item) => {
+//       const product = await Product.findById(item.product);
+//       product.quantity -= item.qty;
+
+//       if (product.quantity <= product.reorderLevel) {
+//         product.availability = "restocking";
+//         lowStockWarnings.push(
+//           `⚠️ ${product.productName} is low on stock (${product.quantity} left)`
+//         );
+//       }
+
+//       await product.save();
+//     })
+//   );
+
+//   res.status(201).json({
+//     message: "Order placed successfully",
+//     order: createdOrder,
+//     lowStockWarnings,
+//   });
+// });
+
+// /**
+//  * @desc   Get logged in user's orders
+//  * @route  GET /api/orders/myorders
+//  * @access Private
+//  */
+
+// export const getMyOrders = asyncHandler(async (req, res) => {
+//   const orders = await Order.find({ user: req.user._id }).populate(
+//     "user",
+//     "firstName lastName"
+//   );
+//   res.json(orders);
+// });
+
+const hasChangeStream = () => {
+  return !!mongoose.connection?.db?.topology?.s?.hosts;
+};
+
+/* explode a requested order line into a stored line */
 const makeOrderLine = async (src) => {
   const prod = await Product.findById(src.product);
   if (!prod) throw new Error(`Product not found: ${src.product}`);
@@ -31,19 +307,15 @@ const makeOrderLine = async (src) => {
   return {
     product: prod._id,
     name: prod.productName,
-
     baseRam: src.baseRam ?? "",
     baseStorage: src.baseStorage ?? "",
     baseCPU: src.baseCPU ?? "",
-
-    /* array of {label,cost} coming from UI */
     variantSelections: Array.isArray(src.variantSelections)
       ? src.variantSelections.map((v) => ({
           label: v.label || "",
           cost: Number(v.cost) || 0,
         }))
       : [],
-
     qty: src.qty,
     price: src.price,
     image: prod.images?.[0] || "",
@@ -62,8 +334,8 @@ export const addOrderItems = asyncHandler(async (req, res) => {
     taxPrice = 0,
     pointOfSale,
     selectedCustomerId,
-    customerName,
-    customerPhone,
+    customerName = "",
+    customerPhone = "",
     deliveryMethod = "self",
     parkLocation = "",
     referralId,
@@ -81,11 +353,11 @@ export const addOrderItems = asyncHandler(async (req, res) => {
     res.status(400);
     throw new Error("No order items provided");
   }
-  /* ───── explode every line (validates stock) ───── */
-  const detailedItems = await Promise.all(orderItems.map(makeOrderLine));
-  // const trackingId = crypto.randomBytes(4).toString("hex").toUpperCase();
 
-  let userId = req.user._id;
+  const detailedItems = await Promise.all(orderItems.map(makeOrderLine));
+
+  // Pick the customer to link (if any)
+  let userId = req.user._id; // will be overwritten when we have a real customer
   if (selectedCustomerId) {
     const customer = await User.findById(selectedCustomerId);
     if (!customer || customer.userType !== "Customer") {
@@ -95,13 +367,11 @@ export const addOrderItems = asyncHandler(async (req, res) => {
     userId = customer._id;
   } else if (customerName && customerPhone) {
     const existingUser = await User.findOne({ whatAppNumber: customerPhone });
-
     if (existingUser) {
       userId = existingUser._id;
     } else {
       const [firstName, ...rest] = customerName.trim().split(" ");
       const lastName = rest.join(" ") || "-";
-
       const newCustomer = await User.create({
         firstName: firstName || "Unnamed",
         lastName: lastName || "-",
@@ -110,34 +380,11 @@ export const addOrderItems = asyncHandler(async (req, res) => {
         password: customerPhone + "123",
         userType: "Customer",
       });
-
       userId = newCustomer._id;
     }
   }
 
-  /* ----- referral: optional ----- */
-  let refUserId = null;
-  if (referralId) {
-    refUserId = referralId;
-  } else if (referralName && referralPhone) {
-    const existingRef = await User.findOne({ whatAppNumber: referralPhone });
-    if (existingRef) {
-      refUserId = existingRef._id;
-    } else {
-      const [first, ...rest] = referralName.trim().split(" ");
-      const newRef = await User.create({
-        firstName: first || "Ref",
-        lastName: rest.join(" ") || "-",
-        email: `${referralPhone}@ref.generated`,
-        password: referralPhone + "123",
-        userType: "Customer",
-        whatAppNumber: referralPhone,
-      });
-      refUserId = newRef._id;
-    }
-  }
-
-  /* money (base price + ALL variant costs) */
+  /* money */
   const itemsPrice = detailedItems.reduce(
     (s, it) =>
       s +
@@ -145,20 +392,20 @@ export const addOrderItems = asyncHandler(async (req, res) => {
         (it.price + it.variantSelections.reduce((p, v) => p + v.cost, 0)),
     0
   );
-
   const items = Number(itemsPrice || 0);
   const tax = Number(taxPrice || 0);
   const shipping = Number(shippingPrice || 0);
   const includeShipping = deliveryPaid ? shipping : 0;
-
   const totalPrice = items + tax + includeShipping;
-  // const totalPrice = itemsPrice + Number(shippingPrice) + Number(taxPrice);
 
   const base = {
     trackingId: crypto.randomBytes(4).toString("hex").toUpperCase(),
-    user: userId,
-    referral: refUserId, // <— store reference
-    referralName: referralName || "", // keep raw text, useful for history
+    user: userId, // linked customer (if any)
+    customerName, // NEW: always store what was typed
+    customerPhone, // NEW
+    createdBy: req.user._id, // NEW: who created the sale
+    referral: null,
+    referralName: referralName || "",
     referralPhone: referralPhone || "",
     pointOfSale,
     orderItems: detailedItems,
@@ -176,49 +423,40 @@ export const addOrderItems = asyncHandler(async (req, res) => {
     deliveryPaid,
   };
 
-  // ─── specialise ────────────────────────────────
-  let doc;
-  if (orderType === "invoice") {
-    doc = {
-      ...base,
-      status: "Invoice",
-      isPaid: false,
-      paymentMethod: undefined, // not needed yet
-    };
-  } else {
-    doc = { ...base, paymentMethod };
+  // optional referral linking
+  if (referralId) {
+    base.referral = referralId;
+  } else if (referralName && referralPhone) {
+    const existingRef = await User.findOne({ whatAppNumber: referralPhone });
+    if (existingRef) {
+      base.referral = existingRef._id;
+    } else {
+      const [first, ...rest] = referralName.trim().split(" ");
+      const newRef = await User.create({
+        firstName: first || "Ref",
+        lastName: rest.join(" ") || "-",
+        email: `${referralPhone}@ref.generated`,
+        password: referralPhone + "123",
+        userType: "Customer",
+        whatAppNumber: referralPhone,
+      });
+      base.referral = newRef._id;
+    }
   }
 
-  // const order = await Order.create({
-  //   trackingId: crypto.randomBytes(4).toString("hex").toUpperCase(),
-  //   user: userId,
-  //   referral: refUserId, // <— store reference
-  //   referralName: referralName || "", // keep raw text, useful for history
-  //   referralPhone: referralPhone || "",
-  //   pointOfSale,
-  //   orderItems: detailedItems,
-  //   shippingAddress,
-  //   paymentMethod: isPaid ? paymentMethod : undefined,
-  //   isPaid,
-  //   itemsPrice,
-  //   shippingPrice,
-  //   taxPrice,
-  //   totalPrice,
-  // });
+  const doc =
+    orderType === "invoice"
+      ? { ...base, status: "Invoice", isPaid: false, paymentMethod: undefined }
+      : { ...base, paymentMethod };
 
   const order = await Order.create(doc);
-
   const createdOrder = await order.save();
 
-  /* ───── WhatsApp notification (fire-and-forget) ───── */
+  // WhatsApp fire-and-forget (unchanged)
   (async () => {
     try {
       if (customerPhone) {
-        // normalise: 07067…  →  2347067…
-        const msisdn = customerPhone
-          .replace(/^0/, "234") // NG specific, tweak for other CCs
-          .replace(/\D/g, "");
-
+        const msisdn = customerPhone.replace(/^0/, "234").replace(/\D/g, "");
         const msg = [
           `Hello ${customerName || "Customer"},`,
           ``,
@@ -235,37 +473,32 @@ export const addOrderItems = asyncHandler(async (req, res) => {
           ``,
           `Thank you for shopping with us!`,
         ].join("\n");
-
         await sendWhatsApp({ to: msisdn, body: msg });
       }
     } catch (err) {
       console.error("⚠️ WhatsApp message failed:", err.message);
-      // never block order creation – just log
     }
   })();
 
-  // Link to user
+  // Link order to user (if it's genuinely a customer)
   const linkedUser = await User.findById(userId);
   if (linkedUser && Array.isArray(linkedUser.orders)) {
     linkedUser.orders.push(createdOrder._id);
     await linkedUser.save();
   }
 
-  // Reduce stock and collect low stock warnings
+  // Stock updates (unchanged)
   const lowStockWarnings = [];
-
   await Promise.all(
     detailedItems.map(async (item) => {
       const product = await Product.findById(item.product);
       product.quantity -= item.qty;
-
       if (product.quantity <= product.reorderLevel) {
         product.availability = "restocking";
         lowStockWarnings.push(
           `⚠️ ${product.productName} is low on stock (${product.quantity} left)`
         );
       }
-
       await product.save();
     })
   );
@@ -277,12 +510,7 @@ export const addOrderItems = asyncHandler(async (req, res) => {
   });
 });
 
-/**
- * @desc   Get logged in user's orders
- * @route  GET /api/orders/myorders
- * @access Private
- */
-
+/* get my orders (unchanged) */
 export const getMyOrders = asyncHandler(async (req, res) => {
   const orders = await Order.find({ user: req.user._id }).populate(
     "user",
@@ -291,16 +519,11 @@ export const getMyOrders = asyncHandler(async (req, res) => {
   res.json(orders);
 });
 
-/**
- * @desc   Get order by ID
- * @route  GET /api/orders/:id
- * @access Private (user can only fetch their own) / Admin can fetch any
- */
+/* order by id (populate createdBy so editor can use if needed) */
 export const getOrderById = asyncHandler(async (req, res) => {
-  const order = await Order.findById(req.params.id).populate(
-    "user",
-    "firstName lastName email"
-  );
+  const order = await Order.findById(req.params.id)
+    .populate("user", "firstName lastName email")
+    .populate("createdBy", "firstName lastName email");
   if (!order) {
     res.status(404);
     throw new Error("Order not found");
@@ -310,7 +533,6 @@ export const getOrderById = asyncHandler(async (req, res) => {
     req.user._id.equals(order.user) ||
     ["Admin", "Manager", "SalesRep", "Logistics"].includes(req.user.userType);
 
-  // enforce ownership
   if (
     order.user._id.toString() !== req.user._id.toString() &&
     !req.perms?.includes(PERM.ORDER_MANAGE) &&
@@ -321,6 +543,45 @@ export const getOrderById = asyncHandler(async (req, res) => {
   }
   res.json(order);
 });
+
+/* admin list: populate both linked customer and sales rep */
+export const getOrders = asyncHandler(async (req, res) => {
+  const orders = await Order.find({})
+    .populate("user", "firstName lastName")
+    .populate("createdBy", "firstName");
+  res.json(orders);
+});
+
+/**
+ * @desc   Get order by ID
+ * @route  GET /api/orders/:id
+ * @access Private (user can only fetch their own) / Admin can fetch any
+ */
+// export const getOrderById = asyncHandler(async (req, res) => {
+//   const order = await Order.findById(req.params.id).populate(
+//     "user",
+//     "firstName lastName email"
+//   );
+//   if (!order) {
+//     res.status(404);
+//     throw new Error("Order not found");
+//   }
+
+//   const canSee =
+//     req.user._id.equals(order.user) ||
+//     ["Admin", "Manager", "SalesRep", "Logistics"].includes(req.user.userType);
+
+//   // enforce ownership
+//   if (
+//     order.user._id.toString() !== req.user._id.toString() &&
+//     !req.perms?.includes(PERM.ORDER_MANAGE) &&
+//     !canSee
+//   ) {
+//     res.status(403);
+//     throw new Error("Not allowed");
+//   }
+//   res.json(order);
+// });
 
 /**
  * @desc   Update order status (e.g. to Processing, Shipped, Delivered)
@@ -445,10 +706,10 @@ export const updateOrderDetails = asyncHandler(async (req, res) => {
  * @route  GET /api/orders
  * @access Private/Admin
  */
-export const getOrders = asyncHandler(async (req, res) => {
-  const orders = await Order.find({}).populate("user", "firstName lastName");
-  res.json(orders);
-});
+// export const getOrders = asyncHandler(async (req, res) => {
+//   const orders = await Order.find({}).populate("user", "firstName lastName");
+//   res.json(orders);
+// });
 
 export const deleteOrder = asyncHandler(async (req, res) => {
   const order = await Order.findById(req.params.id);

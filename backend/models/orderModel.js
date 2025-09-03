@@ -38,11 +38,21 @@ const orderItemSchema = new mongoose.Schema(
 const orderSchema = new mongoose.Schema(
   {
     trackingId: { type: String, required: true, unique: true },
+
+    // Linked customer (when we have/created one)
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
+
+    // NEW: free-text customer details (always saved so we can display what was typed)
+    customerName: { type: String, default: "" },
+    customerPhone: { type: String, default: "" },
+
+    // NEW: who created the sale (seller / account user)
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+
     referral: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     referralName: String,
     referralPhone: String,
@@ -57,11 +67,7 @@ const orderSchema = new mongoose.Schema(
     },
 
     shippingAddress: {
-      address: {
-        type: String,
-        default: "",
-      },
-
+      address: { type: String, default: "" },
       city: { type: String, default: "" },
       postalCode: { type: String, default: "" },
       country: { type: String, default: "" },
@@ -106,7 +112,6 @@ const orderSchema = new mongoose.Schema(
     approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     approvedAt: { type: Date },
     approveNote: { type: String },
-    // serialNumbers: { type: [String], default: [] },
   },
   { timestamps: true }
 );
