@@ -100,6 +100,7 @@ export default function SingleSalePage({
   }, []);
 
   // ─── Prefill when editing ─────────────────────────────────────────────
+  const [items, setItems] = useState(seedLine ? [seedLine] : []);
   useEffect(() => {
     if (!orderId) return;
     (async () => {
@@ -147,7 +148,6 @@ export default function SingleSalePage({
 
   /* --------------- product picker ------------- */
   const [query, setQuery] = useState("");
-  const [items, setItems] = useState(seedLine ? [seedLine] : []);
   const isSel = (id) => items.some((l) => l.id === id);
   const toggle = (p) =>
     setItems((prev) =>
@@ -173,9 +173,7 @@ export default function SingleSalePage({
     if (location.state?.product) nav(".", { replace: true, state: {} });
   }, []); // eslint-disable-line
 
-  /* ──────────  load customers once (also for referral) ──────────
-     IMPORTANT: use the pre-configured `api` instance so it works in production
-     (dev proxy hides this problem when using bare axios + relative URLs) */
+  /* ──────────  load customers once (also for referral) ────────── */
   const [allPeople, setAllPeople] = useState([]);
   useEffect(() => {
     api
@@ -266,7 +264,7 @@ export default function SingleSalePage({
   };
 
   const saveSale = async () => {
-    if (isSaving) return; // hard guard against double-click
+    if (isSaving) return;
     if (!items.length) return toast.error("Pick at least one product");
     if ((orderType === "order" || paid) && !payMethod)
       return toast.error("Select a payment method");
@@ -302,6 +300,7 @@ export default function SingleSalePage({
         totalPrice:
           subtotal + taxTotal + (deliveryPaid ? Number(deliveryFee || 0) : 0),
 
+        // 👇 Always send what’s currently in the inputs
         customerName: custName,
         customerPhone: custPhone,
         customerEmail: custEmail,
@@ -330,14 +329,14 @@ export default function SingleSalePage({
       onClose?.();
     } catch (err) {
       toast.error(err.response?.data?.message || err.message);
-      setIsSaving(false); // re-enable only on failure; success will close the form
+      setIsSaving(false);
     }
   };
 
   /* --------------- UI ------------------------- */
   return (
     <div className="bg-white rounded-2xl shadow p-4 sm:p-6 space-y-10 max-w-5xl mx-auto">
-      {/* ───────── header / nav ───────── */}
+      {/* header */}
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold text-gray-800">
           <button
@@ -350,13 +349,12 @@ export default function SingleSalePage({
         </h2>
       </div>
 
-      {/* ───────── customer ───────── */}
+      {/* customer */}
       <section className="space-y-4">
         <h3 className="text-lg font-semibold">Customer details</h3>
 
-        {/* ───── row 1  (customer) ───── */}
         <div className="grid lg:grid-cols-3 gap-4">
-          {/* name with suggestions */}
+          {/* name + suggestions */}
           <div className="relative">
             <FiUser className="absolute left-3 top-3 text-gray-400" />
             <input
@@ -364,7 +362,8 @@ export default function SingleSalePage({
               onChange={(e) => {
                 const v = e.target.value;
                 setCustName(v);
-                setCustId(null);
+                // IMPORTANT: don't drop the link if the cashier edits the name slightly.
+                if (!v.trim()) setCustId(null);
                 setCustSug(suggestions(v));
               }}
               onFocus={() => setCustSug(suggestions(custName))}
@@ -378,22 +377,15 @@ export default function SingleSalePage({
                   <li
                     key={c._id}
                     onPointerDown={(e) => {
-                      e.preventDefault(); // ensures the input doesn't steal focus before we select
+                      e.preventDefault();
                       selectCustomer(c);
                     }}
                     role="button"
                     tabIndex={-1}
-                    onClick={() => {
-                      setCustId(c._id);
-                      setCustName(`${c.firstName} ${c.lastName}`.trim());
-                      setCustPhone(c.whatAppNumber || "");
-                      setCustEmail(c.email || "");
-                      setCustSug([]);
-                    }}
                     className="px-3 py-2 hover:bg-gray-50 cursor-pointer flex justify-between"
                   >
                     <span>
-                      {c.firstName} {c.lastName} — {c.whatAppNumber}
+                      {c.firstName} {c.lastName} — {getPhone(c)}
                     </span>
                     <span className="text-xs text-gray-500">
                       {(c.totalOrders || 0) > 0
@@ -406,7 +398,7 @@ export default function SingleSalePage({
             )}
           </div>
 
-          {/* phone – read-only when we picked an existing user */}
+          {/* phone – now editable even if existing customer */}
           <div className="relative">
             <FiPhone className="absolute left-3 top-3 text-gray-400" />
             <input
@@ -414,11 +406,10 @@ export default function SingleSalePage({
               onChange={(e) => setCustPhone(e.target.value)}
               placeholder="Customer phone"
               className="pl-10 pr-3 py-2 border rounded-lg w-full"
-              readOnly={!!custId}
             />
           </div>
 
-          {/* email */}
+          {/* email – now editable even if existing customer */}
           <div className="relative">
             <FiMail className="absolute left-3 top-3 text-gray-400" />
             <input
@@ -426,7 +417,6 @@ export default function SingleSalePage({
               onChange={(e) => setCustEmail(e.target.value)}
               placeholder="Customer email"
               className="pl-10 pr-3 py-2 border rounded-lg w-full"
-              readOnly={!!custId}
             />
           </div>
         </div>
@@ -444,7 +434,7 @@ export default function SingleSalePage({
           </div>
         </div>
 
-        {/* ───── referral ───── */}
+        {/* referral (unchanged except pointerDown) */}
         <div className="grid lg:grid-cols-3 gap-4 lg:justify-items-center">
           <div className="relative lg:col-start-2">
             <FiUser className="absolute left-3 top-3 text-gray-400" />
@@ -453,7 +443,7 @@ export default function SingleSalePage({
               onChange={(e) => {
                 const v = e.target.value;
                 setRefName(v);
-                setRefId(null);
+                if (!v.trim()) setRefId(null);
                 setRefSug(suggestions(v));
               }}
               onFocus={() => setRefSug(suggestions(refName))}
@@ -467,20 +457,14 @@ export default function SingleSalePage({
                   <li
                     key={c._id}
                     onPointerDown={(e) => {
-                      e.preventDefault(); // ensures the input doesn't steal focus before we select
+                      e.preventDefault();
                       selectReferral(c);
                     }}
                     role="button"
                     tabIndex={-1}
-                    onClick={() => {
-                      setRefId(c._id);
-                      setRefName(`${c.firstName} ${c.lastName}`);
-                      setRefPhone(c.whatAppNumber || "");
-                      setRefSug([]);
-                    }}
                     className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
                   >
-                    {c.firstName} {c.lastName} — {c.whatAppNumber}
+                    {c.firstName} {c.lastName} — {getPhone(c)}
                   </li>
                 ))}
               </ul>
@@ -494,16 +478,17 @@ export default function SingleSalePage({
               onChange={(e) => setRefPhone(e.target.value)}
               placeholder="Referral phone"
               className="pl-10 pr-3 py-2 border rounded-lg w-full"
-              readOnly={!!refId}
             />
           </div>
         </div>
       </section>
 
-      {/* ───────── product picker ───────── */}
+      {/* products … delivery … payment … summary (unchanged) */}
+      {/* --- keep your existing sections below --- */}
+
+      {/* Products */}
       <section className="space-y-4">
         <h3 className="text-lg font-semibold">Products</h3>
-
         <div className="relative w-full md:w-80">
           <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
@@ -518,7 +503,6 @@ export default function SingleSalePage({
             </span>
           )}
         </div>
-
         <div className="overflow-x-auto">
           <div className="grid grid-rows-3 gap-4 auto-cols-[100px] sm:auto-cols-[120px] md:auto-cols-[150px] grid-flow-col">
             {catalogue
@@ -571,7 +555,7 @@ export default function SingleSalePage({
         </div>
       </section>
 
-      {/* ───────── delivery (unchanged pieces) ───────── */}
+      {/* Delivery (unchanged UI) */}
       {mode !== "invoice" && (
         <section className="space-y-4">
           <h3 className="text-lg font-semibold">Delivery</h3>
@@ -631,7 +615,6 @@ export default function SingleSalePage({
                     placeholder="Amount on receipt"
                     className="border rounded-lg px-3 py-2"
                   />
-
                   <input
                     type="number"
                     value={deliveryFee}
@@ -639,7 +622,6 @@ export default function SingleSalePage({
                     placeholder="Delivery fee (₦)"
                     className="border rounded-lg px-3 py-2"
                   />
-
                   <textarea
                     rows={2}
                     value={deliveryNote}
@@ -647,7 +629,6 @@ export default function SingleSalePage({
                     placeholder="Additional note"
                     className="border rounded-lg px-3 py-2 md:col-span-2"
                   />
-
                   <div className="flex items-center gap-6 col-span-full">
                     <span className="text-sm">Delivery paid?</span>
                     <label className="flex items-center gap-1">
@@ -674,7 +655,7 @@ export default function SingleSalePage({
         </section>
       )}
 
-      {/* ───────── payment ───────── */}
+      {/* Payment (unchanged UI) */}
       {mode !== "invoice" && (orderType === "order" || paid) && (
         <section className="space-y-4">
           <h3 className="text-lg font-semibold">Payment</h3>
@@ -748,7 +729,7 @@ export default function SingleSalePage({
         </section>
       )}
 
-      {/* ───────── summary / save ───────── */}
+      {/* summary */}
       <section className="space-y-2 max-w-sm ml-auto">
         <div className="flex justify-between text-gray-600">
           <span>Subtotal</span>

@@ -558,7 +558,7 @@ export const addOrderItems = asyncHandler(async (req, res) => {
     taxPrice = 0,
     pointOfSale,
 
-    // from UI
+    // from UI (always send current inputs)
     selectedCustomerId,
     customerName = "",
     customerPhone = "",
@@ -583,42 +583,30 @@ export const addOrderItems = asyncHandler(async (req, res) => {
     throw new Error("No order items provided");
   }
 
-  // explode & validate lines
+  // Build & validate lines
   const detailedItems = await Promise.all(orderItems.map(makeOrderLine));
 
-  /* ─────────────────────────────────────────────
-     Ensure we have a proper Customer user to link
-     Rules:
-       - if selectedCustomerId -> use it (must be a Customer)
-       - else if phone/email present -> try find by those
-       - else if name present only -> CREATE a Customer with placeholders
-  ───────────────────────────────────────────── */
-  let userId;
+  // ---------------- Determine / ensure a customer ----------------
+  let userDoc = null;
 
   if (selectedCustomerId) {
-    const customer = await User.findById(selectedCustomerId);
-    if (!customer || customer.userType !== "Customer") {
+    const existing = await User.findById(selectedCustomerId);
+    if (!existing || existing.userType !== "Customer") {
       res.status(400);
       throw new Error("Invalid customer ID");
     }
-    userId = customer._id;
+    userDoc = existing;
   } else {
-    let found = null;
-
-    // Prefer hard identifiers first
-    if (customerPhone) {
-      found = await User.findOne({ whatAppNumber: customerPhone });
-    }
-    if (!found && customerEmail) {
-      found = await User.findOne({
-        email: String(customerEmail).toLowerCase(),
-      });
-    }
+    // Try find by phone/email, else create by name
+    let found =
+      (customerPhone &&
+        (await User.findOne({ whatAppNumber: customerPhone }))) ||
+      (customerEmail &&
+        (await User.findOne({ email: String(customerEmail).toLowerCase() })));
 
     if (found) {
-      userId = found._id;
+      userDoc = found;
     } else if (customerName.trim()) {
-      // 👇 Create a brand-new Customer using only the name (generate safe placeholders)
       const [firstName, ...rest] = customerName.trim().split(/\s+/);
       const lastName = rest.join(" ") || "-";
       const tag = crypto.randomBytes(3).toString("hex");
@@ -629,23 +617,62 @@ export const addOrderItems = asyncHandler(async (req, res) => {
 
       const phoneToUse = customerPhone || `N/A-${tag}`;
 
-      const newCustomer = await User.create({
+      userDoc = await User.create({
         firstName: firstName || "Unnamed",
         lastName,
-        whatAppNumber: phoneToUse, // schema requires it
-        email: emailToUse, // schema requires unique
-        password: `Temp${tag}9`, // strong; hashed by model pre-save
+        whatAppNumber: phoneToUse,
+        email: emailToUse,
+        password: `Temp${tag}9`,
         userType: "Customer",
       });
-
-      userId = newCustomer._id;
     } else {
-      // no id, no name — fallback to the actor to keep the order valid
-      userId = req.user._id;
+      // fallback: link the order to the actor so it can still be saved
+      userDoc = await User.findById(req.user._id);
     }
   }
 
-  /* ───────────── totals ───────────── */
+  // ---------------- If cashier edited details, update the customer ----------------
+  try {
+    if (userDoc && userDoc.userType === "Customer") {
+      const updates = {};
+      // name
+      if (customerName.trim()) {
+        const [f, ...r] = customerName.trim().split(/\s+/);
+        const ln = r.join(" ") || "-";
+        if (f && f !== userDoc.firstName) updates.firstName = f;
+        if (ln && ln !== userDoc.lastName) updates.lastName = ln;
+      }
+      // phone (skip if taken by someone else)
+      if (customerPhone && customerPhone !== userDoc.whatAppNumber) {
+        const phoneTaken = await User.findOne({
+          whatAppNumber: customerPhone,
+          _id: { $ne: userDoc._id },
+        });
+        if (!phoneTaken) updates.whatAppNumber = customerPhone;
+      }
+      // email (lowercase; skip if taken)
+      const normEmail = (customerEmail || "").trim().toLowerCase();
+      if (normEmail && normEmail !== userDoc.email) {
+        const emailTaken = await User.findOne({
+          email: normEmail,
+          _id: { $ne: userDoc._id },
+        });
+        if (!emailTaken) updates.email = normEmail;
+      }
+
+      if (Object.keys(updates).length) {
+        Object.assign(userDoc, updates);
+        await userDoc.save();
+      }
+    }
+  } catch (e) {
+    // Never block the sale because of a profile update hiccup
+    console.warn("Customer profile update skipped:", e.message);
+  }
+
+  const userId = userDoc?._id;
+
+  // ---------------- Totals ----------------
   const itemsPrice = detailedItems.reduce(
     (s, it) =>
       s +
@@ -659,13 +686,13 @@ export const addOrderItems = asyncHandler(async (req, res) => {
   const includeShipping = deliveryPaid ? shipping : 0;
   const totalPrice = items + tax + includeShipping;
 
-  /* ───────────── build doc ───────────── */
+  // ---------------- Build order doc ----------------
   const base = {
     trackingId: crypto.randomBytes(4).toString("hex").toUpperCase(),
-    user: userId, // ← linked Customer user
-    customerName, // keep raw typed info for receipts
+    user: userId,
+    customerName, // keep what the cashier typed for the receipt
     customerPhone,
-    createdBy: req.user._id, // sales rep
+    createdBy: req.user._id,
 
     referral: null,
     referralName: referralName || "",
@@ -689,7 +716,7 @@ export const addOrderItems = asyncHandler(async (req, res) => {
     deliveryPaid,
   };
 
-  // optional referral linking/creation
+  // Link/create referral if provided
   if (referralId) {
     base.referral = referralId;
   } else if (referralName && referralPhone) {
@@ -718,14 +745,13 @@ export const addOrderItems = asyncHandler(async (req, res) => {
   const order = await Order.create(doc);
   const createdOrder = await order.save();
 
-  // Link order into the customer's history for the Customers table
-  const linkedUser = await User.findById(userId);
-  if (linkedUser && Array.isArray(linkedUser.orders)) {
-    linkedUser.orders.push(createdOrder._id);
-    await linkedUser.save();
+  // Link order to customer's history
+  if (userDoc && Array.isArray(userDoc.orders)) {
+    userDoc.orders.push(createdOrder._id);
+    await userDoc.save();
   }
 
-  // reduce stock / set restocking flag if needed
+  // Reduce stock & set restocking if needed
   const lowStockWarnings = [];
   await Promise.all(
     detailedItems.map(async (item) => {
@@ -741,7 +767,7 @@ export const addOrderItems = asyncHandler(async (req, res) => {
     })
   );
 
-  // fire-and-forget WhatsApp (safe)
+  // Optional: WhatsApp (kept simple)
   try {
     if (customerPhone) {
       const msisdn = customerPhone.replace(/^0/, "234").replace(/\D/g, "");
