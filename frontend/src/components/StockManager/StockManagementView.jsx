@@ -12,6 +12,10 @@ export default function StockManagementView() {
   const [reorderInputs, setReorderInputs] = useState({});
   const [saving, setSaving] = useState({});
 
+  // ── pagination ─────────────────────────────────────────────
+  const PAGE_SIZE = 25;
+  const [page, setPage] = useState(1);
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -20,17 +24,18 @@ export default function StockManagementView() {
     setLoading(true);
     try {
       const res = await api.get("/api/products/grouped");
-      setData(res.data.grouped);
-      setTotalStock(res.data.totalStock);
+      setData(res.data.grouped || []);
+      setTotalStock(res.data.totalStock || 0);
 
       const inputs = {};
       const saveState = {};
-      res.data.grouped.forEach((item) => {
+      (res.data.grouped || []).forEach((item) => {
         inputs[item.displayName] = item.reorderLevel;
         saveState[item.displayName] = false;
       });
       setReorderInputs(inputs);
       setSaving(saveState);
+      setPage(1); // reset to first page on fresh load
     } catch (err) {
       toast.error("Error fetching stock data");
     } finally {
@@ -81,13 +86,30 @@ export default function StockManagementView() {
     }
   };
 
-  const filtered = data
+  // ── filter + sort ──────────────────────────────────────────
+  const filtered = (data || [])
     .filter((d) => d.displayName.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) =>
       sortAsc
         ? a.displayName.localeCompare(b.displayName)
         : b.displayName.localeCompare(a.displayName)
     );
+
+  // Reset to first page when filters/sort change
+  useEffect(() => {
+    setPage(1);
+  }, [search, sortAsc, data]);
+
+  // ── pagination derivations ─────────────────────────────────
+  const totalItems = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+  const clampedPage = Math.min(page, totalPages);
+  const start = (clampedPage - 1) * PAGE_SIZE;
+  const end = Math.min(start + PAGE_SIZE, totalItems);
+  const pageRows = filtered.slice(start, end);
+
+  const nextPage = () => setPage((p) => Math.min(p + 1, totalPages));
+  const prevPage = () => setPage((p) => Math.max(p - 1, 1));
 
   return (
     <section className="bg-white p-5 rounded-2xl shadow">
@@ -116,102 +138,138 @@ export default function StockManagementView() {
       {loading ? (
         <p>Loading…</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] text-sm border-collapse">
-            <thead className="text-left border-b text-gray-500">
-              <tr>
-                <th
-                  className="cursor-pointer py-3"
-                  onClick={() => setSortAsc(!sortAsc)}
-                >
-                  Product Name {sortAsc ? "▲" : "▼"}
-                </th>
-                <th>Brand</th>
-                <th>Category</th>
-                <th>Total Qty</th>
-                <th>Reorder Level</th>
-                <th>Status</th>
-                <th className="text-center">Save</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((item) => {
-                const currentLevel =
-                  reorderInputs[item.displayName] ?? item.reorderLevel;
-                const isSaving = saving[item.displayName];
+        <>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[900px] text-sm border-collapse">
+              <thead className="text-left border-b text-gray-500">
+                <tr>
+                  <th
+                    className="cursor-pointer py-3"
+                    onClick={() => setSortAsc(!sortAsc)}
+                  >
+                    Product Name {sortAsc ? "▲" : "▼"}
+                  </th>
+                  <th>Brand</th>
+                  <th>Category</th>
+                  <th>Total Qty</th>
+                  <th>Reorder Level</th>
+                  <th>Status</th>
+                  <th className="text-center">Save</th>
+                </tr>
+              </thead>
 
-                const inputColor =
-                  item.totalQuantity === 0
-                    ? "bg-red-100 border-red-400 text-red-800"
-                    : item.totalQuantity <= currentLevel
-                    ? "bg-orange-100 border-orange-400 text-orange-800"
-                    : "bg-green-100 border-green-400 text-green-800";
+              <tbody>
+                {pageRows.map((item) => {
+                  const currentLevel =
+                    reorderInputs[item.displayName] ?? item.reorderLevel;
+                  const isSaving = saving[item.displayName];
 
-                const statusBadge = () => {
-                  if (item.totalQuantity === 0) {
-                    return (
-                      <span className="text-red-600 font-medium">
-                        Out of stock
-                      </span>
-                    );
-                  } else if (item.totalQuantity <= currentLevel) {
-                    return (
-                      <span className="text-orange-500 font-medium">
-                        Low stock
-                      </span>
-                    );
-                  } else {
-                    return (
-                      <span className="text-green-600 font-medium">
-                        In stock
-                      </span>
-                    );
-                  }
-                };
+                  const inputColor =
+                    item.totalQuantity === 0
+                      ? "bg-red-100 border-red-400 text-red-800"
+                      : item.totalQuantity <= currentLevel
+                      ? "bg-orange-100 border-orange-400 text-orange-800"
+                      : "bg-green-100 border-green-400 text-green-800";
 
-                return (
-                  <tr key={item._id} className="border-b hover:bg-gray-50">
-                    <td className="py-3">{item.displayName}</td>
-                    <td>{item.brand}</td>
-                    <td>{item.category}</td>
-                    <td>{item.totalQuantity}</td>
-                    <td className="flex items-center gap-2 py-2">
-                      <input
-                        type="number"
-                        value={currentLevel}
-                        onChange={(e) =>
-                          setReorderInputs((prev) => ({
-                            ...prev,
-                            [item.displayName]: Number(e.target.value),
-                          }))
-                        }
-                        className={`border rounded px-2 py-1 w-20 ${inputColor}`}
-                      />
-                    </td>
-                    <td>{statusBadge()}</td>
-                    <td className="text-center">
-                      <button
-                        disabled={isSaving}
-                        onClick={() => updateReorderLevel(item.displayName)}
-                        className="text-blue-500 hover:text-blue-700 text-sm"
-                        title="Save reorder level"
-                      >
-                        💾
-                      </button>
+                  const statusBadge = () => {
+                    if (item.totalQuantity === 0) {
+                      return (
+                        <span className="text-red-600 font-medium">
+                          Out of stock
+                        </span>
+                      );
+                    } else if (item.totalQuantity <= currentLevel) {
+                      return (
+                        <span className="text-orange-500 font-medium">
+                          Low stock
+                        </span>
+                      );
+                    } else {
+                      return (
+                        <span className="text-green-600 font-medium">
+                          In stock
+                        </span>
+                      );
+                    }
+                  };
+
+                  return (
+                    <tr key={item._id} className="border-b hover:bg-gray-50">
+                      <td className="py-3">{item.displayName}</td>
+                      <td>{item.brand}</td>
+                      <td>{item.category}</td>
+                      <td>{item.totalQuantity}</td>
+                      <td className="flex items-center gap-2 py-2">
+                        <input
+                          type="number"
+                          value={currentLevel}
+                          onChange={(e) =>
+                            setReorderInputs((prev) => ({
+                              ...prev,
+                              [item.displayName]: Number(e.target.value),
+                            }))
+                          }
+                          className={`border rounded px-2 py-1 w-20 ${inputColor}`}
+                        />
+                      </td>
+                      <td>{statusBadge()}</td>
+                      <td className="text-center">
+                        <button
+                          disabled={isSaving}
+                          onClick={() => updateReorderLevel(item.displayName)}
+                          className="text-blue-500 hover:text-blue-700 text-sm disabled:opacity-50"
+                          title="Save reorder level"
+                        >
+                          💾
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+
+                {!pageRows.length && (
+                  <tr>
+                    <td colSpan="7" className="text-center py-6 text-gray-500">
+                      No matching products
                     </td>
                   </tr>
-                );
-              })}
-              {!filtered.length && (
-                <tr>
-                  <td colSpan="7" className="text-center py-6 text-gray-500">
-                    No matching products
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* ── pagination controls ─────────────────────────── */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4">
+            <div className="text-sm text-gray-600">
+              Showing{" "}
+              <span className="font-medium">
+                {totalItems === 0 ? 0 : start + 1}
+              </span>{" "}
+              – <span className="font-medium">{end}</span> of{" "}
+              <span className="font-medium">{totalItems}</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={prevPage}
+                disabled={clampedPage === 1}
+                className="px-3 py-1.5 border rounded disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <span className="text-sm text-gray-600">
+                Page {clampedPage} / {totalPages}
+              </span>
+              <button
+                onClick={nextPage}
+                disabled={clampedPage === totalPages}
+                className="px-3 py-1.5 border rounded disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </>
       )}
     </section>
   );

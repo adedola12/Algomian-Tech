@@ -41,6 +41,9 @@ export default function InventTable() {
   /* ------------ state ------------ */
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
+  const [pages, setPages] = useState(1);
+  const [page, setPage] = useState(1);
+  const LIMIT = 20;
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -66,18 +69,25 @@ export default function InventTable() {
         : { key, direction: "asc" }
     );
 
-  /* ------------ data loader ------------ */
+  /* ------------ data loader (server pagination) ------------ */
   const loadProducts = useCallback(async () => {
     setLoading(true);
     try {
-      const { products = [], total: grandTotal = 0 } = await fetchProducts({
-        search: debouncedSearch || undefined, // blank search ⇒ all items
+      const {
+        products = [],
+        total: grandTotal = 0,
+        pages: apiPages,
+      } = await fetchProducts({
+        search: debouncedSearch || undefined,
         category: category || undefined,
+        page,
+        limit: LIMIT,
       });
 
       // sanity: ensure array
       const safeProducts = Array.isArray(products) ? products : [];
 
+      // verify first image (kept from your original)
       const verified = await Promise.all(
         safeProducts.map(async (p) => {
           const img = p.images?.[0] ? toEmbedUrl(p.images[0]) : null;
@@ -87,24 +97,31 @@ export default function InventTable() {
           };
         })
       );
-      const inStockOnly = verified.filter((p) => p.quantity > 0);
 
-      // setRows(verified);
-      // setTotal(grandTotal);
-      setRows(inStockOnly);
-      setTotal(inStockOnly.length);
+      setRows(verified);
+      setTotal(Number.isFinite(grandTotal) ? grandTotal : verified.length);
+      setPages(
+        Number.isFinite(apiPages)
+          ? apiPages
+          : Math.max(1, Math.ceil((grandTotal || verified.length) / LIMIT))
+      );
       setError(null);
     } catch (e) {
       setError(e.response?.data?.message || e.message);
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, category]);
+  }, [debouncedSearch, category, page]);
 
   /* initial + reactive load */
   useEffect(() => {
     loadProducts();
   }, [loadProducts]);
+
+  /* when filters change, reset to first page */
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, category]);
 
   /* close the 3-dot menu on outside click */
   useEffect(() => {
@@ -153,7 +170,6 @@ export default function InventTable() {
       ram = "",
       sto = "";
 
-    /* 1️⃣ Prefer first entry in baseSpecs array */
     if (Array.isArray(p.baseSpecs) && p.baseSpecs.length > 0) {
       const first = p.baseSpecs[0] || {};
       cpu = first.baseCPU || "";
@@ -161,7 +177,6 @@ export default function InventTable() {
       sto = first.baseStorage || "";
     }
 
-    /* 2️⃣ Fallback to legacy top-level fields */
     cpu = cpu || p.baseCPU || p.storageCPU || "";
     ram = ram || p.baseRam || p.storageRam || "";
     sto = sto || p.baseStorage || p.Storage || "";
@@ -175,7 +190,8 @@ export default function InventTable() {
     try {
       await deleteProduct(row._id);
       toast.success("Product deleted");
-      setRows((prev) => prev.filter((p) => p._id !== row._id));
+      // after deletion, refetch current page (it may now be empty)
+      loadProducts();
     } catch (e) {
       toast.error(e.response?.data?.message || e.message);
     }
@@ -405,6 +421,39 @@ export default function InventTable() {
               ))}
             </tbody>
           </table>
+
+          {/* ── pagination controls (20 per page) ───────────────── */}
+          <div className="flex items-center justify-between gap-3 py-4">
+            <span className="text-sm text-gray-600">
+              Page {page} of {pages}
+            </span>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1 || loading}
+                className={`rounded border px-4 py-2 text-sm ${
+                  page <= 1 || loading
+                    ? "cursor-not-allowed bg-gray-50 text-gray-400"
+                    : "hover:bg-gray-50"
+                }`}
+              >
+                Previous
+              </button>
+
+              <button
+                onClick={() => setPage((p) => Math.min(pages, p + 1))}
+                disabled={page >= pages || loading}
+                className={`rounded border px-4 py-2 text-sm ${
+                  page >= pages || loading
+                    ? "cursor-not-allowed bg-gray-50 text-gray-400"
+                    : "hover:bg-gray-50"
+                }`}
+              >
+                Next
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 
