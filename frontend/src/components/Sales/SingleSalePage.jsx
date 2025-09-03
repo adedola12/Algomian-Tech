@@ -233,6 +233,38 @@ export default function SingleSalePage({
   /* --------------- save ----------------------- */
   const [isSaving, setIsSaving] = useState(false);
 
+  // ---- suggestion selection helpers (avoid blur-before-click) ----
+  const getFullName = (c) =>
+    `${c.firstName || ""} ${c.lastName || ""}`.trim() ||
+    c.name ||
+    c.fullName ||
+    "";
+
+  const getPhone = (c) =>
+    c.whatAppNumber ??
+    c.whatsAppNumber ??
+    c.whatsappNumber ??
+    c.phoneNumber ??
+    c.phone ??
+    "";
+
+  const getEmail = (c) => c.email ?? c.primaryEmail ?? "";
+
+  const selectCustomer = (c) => {
+    setCustId(c._id);
+    setCustName(getFullName(c));
+    setCustPhone(getPhone(c));
+    setCustEmail(getEmail(c));
+    setCustSug([]);
+  };
+
+  const selectReferral = (c) => {
+    setRefId(c._id);
+    setRefName(getFullName(c));
+    setRefPhone(getPhone(c));
+    setRefSug([]);
+  };
+
   const saveSale = async () => {
     if (isSaving) return; // hard guard against double-click
     if (!items.length) return toast.error("Pick at least one product");
@@ -345,6 +377,12 @@ export default function SingleSalePage({
                 {custSug.map((c) => (
                   <li
                     key={c._id}
+                    onPointerDown={(e) => {
+                      e.preventDefault(); // ensures the input doesn't steal focus before we select
+                      selectCustomer(c);
+                    }}
+                    role="button"
+                    tabIndex={-1}
                     onClick={() => {
                       setCustId(c._id);
                       setCustName(`${c.firstName} ${c.lastName}`.trim());
@@ -428,6 +466,12 @@ export default function SingleSalePage({
                 {refSug.map((c) => (
                   <li
                     key={c._id}
+                    onPointerDown={(e) => {
+                      e.preventDefault(); // ensures the input doesn't steal focus before we select
+                      selectReferral(c);
+                    }}
+                    role="button"
+                    tabIndex={-1}
                     onClick={() => {
                       setRefId(c._id);
                       setRefName(`${c.firstName} ${c.lastName}`);
