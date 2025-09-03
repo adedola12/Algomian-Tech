@@ -512,7 +512,7 @@ export default function SalesTable() {
   };
 
   const deleteOrder = async (id) => {
-    if (!window.confirm("Really delete this order?")) return;
+    if (!window.confirm("Really return this order?")) return;
     await api.delete(`/api/orders/${id}`);
     fetchOrders();
   };
@@ -659,7 +659,7 @@ export default function SalesTable() {
                             }}
                             className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
                           >
-                            Delete Sale
+                            Return Sale
                           </button>
                           <button
                             onClick={() => {
