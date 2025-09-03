@@ -9,7 +9,6 @@ import {
   FiMapPin,
   FiArrowLeft,
 } from "react-icons/fi";
-import axios from "axios";
 import { toast } from "react-toastify";
 
 import SelectedItemCard from "./SelectedItemCard";
@@ -92,7 +91,7 @@ export default function SingleSalePage({
           inStockOnly: 1,
         });
         setCatalogue(products);
-      } catch (err) {
+      } catch {
         toast.error("Could not load catalogue");
       } finally {
         setLoading(false);
@@ -174,12 +173,14 @@ export default function SingleSalePage({
     if (location.state?.product) nav(".", { replace: true, state: {} });
   }, []); // eslint-disable-line
 
-  /* ──────────  load customers once (also for referral) ────────── */
+  /* ──────────  load customers once (also for referral) ──────────
+     IMPORTANT: use the pre-configured `api` instance so it works in production
+     (dev proxy hides this problem when using bare axios + relative URLs) */
   const [allPeople, setAllPeople] = useState([]);
   useEffect(() => {
-    axios
-      .get("/api/users/customers", { withCredentials: true })
-      .then((r) => setAllPeople(r.data || []))
+    api
+      .get("/api/users/customers")
+      .then((r) => setAllPeople(Array.isArray(r.data) ? r.data : []))
       .catch(() => toast.error("Could not fetch customers list"));
   }, []);
 
@@ -188,14 +189,12 @@ export default function SingleSalePage({
     if (!q) return [];
     return allPeople
       .filter((p) => `${p.firstName} ${p.lastName}`.toLowerCase().includes(q))
-      .sort((a, b) => (b.totalOrders || 0) - (a.totalOrders || 0)) // prioritize people with orders
+      .sort((a, b) => (b.totalOrders || 0) - (a.totalOrders || 0))
       .slice(0, 8);
   };
 
   const [custSug, setCustSug] = useState([]);
   const [refSug, setRefSug] = useState([]);
-  const [showCustSug, setShowCustSug] = useState(false);
-  const [showRefSug, setShowRefSug] = useState(false);
 
   /* --------------- delivery ------------------- */
   const [orderType, setOrderType] = useState("order"); // "order" | "pickup"
@@ -232,12 +231,15 @@ export default function SingleSalePage({
   const grand = subtotal + taxTotal + deliveryIncluded;
 
   /* --------------- save ----------------------- */
-  const saveSale = async () => {
-    if (!items.length) return toast.error("Pick at least one product");
+  const [isSaving, setIsSaving] = useState(false);
 
+  const saveSale = async () => {
+    if (isSaving) return; // hard guard against double-click
+    if (!items.length) return toast.error("Pick at least one product");
     if ((orderType === "order" || paid) && !payMethod)
       return toast.error("Select a payment method");
 
+    setIsSaving(true);
     try {
       const payload = {
         orderItems: items.map((l) => ({
@@ -270,7 +272,7 @@ export default function SingleSalePage({
 
         customerName: custName,
         customerPhone: custPhone,
-        customerEmail: custEmail, // ← NEW: send email so BE can create profile
+        customerEmail: custEmail,
         selectedCustomerId: custId,
 
         referralName: refName,
@@ -287,9 +289,7 @@ export default function SingleSalePage({
       };
 
       if (mode === "edit" && orderId) {
-        await axios.patch(`/api/orders/${orderId}`, payload, {
-          withCredentials: true,
-        });
+        await api.patch(`/api/orders/${orderId}`, payload);
       } else {
         await createOrder(payload);
       }
@@ -298,6 +298,7 @@ export default function SingleSalePage({
       onClose?.();
     } catch (err) {
       toast.error(err.response?.data?.message || err.message);
+      setIsSaving(false); // re-enable only on failure; success will close the form
     }
   };
 
@@ -379,7 +380,7 @@ export default function SingleSalePage({
             />
           </div>
 
-          {/* email – NEW (read-only when picked from suggestions) */}
+          {/* email */}
           <div className="relative">
             <FiMail className="absolute left-3 top-3 text-gray-400" />
             <input
@@ -405,7 +406,7 @@ export default function SingleSalePage({
           </div>
         </div>
 
-        {/* ───── referral (kept same) ───── */}
+        {/* ───── referral ───── */}
         <div className="grid lg:grid-cols-3 gap-4 lg:justify-items-center">
           <div className="relative lg:col-start-2">
             <FiUser className="absolute left-3 top-3 text-gray-400" />
@@ -724,9 +725,15 @@ export default function SingleSalePage({
 
         <button
           onClick={saveSale}
-          className="w-full mt-4 bg-orange-600 hover:bg-orange-700 text-white py-2 rounded-lg"
+          disabled={isSaving}
+          aria-busy={isSaving}
+          className={`w-full mt-4 text-white py-2 rounded-lg ${
+            isSaving
+              ? "bg-orange-400 cursor-not-allowed opacity-60"
+              : "bg-orange-600 hover:bg-orange-700"
+          }`}
         >
-          Complete sale
+          {isSaving ? "Completing…" : "Complete sale"}
         </button>
       </section>
     </div>
