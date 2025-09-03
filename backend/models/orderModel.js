@@ -16,6 +16,10 @@ const orderItemSchema = new mongoose.Schema(
       required: true,
     },
     name: { type: String, required: true },
+    // store the selected/base specs on the line itself so details always render
+    baseRam: { type: String, default: "" },
+    baseStorage: { type: String, default: "" },
+    baseCPU: { type: String, default: "" },
     soldSpecs: [
       {
         serialNumber: String,

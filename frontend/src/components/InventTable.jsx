@@ -82,7 +82,7 @@ export default function InventTable() {
         category: category || undefined,
         page,
         limit: LIMIT,
-        inStockOnly: true, // 👈 only fetch items with quantity > 0
+        inStockOnly: 1, // 👈 only fetch items with quantity > 0
       });
 
       const safeProducts = Array.isArray(products) ? products : [];

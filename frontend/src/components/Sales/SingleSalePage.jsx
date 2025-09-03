@@ -62,7 +62,10 @@ export default function SingleSalePage({
         // const { data } = await axios.get("/api/products?limit=500");
         // const list = Array.isArray(data) ? data : data.products ?? [];
 
-        const { products = [] } = await fetchProducts({ limit: 500 });
+        const { products = [] } = await fetchProducts({
+          limit: 500,
+          inStockOnly: 1,
+        });
         const list = products;
         setCatalogue(list);
       } catch (err) {
@@ -89,14 +92,18 @@ export default function SingleSalePage({
             : []
         );
         // customer + POS
+        // Prefer what was typed when the sale was made; fall back to linked user
         setCustName(
-          order.user
-            ? `${order.user.firstName || ""} ${
-                order.user.lastName || ""
-              }`.trim()
-            : ""
+          (order.customerName && order.customerName.trim()) ||
+            (order.user
+              ? `${order.user.firstName || ""} ${
+                  order.user.lastName || ""
+                }`.trim()
+              : "")
         );
-        setCustPhone(order.user?.whatAppNumber || "");
+        setCustPhone(order.customerPhone || order.user?.whatAppNumber || "");
+        setCustId(order.user?._id || null);
+
         setPOS(order.pointOfSale || "");
         // delivery
         const dlvMethod = order.deliveryMethod || "self";
@@ -274,6 +281,7 @@ export default function SingleSalePage({
           postalCode: "N/A",
           country: "N/A",
         },
+        pointOfSale: pos,
         isPaid: orderType === "order" ? true : paid,
         paymentMethod:
           mode === "invoice" ? undefined : paid ? payMethod : undefined,

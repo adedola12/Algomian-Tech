@@ -22,7 +22,10 @@ const compare = (a, b, key, dir) => {
     return mult * ((a.qty || 0) - (b.qty || 0));
   }
   if (key === "cust") {
-    return mult * a.customer.localeCompare(b.customer);
+    // return mult * a.customer.localeCompare(b.customer);
+    const an = (a.customer || "").toString();
+    const bn = (b.customer || "").toString();
+    return mult * an.localeCompare(bn);
   }
   if (key === "status") {
     return mult * a.status.localeCompare(b.status);
@@ -93,7 +96,12 @@ export default function InvManTable() {
         ...o,
         track: o.trackingId,
         qty: o.orderItems?.reduce((s, i) => s + i.qty, 0) || 0,
-        customer: `${o.user?.firstName || ""} ${o.user?.lastName || ""}`.trim(),
+        // customer: `${o.user?.firstName || ""} ${o.user?.lastName || ""}`.trim(),
+        // Prefer the typed customer; fallback to linked user if present
+        customer:
+          (o.customerName && o.customerName.trim()) ||
+          `${o.user?.firstName || ""} ${o.user?.lastName || ""}`.trim() ||
+          "—",
       })),
     [orders]
   );
@@ -181,8 +189,15 @@ export default function InvManTable() {
 
           <tbody className="bg-white divide-y divide-gray-200">
             {sorted.map((o) => {
+              {
+                /* const phone =
+                o.shippingAddress?.phone || o.user?.whatAppNumber || "—"; */
+              }
               const phone =
-                o.shippingAddress?.phone || o.user?.whatAppNumber || "—";
+                o.customerPhone ||
+                o.shippingAddress?.phone ||
+                o.user?.whatAppNumber ||
+                "—";
               const baseDetails = `${o.logisticsAddr || "—"} / ${
                 o.logisticsPhone || "—"
               }`;

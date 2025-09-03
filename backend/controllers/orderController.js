@@ -522,7 +522,7 @@ export const getMyOrders = asyncHandler(async (req, res) => {
 /* order by id (populate createdBy so editor can use if needed) */
 export const getOrderById = asyncHandler(async (req, res) => {
   const order = await Order.findById(req.params.id)
-    .populate("user", "firstName lastName email")
+    .populate("user", "firstName lastName email whatAppNumber")
     .populate("createdBy", "firstName lastName email");
   if (!order) {
     res.status(404);
