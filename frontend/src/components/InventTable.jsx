@@ -82,12 +82,11 @@ export default function InventTable() {
         category: category || undefined,
         page,
         limit: LIMIT,
+        inStockOnly: true, // 👈 only fetch items with quantity > 0
       });
 
-      // sanity: ensure array
       const safeProducts = Array.isArray(products) ? products : [];
 
-      // verify first image (kept from your original)
       const verified = await Promise.all(
         safeProducts.map(async (p) => {
           const img = p.images?.[0] ? toEmbedUrl(p.images[0]) : null;
@@ -113,17 +112,14 @@ export default function InventTable() {
     }
   }, [debouncedSearch, category, page]);
 
-  /* initial + reactive load */
   useEffect(() => {
     loadProducts();
   }, [loadProducts]);
 
-  /* when filters change, reset to first page */
   useEffect(() => {
     setPage(1);
   }, [debouncedSearch, category]);
 
-  /* close the 3-dot menu on outside click */
   useEffect(() => {
     const close = () => setMenuRow(null);
     window.addEventListener("click", close);
@@ -164,44 +160,37 @@ export default function InventTable() {
       minimumFractionDigits: 0,
     });
 
-  /*  NEW: always show the first spec  */
   const compactDetails = (p) => {
     let cpu = "",
       ram = "",
       sto = "";
-
     if (Array.isArray(p.baseSpecs) && p.baseSpecs.length > 0) {
       const first = p.baseSpecs[0] || {};
       cpu = first.baseCPU || "";
       ram = first.baseRam || "";
       sto = first.baseStorage || "";
     }
-
     cpu = cpu || p.baseCPU || p.storageCPU || "";
     ram = ram || p.baseRam || p.storageRam || "";
     sto = sto || p.baseStorage || p.Storage || "";
-
     return [cpu, ram, sto].filter(Boolean).join("/") || "—";
   };
 
-  /* ------------ delete flow ------------ */
   const confirmDelete = async (row) => {
     if (!window.confirm(`Delete “${row.productName}” permanently?`)) return;
     try {
       await deleteProduct(row._id);
       toast.success("Product deleted");
-      // after deletion, refetch current page (it may now be empty)
       loadProducts();
     } catch (e) {
       toast.error(e.response?.data?.message || e.message);
     }
   };
 
-  /* ------------ render ------------ */
   return (
     <>
       <section className="space-y-4 rounded-lg bg-white p-4 sm:p-5 shadow-sm">
-        {/* ── filter row ───────────────── */}
+        {/* filters */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-grow sm:flex-grow-0 sm:basis-64">
             <input
@@ -227,7 +216,6 @@ export default function InventTable() {
           </select>
         </div>
 
-        {/* totals + errors */}
         {error && <p className="text-sm text-red-600">Error: {error}</p>}
 
         <p className="text-sm text-gray-500">
@@ -235,9 +223,8 @@ export default function InventTable() {
           <span className="font-medium text-gray-900">{total}</span>
         </p>
 
-        {/* ── table ───────────────────── */}
+        {/* table */}
         <div className="w-full overflow-x-auto relative">
-          {/* inline overlay loader */}
           {loading && (
             <div className="absolute inset-0 flex items-center justify-center bg-white/60 z-10">
               <span className="text-sm text-gray-500">Loading…</span>
@@ -301,7 +288,6 @@ export default function InventTable() {
                     </td>
                   )}
 
-                  {/* name + avatar */}
                   <td className="py-3 flex min-w-[180px] items-center gap-3">
                     <img
                       src={
@@ -354,7 +340,6 @@ export default function InventTable() {
                     })}
                   </td>
 
-                  {/* three-dot menu */}
                   <td className="pr-4 text-right relative">
                     <button
                       onClick={(e) => {
@@ -383,9 +368,7 @@ export default function InventTable() {
 
                         <button
                           onClick={() => {
-                            nav("/sales", {
-                              state: { product: p },
-                            });
+                            nav("/sales", { state: { product: p } });
                           }}
                           className="flex w-full items-center px-3 py-2 hover:bg-gray-100"
                         >
@@ -422,7 +405,7 @@ export default function InventTable() {
             </tbody>
           </table>
 
-          {/* ── pagination controls (20 per page) ───────────────── */}
+          {/* pagination (20 per page) */}
           <div className="flex items-center justify-between gap-3 py-4">
             <span className="text-sm text-gray-600">
               Page {page} of {pages}
@@ -457,7 +440,6 @@ export default function InventTable() {
         </div>
       </section>
 
-      {/* slide-over details drawer */}
       {selected && (
         <InventDetails product={selected} onClose={() => setSelected(null)} />
       )}

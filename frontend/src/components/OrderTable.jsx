@@ -68,6 +68,12 @@ export default function OrderTable() {
       ? "bg-blue-100 text-blue-700"
       : "bg-gray-100 text-gray-700";
 
+  // ✅ Helper: what we display as the customer's name
+  const customerDisplayName = (o) =>
+    (o.customerName && o.customerName.trim()) ||
+    `${o.user?.firstName || ""} ${o.user?.lastName || ""}`.trim() ||
+    "—";
+
   const filtered = orders.filter((o) => {
     if (activeTab === "all") return true;
     if (activeTab === "pending") return o.status === "Pending";
@@ -79,7 +85,7 @@ export default function OrderTable() {
   const sorted = [...filtered].sort((a, b) => {
     const valA =
       sortBy === "user"
-        ? `${a.user?.firstName || ""} ${a.user?.lastName || ""}`.toLowerCase()
+        ? customerDisplayName(a).toLowerCase()
         : sortBy === "payment"
         ? a.isPaid
         : sortBy === "status"
@@ -90,7 +96,7 @@ export default function OrderTable() {
 
     const valB =
       sortBy === "user"
-        ? `${b.user?.firstName || ""} ${b.user?.lastName || ""}`.toLowerCase()
+        ? customerDisplayName(b).toLowerCase()
         : sortBy === "payment"
         ? b.isPaid
         : sortBy === "status"
@@ -192,8 +198,9 @@ export default function OrderTable() {
                 >
                   {o._id.slice(-8)}
                 </td>
+                {/* ✅ Show the real customer name */}
                 <td className="px-4 py-3 text-gray-800">
-                  {o.user?.firstName} {o.user?.lastName}
+                  {customerDisplayName(o)}
                 </td>
                 <td className="px-4 py-3 text-gray-800">
                   {dayjs(o.createdAt).format("MMM D, YYYY")}

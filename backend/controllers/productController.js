@@ -196,64 +196,64 @@ export const getCategories = asyncHandler(async (req, res) => {
   );
 });
 
-export const getProducts = asyncHandler(async (req, res) => {
-  const { search = "", category = "", page = 1, limit = 50 } = req.query;
+// export const getProducts = asyncHandler(async (req, res) => {
+//   const { search = "", category = "", page = 1, limit = 50 } = req.query;
 
-  /* ── turn "i7 16GB"  ->  ["i7", "16GB"] ──────────────────────────── */
-  const tokens = search
-    .trim()
-    .split(/\s+/) // split by 1-or-more spaces
-    .filter(Boolean) // remove empties
-    .slice(0, 5); // safety: max 5 tokens
+//   /* ── turn "i7 16GB"  ->  ["i7", "16GB"] ──────────────────────────── */
+//   const tokens = search
+//     .trim()
+//     .split(/\s+/) // split by 1-or-more spaces
+//     .filter(Boolean) // remove empties
+//     .slice(0, 5); // safety: max 5 tokens
 
-  /* one sub-query per token – ALL tokens must be satisfied (AND) */
-  const tokenConditions = tokens.map((t) => {
-    const term = new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-    return {
-      $or: [
-        /* simple text columns */
-        { productName: term },
-        { brand: term },
-        { productCategory: term },
+//   /* one sub-query per token – ALL tokens must be satisfied (AND) */
+//   const tokenConditions = tokens.map((t) => {
+//     const term = new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+//     return {
+//       $or: [
+//         /* simple text columns */
+//         { productName: term },
+//         { brand: term },
+//         { productCategory: term },
 
-        /* flat spec helpers */
-        { storageRam: term },
-        { Storage: term },
+//         /* flat spec helpers */
+//         { storageRam: term },
+//         { Storage: term },
 
-        /* look inside every element of baseSpecs[] */
-        {
-          baseSpecs: {
-            $elemMatch: {
-              $or: [
-                { baseCPU: term },
-                { baseRam: term },
-                { baseStorage: term },
-                { serialNumber: term },
-              ],
-            },
-          },
-        },
-      ],
-    };
-  });
+//         /* look inside every element of baseSpecs[] */
+//         {
+//           baseSpecs: {
+//             $elemMatch: {
+//               $or: [
+//                 { baseCPU: term },
+//                 { baseRam: term },
+//                 { baseStorage: term },
+//                 { serialNumber: term },
+//               ],
+//             },
+//           },
+//         },
+//       ],
+//     };
+//   });
 
-  /* optional category filter stays the same ------------------------- */
-  const q = {
-    $and: [
-      ...(tokenConditions.length ? tokenConditions : [{}]),
-      category ? { productCategory: category } : {},
-    ],
-  };
+//   /* optional category filter stays the same ------------------------- */
+//   const q = {
+//     $and: [
+//       ...(tokenConditions.length ? tokenConditions : [{}]),
+//       category ? { productCategory: category } : {},
+//     ],
+//   };
 
-  const skip = (+page - 1) * +limit;
-  const total = await Product.countDocuments(q);
-  const products = await Product.find(q)
-    .sort("-createdAt")
-    .skip(skip)
-    .limit(+limit);
+//   const skip = (+page - 1) * +limit;
+//   const total = await Product.countDocuments(q);
+//   const products = await Product.find(q)
+//     .sort("-createdAt")
+//     .skip(skip)
+//     .limit(+limit);
 
-  res.json({ products, total, page: +page, pages: Math.ceil(total / limit) });
-});
+//   res.json({ products, total, page: +page, pages: Math.ceil(total / limit) });
+// });
 
 export const getBaseSpecs = asyncHandler(async (req, res) => {
   const product = await Product.findById(req.params.id);
@@ -273,6 +273,67 @@ export const getProduct = asyncHandler(async (req, res) => {
   }
   res.json(product);
 });
+
+// controllers/productController.js
+export const getProducts = asyncHandler(async (req, res) => {
+  const {
+    search = "",
+    category = "",
+    page = 1,
+    limit = 50,
+    inStockOnly,                   // 👈 new flag
+  } = req.query;
+
+  const tokens = search
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 5);
+
+  const tokenConditions = tokens.map((t) => {
+    const term = new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    return {
+      $or: [
+        { productName: term },
+        { brand: term },
+        { productCategory: term },
+        { storageRam: term },
+        { Storage: term },
+        {
+          baseSpecs: {
+            $elemMatch: {
+              $or: [
+                { baseCPU: term },
+                { baseRam: term },
+                { baseStorage: term },
+                { serialNumber: term },
+              ],
+            },
+          },
+        },
+      ],
+    };
+  });
+
+  const q = {
+    $and: [
+      ...(tokenConditions.length ? tokenConditions : [{}]),
+      category ? { productCategory: category } : {},
+      // 👇 only items with stock when flag is truthy (e.g. "1", "true")
+      inStockOnly ? { quantity: { $gt: 0 } } : {},
+    ],
+  };
+
+  const skip = (+page - 1) * +limit;
+  const total = await Product.countDocuments(q);
+  const products = await Product.find(q)
+    .sort("-createdAt")
+    .skip(skip)
+    .limit(+limit);
+
+  res.json({ products, total, page: +page, pages: Math.ceil(total / limit) });
+});
+
 
 // export const bulkCreateProduct = asyncHandler(async (req, res) => {
 //   const { products = [] } = req.body;
