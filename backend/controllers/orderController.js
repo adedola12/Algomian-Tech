@@ -295,15 +295,229 @@ const hasChangeStream = () => {
   return !!mongoose.connection?.db?.topology?.s?.hosts;
 };
 
-/* explode a requested order line into a stored line */
+// /* explode a requested order line into a stored line */
+// const makeOrderLine = async (src) => {
+//   const prod = await Product.findById(src.product);
+//   if (!prod) throw new Error(`Product not found: ${src.product}`);
+//   if (prod.quantity < src.qty)
+//     throw new Error(
+//       `Insufficient stock for ${prod.productName} – have ${prod.quantity}`
+//     );
+
+//   return {
+//     product: prod._id,
+//     name: prod.productName,
+//     baseRam: src.baseRam ?? "",
+//     baseStorage: src.baseStorage ?? "",
+//     baseCPU: src.baseCPU ?? "",
+//     variantSelections: Array.isArray(src.variantSelections)
+//       ? src.variantSelections.map((v) => ({
+//           label: v.label || "",
+//           cost: Number(v.cost) || 0,
+//         }))
+//       : [],
+//     qty: src.qty,
+//     price: src.price,
+//     image: prod.images?.[0] || "",
+//     maxQty: prod.quantity,
+//   };
+// };
+
+// export const addOrderItems = asyncHandler(async (req, res) => {
+//   const {
+//     orderItems = [],
+//     shippingAddress = {},
+//     paymentMethod,
+//     orderType = "sale",
+//     isPaid = true,
+//     shippingPrice = 0,
+//     taxPrice = 0,
+//     pointOfSale,
+//     selectedCustomerId,
+//     customerName = "",
+//     customerPhone = "",
+//     deliveryMethod = "self",
+//     parkLocation = "",
+//     referralId,
+//     referralName,
+//     referralPhone,
+//     receiverName = "",
+//     receiverPhone = "",
+//     receiptName = "",
+//     receiptAmount = 0,
+//     deliveryNote = "",
+//     deliveryPaid = true,
+//   } = req.body;
+
+//   if (!orderItems || orderItems.length === 0) {
+//     res.status(400);
+//     throw new Error("No order items provided");
+//   }
+
+//   const detailedItems = await Promise.all(orderItems.map(makeOrderLine));
+
+//   // Pick the customer to link (if any)
+//   let userId = req.user._id; // will be overwritten when we have a real customer
+//   if (selectedCustomerId) {
+//     const customer = await User.findById(selectedCustomerId);
+//     if (!customer || customer.userType !== "Customer") {
+//       res.status(400);
+//       throw new Error("Invalid customer ID");
+//     }
+//     userId = customer._id;
+//   } else if (customerName && customerPhone) {
+//     const existingUser = await User.findOne({ whatAppNumber: customerPhone });
+//     if (existingUser) {
+//       userId = existingUser._id;
+//     } else {
+//       const [firstName, ...rest] = customerName.trim().split(" ");
+//       const lastName = rest.join(" ") || "-";
+//       const newCustomer = await User.create({
+//         firstName: firstName || "Unnamed",
+//         lastName: lastName || "-",
+//         whatAppNumber: customerPhone,
+//         email: `${customerPhone}@generated.com`,
+//         password: customerPhone + "123",
+//         userType: "Customer",
+//       });
+//       userId = newCustomer._id;
+//     }
+//   }
+
+//   /* money */
+//   const itemsPrice = detailedItems.reduce(
+//     (s, it) =>
+//       s +
+//       it.qty *
+//         (it.price + it.variantSelections.reduce((p, v) => p + v.cost, 0)),
+//     0
+//   );
+//   const items = Number(itemsPrice || 0);
+//   const tax = Number(taxPrice || 0);
+//   const shipping = Number(shippingPrice || 0);
+//   const includeShipping = deliveryPaid ? shipping : 0;
+//   const totalPrice = items + tax + includeShipping;
+
+//   const base = {
+//     trackingId: crypto.randomBytes(4).toString("hex").toUpperCase(),
+//     user: userId, // linked customer (if any)
+//     customerName, // NEW: always store what was typed
+//     customerPhone, // NEW
+//     createdBy: req.user._id, // NEW: who created the sale
+//     referral: null,
+//     referralName: referralName || "",
+//     referralPhone: referralPhone || "",
+//     pointOfSale,
+//     orderItems: detailedItems,
+//     shippingAddress,
+//     itemsPrice,
+//     shippingPrice,
+//     taxPrice,
+//     totalPrice,
+//     deliveryMethod,
+//     receiverName,
+//     receiverPhone,
+//     receiptName,
+//     receiptAmount,
+//     deliveryNote,
+//     deliveryPaid,
+//   };
+
+//   // optional referral linking
+//   if (referralId) {
+//     base.referral = referralId;
+//   } else if (referralName && referralPhone) {
+//     const existingRef = await User.findOne({ whatAppNumber: referralPhone });
+//     if (existingRef) {
+//       base.referral = existingRef._id;
+//     } else {
+//       const [first, ...rest] = referralName.trim().split(" ");
+//       const newRef = await User.create({
+//         firstName: first || "Ref",
+//         lastName: rest.join(" ") || "-",
+//         email: `${referralPhone}@ref.generated`,
+//         password: referralPhone + "123",
+//         userType: "Customer",
+//         whatAppNumber: referralPhone,
+//       });
+//       base.referral = newRef._id;
+//     }
+//   }
+
+//   const doc =
+//     orderType === "invoice"
+//       ? { ...base, status: "Invoice", isPaid: false, paymentMethod: undefined }
+//       : { ...base, paymentMethod };
+
+//   const order = await Order.create(doc);
+//   const createdOrder = await order.save();
+
+//   // WhatsApp fire-and-forget (unchanged)
+//   (async () => {
+//     try {
+//       if (customerPhone) {
+//         const msisdn = customerPhone.replace(/^0/, "234").replace(/\D/g, "");
+//         const msg = [
+//           `Hello ${customerName || "Customer"},`,
+//           ``,
+//           `Your order *${createdOrder.trackingId}* has been received ✅`,
+//           `Status : ${createdOrder.status}`,
+//           `Delivery: ${
+//             deliveryMethod === "logistics"
+//               ? `Logistics — ${shippingAddress.address}`
+//               : deliveryMethod === "park"
+//                 ? `Park Pick-Up — ${parkLocation}`
+//                 : "Self Pick-Up"
+//           }`,
+//           `Total  : ₦${createdOrder.totalPrice.toLocaleString()}`,
+//           ``,
+//           `Thank you for shopping with us!`,
+//         ].join("\n");
+//         await sendWhatsApp({ to: msisdn, body: msg });
+//       }
+//     } catch (err) {
+//       console.error("⚠️ WhatsApp message failed:", err.message);
+//     }
+//   })();
+
+//   // Link order to user (if it's genuinely a customer)
+//   const linkedUser = await User.findById(userId);
+//   if (linkedUser && Array.isArray(linkedUser.orders)) {
+//     linkedUser.orders.push(createdOrder._id);
+//     await linkedUser.save();
+//   }
+
+//   // Stock updates (unchanged)
+//   const lowStockWarnings = [];
+//   await Promise.all(
+//     detailedItems.map(async (item) => {
+//       const product = await Product.findById(item.product);
+//       product.quantity -= item.qty;
+//       if (product.quantity <= product.reorderLevel) {
+//         product.availability = "restocking";
+//         lowStockWarnings.push(
+//           `⚠️ ${product.productName} is low on stock (${product.quantity} left)`
+//         );
+//       }
+//       await product.save();
+//     })
+//   );
+
+//   res.status(201).json({
+//     message: "Order placed successfully",
+//     order: createdOrder,
+//     lowStockWarnings,
+//   });
+// });
+
 const makeOrderLine = async (src) => {
   const prod = await Product.findById(src.product);
   if (!prod) throw new Error(`Product not found: ${src.product}`);
-  if (prod.quantity < src.qty)
+  if (prod.quantity < src.qty) {
     throw new Error(
       `Insufficient stock for ${prod.productName} – have ${prod.quantity}`
     );
-
+  }
   return {
     product: prod._id,
     name: prod.productName,
@@ -323,6 +537,16 @@ const makeOrderLine = async (src) => {
   };
 };
 
+const slug = (s = "") =>
+  String(s)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+
+/**
+ * Create new order (auto-create/link customer even when only name is given)
+ * POST /api/orders
+ */
 export const addOrderItems = asyncHandler(async (req, res) => {
   const {
     orderItems = [],
@@ -333,9 +557,14 @@ export const addOrderItems = asyncHandler(async (req, res) => {
     shippingPrice = 0,
     taxPrice = 0,
     pointOfSale,
+
+    // from UI
     selectedCustomerId,
     customerName = "",
     customerPhone = "",
+    customerEmail = "",
+
+    // delivery / referral / meta
     deliveryMethod = "self",
     parkLocation = "",
     referralId,
@@ -349,15 +578,23 @@ export const addOrderItems = asyncHandler(async (req, res) => {
     deliveryPaid = true,
   } = req.body;
 
-  if (!orderItems || orderItems.length === 0) {
+  if (!Array.isArray(orderItems) || orderItems.length === 0) {
     res.status(400);
     throw new Error("No order items provided");
   }
 
+  // explode & validate lines
   const detailedItems = await Promise.all(orderItems.map(makeOrderLine));
 
-  // Pick the customer to link (if any)
-  let userId = req.user._id; // will be overwritten when we have a real customer
+  /* ─────────────────────────────────────────────
+     Ensure we have a proper Customer user to link
+     Rules:
+       - if selectedCustomerId -> use it (must be a Customer)
+       - else if phone/email present -> try find by those
+       - else if name present only -> CREATE a Customer with placeholders
+  ───────────────────────────────────────────── */
+  let userId;
+
   if (selectedCustomerId) {
     const customer = await User.findById(selectedCustomerId);
     if (!customer || customer.userType !== "Customer") {
@@ -365,26 +602,50 @@ export const addOrderItems = asyncHandler(async (req, res) => {
       throw new Error("Invalid customer ID");
     }
     userId = customer._id;
-  } else if (customerName && customerPhone) {
-    const existingUser = await User.findOne({ whatAppNumber: customerPhone });
-    if (existingUser) {
-      userId = existingUser._id;
-    } else {
-      const [firstName, ...rest] = customerName.trim().split(" ");
+  } else {
+    let found = null;
+
+    // Prefer hard identifiers first
+    if (customerPhone) {
+      found = await User.findOne({ whatAppNumber: customerPhone });
+    }
+    if (!found && customerEmail) {
+      found = await User.findOne({
+        email: String(customerEmail).toLowerCase(),
+      });
+    }
+
+    if (found) {
+      userId = found._id;
+    } else if (customerName.trim()) {
+      // 👇 Create a brand-new Customer using only the name (generate safe placeholders)
+      const [firstName, ...rest] = customerName.trim().split(/\s+/);
       const lastName = rest.join(" ") || "-";
+      const tag = crypto.randomBytes(3).toString("hex");
+
+      const emailToUse = String(customerEmail || "").trim()
+        ? String(customerEmail).toLowerCase()
+        : `${slug(firstName + "-" + lastName) || "customer"}.${tag}@cust.generated`;
+
+      const phoneToUse = customerPhone || `N/A-${tag}`;
+
       const newCustomer = await User.create({
         firstName: firstName || "Unnamed",
-        lastName: lastName || "-",
-        whatAppNumber: customerPhone,
-        email: `${customerPhone}@generated.com`,
-        password: customerPhone + "123",
+        lastName,
+        whatAppNumber: phoneToUse, // schema requires it
+        email: emailToUse, // schema requires unique
+        password: `Temp${tag}9`, // strong; hashed by model pre-save
         userType: "Customer",
       });
+
       userId = newCustomer._id;
+    } else {
+      // no id, no name — fallback to the actor to keep the order valid
+      userId = req.user._id;
     }
   }
 
-  /* money */
+  /* ───────────── totals ───────────── */
   const itemsPrice = detailedItems.reduce(
     (s, it) =>
       s +
@@ -398,22 +659,27 @@ export const addOrderItems = asyncHandler(async (req, res) => {
   const includeShipping = deliveryPaid ? shipping : 0;
   const totalPrice = items + tax + includeShipping;
 
+  /* ───────────── build doc ───────────── */
   const base = {
     trackingId: crypto.randomBytes(4).toString("hex").toUpperCase(),
-    user: userId, // linked customer (if any)
-    customerName, // NEW: always store what was typed
-    customerPhone, // NEW
-    createdBy: req.user._id, // NEW: who created the sale
+    user: userId, // ← linked Customer user
+    customerName, // keep raw typed info for receipts
+    customerPhone,
+    createdBy: req.user._id, // sales rep
+
     referral: null,
     referralName: referralName || "",
     referralPhone: referralPhone || "",
+
     pointOfSale,
     orderItems: detailedItems,
+
     shippingAddress,
     itemsPrice,
     shippingPrice,
     taxPrice,
     totalPrice,
+
     deliveryMethod,
     receiverName,
     receiverPhone,
@@ -423,71 +689,43 @@ export const addOrderItems = asyncHandler(async (req, res) => {
     deliveryPaid,
   };
 
-  // optional referral linking
+  // optional referral linking/creation
   if (referralId) {
     base.referral = referralId;
   } else if (referralName && referralPhone) {
-    const existingRef = await User.findOne({ whatAppNumber: referralPhone });
-    if (existingRef) {
-      base.referral = existingRef._id;
-    } else {
-      const [first, ...rest] = referralName.trim().split(" ");
-      const newRef = await User.create({
-        firstName: first || "Ref",
-        lastName: rest.join(" ") || "-",
-        email: `${referralPhone}@ref.generated`,
-        password: referralPhone + "123",
+    let ref =
+      (await User.findOne({ whatAppNumber: referralPhone })) ||
+      (await User.findOne({ email: `${referralPhone}@ref.generated` }));
+    if (!ref) {
+      const [f, ...r] = referralName.trim().split(/\s+/);
+      ref = await User.create({
+        firstName: f || "Ref",
+        lastName: r.join(" ") || "-",
+        email: `${referralPhone}@ref.generated`.toLowerCase(),
+        password: `Temp${crypto.randomBytes(2).toString("hex")}9`,
         userType: "Customer",
         whatAppNumber: referralPhone,
       });
-      base.referral = newRef._id;
     }
+    base.referral = ref._id;
   }
 
   const doc =
     orderType === "invoice"
       ? { ...base, status: "Invoice", isPaid: false, paymentMethod: undefined }
-      : { ...base, paymentMethod };
+      : { ...base, paymentMethod, isPaid };
 
   const order = await Order.create(doc);
   const createdOrder = await order.save();
 
-  // WhatsApp fire-and-forget (unchanged)
-  (async () => {
-    try {
-      if (customerPhone) {
-        const msisdn = customerPhone.replace(/^0/, "234").replace(/\D/g, "");
-        const msg = [
-          `Hello ${customerName || "Customer"},`,
-          ``,
-          `Your order *${createdOrder.trackingId}* has been received ✅`,
-          `Status : ${createdOrder.status}`,
-          `Delivery: ${
-            deliveryMethod === "logistics"
-              ? `Logistics — ${shippingAddress.address}`
-              : deliveryMethod === "park"
-                ? `Park Pick-Up — ${parkLocation}`
-                : "Self Pick-Up"
-          }`,
-          `Total  : ₦${createdOrder.totalPrice.toLocaleString()}`,
-          ``,
-          `Thank you for shopping with us!`,
-        ].join("\n");
-        await sendWhatsApp({ to: msisdn, body: msg });
-      }
-    } catch (err) {
-      console.error("⚠️ WhatsApp message failed:", err.message);
-    }
-  })();
-
-  // Link order to user (if it's genuinely a customer)
+  // Link order into the customer's history for the Customers table
   const linkedUser = await User.findById(userId);
   if (linkedUser && Array.isArray(linkedUser.orders)) {
     linkedUser.orders.push(createdOrder._id);
     await linkedUser.save();
   }
 
-  // Stock updates (unchanged)
+  // reduce stock / set restocking flag if needed
   const lowStockWarnings = [];
   await Promise.all(
     detailedItems.map(async (item) => {
@@ -503,12 +741,241 @@ export const addOrderItems = asyncHandler(async (req, res) => {
     })
   );
 
+  // fire-and-forget WhatsApp (safe)
+  try {
+    if (customerPhone) {
+      const msisdn = customerPhone.replace(/^0/, "234").replace(/\D/g, "");
+      const msg = [
+        `Hello ${customerName || "Customer"},`,
+        ``,
+        `Your order *${createdOrder.trackingId}* has been received ✅`,
+        `Status : ${createdOrder.status}`,
+        `Total  : ₦${createdOrder.totalPrice.toLocaleString()}`,
+        ``,
+        `Thank you for shopping with us!`,
+      ].join("\n");
+      await sendWhatsApp({ to: msisdn, body: msg });
+    }
+  } catch (e) {
+    console.error("WhatsApp message failed:", e.message);
+  }
+
   res.status(201).json({
     message: "Order placed successfully",
     order: createdOrder,
     lowStockWarnings,
   });
 });
+
+/**
+ * Create new order (auto-suggest/auto-create customer)
+ * POST /api/orders
+ */
+// export const addOrderItems = asyncHandler(async (req, res) => {
+//   const {
+//     orderItems = [],
+//     shippingAddress = {},
+//     paymentMethod,
+//     orderType = "sale",
+//     isPaid = true,
+//     shippingPrice = 0,
+//     taxPrice = 0,
+//     pointOfSale,
+
+//     // 🔽 from UI
+//     selectedCustomerId,
+//     customerName = "",
+//     customerPhone = "",
+//     customerEmail = "",
+
+//     // delivery / referral / meta
+//     deliveryMethod = "self",
+//     parkLocation = "",
+//     referralId,
+//     referralName,
+//     referralPhone,
+//     receiverName = "",
+//     receiverPhone = "",
+//     receiptName = "",
+//     receiptAmount = 0,
+//     deliveryNote = "",
+//     deliveryPaid = true,
+//   } = req.body;
+
+//   if (!orderItems || orderItems.length === 0) {
+//     res.status(400);
+//     throw new Error("No order items provided");
+//   }
+
+//   // build lines (validates stock)
+//   const detailedItems = await Promise.all(orderItems.map(makeOrderLine));
+
+//   // ───────────────────────────────────────────
+//   // 1) Determine/ensure the customer for this sale
+//   // ───────────────────────────────────────────
+//   let userId = req.user._id; // default to the logged-in user (will be overwritten)
+//   if (selectedCustomerId) {
+//     const customer = await User.findById(selectedCustomerId);
+//     if (!customer || customer.userType !== "Customer") {
+//       res.status(400);
+//       throw new Error("Invalid customer ID");
+//     }
+//     userId = customer._id;
+//   } else if (customerName && (customerPhone || customerEmail)) {
+//     // try by phone, then by email
+//     let customer =
+//       (customerPhone &&
+//         (await User.findOne({ whatAppNumber: customerPhone }))) ||
+//       (customerEmail &&
+//         (await User.findOne({ email: String(customerEmail).toLowerCase() })));
+
+//     if (!customer) {
+//       // create a new profile
+//       const [firstName, ...rest] = customerName.trim().split(" ");
+//       const lastName = rest.join(" ") || "-";
+//       const emailToUse =
+//         String(customerEmail || "").trim() ||
+//         `${(customerPhone || "nouser").replace(/\D/g, "")}@generated.com`;
+
+//       customer = await User.create({
+//         firstName: firstName || "Unnamed",
+//         lastName,
+//         whatAppNumber: customerPhone || "",
+//         email: emailToUse.toLowerCase(),
+//         // simple default (hashed by userModel pre-save); you can swap to a truly random one if you prefer
+//         password: (customerPhone || "Pass") + "123",
+//         userType: "Customer",
+//       });
+//     }
+//     userId = customer._id;
+//   }
+//   // else: if neither id nor enough info to create, we still save free-text below,
+//   //       but link to the logged-in user as a fallback.
+
+//   // ───────────────────────────────────────────
+//   // 2) Money math
+//   // ───────────────────────────────────────────
+//   const itemsPrice = detailedItems.reduce(
+//     (s, it) =>
+//       s +
+//       it.qty *
+//         (it.price + it.variantSelections.reduce((p, v) => p + v.cost, 0)),
+//     0
+//   );
+//   const items = Number(itemsPrice || 0);
+//   const tax = Number(taxPrice || 0);
+//   const shipping = Number(shippingPrice || 0);
+//   const includeShipping = deliveryPaid ? shipping : 0;
+//   const totalPrice = items + tax + includeShipping;
+
+//   // Base doc persisted for all orders (we *always* keep what was typed)
+//   const base = {
+//     trackingId: crypto.randomBytes(4).toString("hex").toUpperCase(),
+//     user: userId, // linked customer
+//     customerName,
+//     customerPhone,
+//     createdBy: req.user._id,
+
+//     referral: null,
+//     referralName: referralName || "",
+//     referralPhone: referralPhone || "",
+
+//     pointOfSale,
+//     orderItems: detailedItems,
+
+//     shippingAddress,
+//     itemsPrice,
+//     shippingPrice,
+//     taxPrice,
+//     totalPrice,
+
+//     deliveryMethod,
+//     receiverName,
+//     receiverPhone,
+//     receiptName,
+//     receiptAmount,
+//     deliveryNote,
+//     deliveryPaid,
+//   };
+
+//   // optional referral user linking
+//   if (referralId) {
+//     base.referral = referralId;
+//   } else if (referralName && referralPhone) {
+//     let ref =
+//       (await User.findOne({ whatAppNumber: referralPhone })) ||
+//       (await User.findOne({ email: `${referralPhone}@ref.generated` }));
+//     if (!ref) {
+//       const [first, ...rest] = referralName.trim().split(" ");
+//       ref = await User.create({
+//         firstName: first || "Ref",
+//         lastName: rest.join(" ") || "-",
+//         email: `${referralPhone}@ref.generated`.toLowerCase(),
+//         password: (referralPhone || "Pass") + "123",
+//         userType: "Customer",
+//         whatAppNumber: referralPhone,
+//       });
+//     }
+//     base.referral = ref._id;
+//   }
+
+//   // order kind
+//   const doc =
+//     orderType === "invoice"
+//       ? { ...base, status: "Invoice", isPaid: false, paymentMethod: undefined }
+//       : { ...base, paymentMethod, isPaid };
+
+//   const order = await Order.create(doc);
+//   const createdOrder = await order.save();
+
+//   // Link order to the *customer* profile for history
+//   const linkedUser = await User.findById(userId);
+//   if (linkedUser && Array.isArray(linkedUser.orders)) {
+//     linkedUser.orders.push(createdOrder._id);
+//     await linkedUser.save();
+//   }
+
+//   // Stock adjustments (unchanged)
+//   const lowStockWarnings = [];
+//   await Promise.all(
+//     detailedItems.map(async (item) => {
+//       const product = await Product.findById(item.product);
+//       product.quantity -= item.qty;
+//       if (product.quantity <= product.reorderLevel) {
+//         product.availability = "restocking";
+//         lowStockWarnings.push(
+//           `⚠️ ${product.productName} is low on stock (${product.quantity} left)`
+//         );
+//       }
+//       await product.save();
+//     })
+//   );
+
+//   // (Optional) WhatsApp fire-and-forget — keep your existing implementation
+//   try {
+//     if (customerPhone) {
+//       const msisdn = customerPhone.replace(/^0/, "234").replace(/\D/g, "");
+//       const msg = [
+//         `Hello ${customerName || "Customer"},`,
+//         ``,
+//         `Your order *${createdOrder.trackingId}* has been received ✅`,
+//         `Status : ${createdOrder.status}`,
+//         `Total  : ₦${createdOrder.totalPrice.toLocaleString()}`,
+//         ``,
+//         `Thank you for shopping with us!`,
+//       ].join("\n");
+//       await sendWhatsApp({ to: msisdn, body: msg });
+//     }
+//   } catch (e) {
+//     console.error("WhatsApp message failed:", e.message);
+//   }
+
+//   res.status(201).json({
+//     message: "Order placed successfully",
+//     order: createdOrder,
+//     lowStockWarnings,
+//   });
+// });
 
 /* get my orders (unchanged) */
 export const getMyOrders = asyncHandler(async (req, res) => {
@@ -551,6 +1018,34 @@ export const getOrders = asyncHandler(async (req, res) => {
     .populate("createdBy", "firstName");
   res.json(orders);
 });
+
+/* explode a requested order line into a stored line (unchanged) */
+// const makeOrderLine = async (src) => {
+//   const prod = await Product.findById(src.product);
+//   if (!prod) throw new Error(`Product not found: ${src.product}`);
+//   if (prod.quantity < src.qty) {
+//     throw new Error(
+//       `Insufficient stock for ${prod.productName} – have ${prod.quantity}`
+//     );
+//   }
+//   return {
+//     product: prod._id,
+//     name: prod.productName,
+//     baseRam: src.baseRam ?? "",
+//     baseStorage: src.baseStorage ?? "",
+//     baseCPU: src.baseCPU ?? "",
+//     variantSelections: Array.isArray(src.variantSelections)
+//       ? src.variantSelections.map((v) => ({
+//           label: v.label || "",
+//           cost: Number(v.cost) || 0,
+//         }))
+//       : [],
+//     qty: src.qty,
+//     price: src.price,
+//     image: prod.images?.[0] || "",
+//     maxQty: prod.quantity,
+//   };
+// };
 
 /**
  * @desc   Get order by ID

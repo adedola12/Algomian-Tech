@@ -1,10 +1,11 @@
 /*  src/components/Sales/SingleSalePage.jsx  */
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   FiSearch,
   FiUser,
   FiPhone,
+  FiMail,
   FiMapPin,
   FiArrowLeft,
 } from "react-icons/fi";
@@ -36,6 +37,33 @@ const buildLine = (p) => {
   };
 };
 
+const buildLineFromOrderItem = (oi) => {
+  const spec = (oi.soldSpecs && oi.soldSpecs[0]) || {};
+  const variantSelections = Array.isArray(oi.variantSelections)
+    ? oi.variantSelections
+    : [];
+  const variantCost = variantSelections.reduce(
+    (s, v) => s + (Number(v.cost) || 0),
+    0
+  );
+
+  return {
+    id: oi.product,
+    image: oi.image || "",
+    name: oi.name || "",
+    baseRam: spec.baseRam || oi.baseRam || "",
+    baseStorage: spec.baseStorage || oi.baseStorage || "",
+    baseCPU: spec.baseCPU || oi.baseCPU || "",
+    price: Number(oi.price || 0),
+    qty: Number(oi.qty || 1),
+    maxQty: Number(oi.maxQty || 9999),
+    variants: [],
+    variantSelections,
+    variantCost,
+    expanded: false,
+  };
+};
+
 /* ---------- component ---------- */
 export default function SingleSalePage({
   onClose,
@@ -59,15 +87,11 @@ export default function SingleSalePage({
   useEffect(() => {
     (async () => {
       try {
-        // const { data } = await axios.get("/api/products?limit=500");
-        // const list = Array.isArray(data) ? data : data.products ?? [];
-
         const { products = [] } = await fetchProducts({
           limit: 500,
           inStockOnly: 1,
         });
-        const list = products;
-        setCatalogue(list);
+        setCatalogue(products);
       } catch (err) {
         toast.error("Could not load catalogue");
       } finally {
@@ -81,18 +105,12 @@ export default function SingleSalePage({
     if (!orderId) return;
     (async () => {
       try {
-        // const { data: order } = await axios.get(`/api/orders/${orderId}`, {
-
-        // });
         const order = await fetchOrderById(orderId);
-        // items
         setItems(
           Array.isArray(order.orderItems)
             ? order.orderItems.map(buildLineFromOrderItem)
             : []
         );
-        // customer + POS
-        // Prefer what was typed when the sale was made; fall back to linked user
         setCustName(
           (order.customerName && order.customerName.trim()) ||
             (order.user
@@ -102,10 +120,10 @@ export default function SingleSalePage({
               : "")
         );
         setCustPhone(order.customerPhone || order.user?.whatAppNumber || "");
+        setCustEmail(order.user?.email || "");
         setCustId(order.user?._id || null);
 
         setPOS(order.pointOfSale || "");
-        // delivery
         const dlvMethod = order.deliveryMethod || "self";
         setMethod(dlvMethod);
         setOrderType(dlvMethod === "self" ? "order" : "pickup");
@@ -118,43 +136,15 @@ export default function SingleSalePage({
         setReceiptName(order.receiptName || "");
         setReceiptAmount(order.receiptAmount || 0);
         setDeliveryNote(order.deliveryNote || "");
-        // payment
         setPayMethod(order.paymentMethod || "cash");
         const itemsP = Number(order.itemsPrice || 0);
         const taxP = Number(order.taxPrice || 0);
-        setTax(itemsP ? (taxP / itemsP) * 100 : 0); // back-calc %
+        setTax(itemsP ? (taxP / itemsP) * 100 : 0);
       } catch (err) {
         toast.error(err.response?.data?.message || "Failed to load order");
       }
     })();
   }, [orderId]);
-
-  const buildLineFromOrderItem = (oi) => {
-    const spec = (oi.soldSpecs && oi.soldSpecs[0]) || {};
-    const variantSelections = Array.isArray(oi.variantSelections)
-      ? oi.variantSelections
-      : [];
-    const variantCost = variantSelections.reduce(
-      (s, v) => s + (Number(v.cost) || 0),
-      0
-    );
-
-    return {
-      id: oi.product,
-      image: oi.image || "",
-      name: oi.name || "",
-      baseRam: spec.baseRam || oi.baseRam || "",
-      baseStorage: spec.baseStorage || oi.baseStorage || "",
-      baseCPU: spec.baseCPU || oi.baseCPU || "",
-      price: Number(oi.price || 0),
-      qty: Number(oi.qty || 1),
-      maxQty: Number(oi.maxQty || 9999),
-      variants: [],
-      variantSelections,
-      variantCost,
-      expanded: false,
-    };
-  };
 
   /* --------------- product picker ------------- */
   const [query, setQuery] = useState("");
@@ -172,19 +162,19 @@ export default function SingleSalePage({
   /* --------------- customer ------------------- */
   const [custName, setCustName] = useState("");
   const [custPhone, setCustPhone] = useState("");
+  const [custEmail, setCustEmail] = useState("");
   const [custId, setCustId] = useState(null);
+
   const [refName, setRefName] = useState("");
   const [refPhone, setRefPhone] = useState("");
   const [pos, setPOS] = useState("");
   const [refId, setRefId] = useState(null);
 
   useEffect(() => {
-    if (location.state?.product) {
-      nav(".", { replace: true, state: {} });
-    }
+    if (location.state?.product) nav(".", { replace: true, state: {} });
   }, []); // eslint-disable-line
 
-  /* ──────────  load customers once ( reused for referral ) ────────── */
+  /* ──────────  load customers once (also for referral) ────────── */
   const [allPeople, setAllPeople] = useState([]);
   useEffect(() => {
     axios
@@ -193,31 +183,21 @@ export default function SingleSalePage({
       .catch(() => toast.error("Could not fetch customers list"));
   }, []);
 
-  /** go-back helper */
-  const handleBack = () => {
-    if (typeof onBack === "function") onBack();
-    else nav(-1); // fallback: browser history
+  const suggestions = (needle) => {
+    const q = needle.trim().toLowerCase();
+    if (!q) return [];
+    return allPeople
+      .filter((p) => `${p.firstName} ${p.lastName}`.toLowerCase().includes(q))
+      .sort((a, b) => (b.totalOrders || 0) - (a.totalOrders || 0)) // prioritize people with orders
+      .slice(0, 8);
   };
-
-  /* helpers that return a filtered list of suggestions */
-  const suggest = (needle) =>
-    !needle.trim()
-      ? []
-      : allPeople.filter((p) =>
-          `${p.firstName} ${p.lastName}`
-            .toLowerCase()
-            .includes(needle.toLowerCase())
-        );
 
   const [custSug, setCustSug] = useState([]);
   const [refSug, setRefSug] = useState([]);
-
-  /* focus flags so the dropdowns close nicely */
   const [showCustSug, setShowCustSug] = useState(false);
   const [showRefSug, setShowRefSug] = useState(false);
 
   /* --------------- delivery ------------------- */
-  // const [method, setMethod] = useState("self");
   const [orderType, setOrderType] = useState("order"); // "order" | "pickup"
   const [method, setMethod] = useState("self"); // default for pick-up
   const [paid, setPaid] = useState(true); // for pick-up only
@@ -230,13 +210,13 @@ export default function SingleSalePage({
   const [receiptName, setReceiptName] = useState("");
   const [receiptAmount, setReceiptAmount] = useState("");
   const [deliveryNote, setDeliveryNote] = useState("");
-  const [deliveryPaid, setDeliveryPaid] = useState(true); // Paid / Not-paid
+  const [deliveryPaid, setDeliveryPaid] = useState(true);
 
   /* --------------- payment -------------------- */
   const [taxPct, setTax] = useState(0);
   const [payMethod, setPayMethod] = useState("cash");
 
-  /* extra payment-specific fields (only used when payMethod === 'bank') */
+  /* extra payment-specific fields (only when payMethod === 'bank') */
   const [bankAccount, setBankAccount] = useState("Moniepoint - Alogoman 2");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [accountName, setAccountName] = useState("");
@@ -258,11 +238,7 @@ export default function SingleSalePage({
     if ((orderType === "order" || paid) && !payMethod)
       return toast.error("Select a payment method");
 
-    if (mode !== "invoice" && !payMethod && paid)
-      return toast.error("Select a payment method");
-
     try {
-      // await createOrder({
       const payload = {
         orderItems: items.map((l) => ({
           product: l.id,
@@ -288,24 +264,26 @@ export default function SingleSalePage({
 
         itemsPrice: subtotal,
         taxPrice: taxTotal,
-        shippingPrice: Number(deliveryFee || 0), // NEW
+        shippingPrice: Number(deliveryFee || 0),
         totalPrice:
-          subtotal + taxTotal + (deliveryPaid ? Number(deliveryFee || 0) : 0), // NEW (defensive)
+          subtotal + taxTotal + (deliveryPaid ? Number(deliveryFee || 0) : 0),
 
         customerName: custName,
         customerPhone: custPhone,
+        customerEmail: custEmail, // ← NEW: send email so BE can create profile
         selectedCustomerId: custId,
+
         referralName: refName,
         referralPhone: refPhone,
         referralId: refId,
 
-        deliveryMethod: method, // ← already present in BE schema
-        receiverName: receiverName,
-        receiverPhone: receiverPhone,
-        receiptName: receiptName,
+        deliveryMethod: method,
+        receiverName,
+        receiverPhone,
+        receiptName,
         receiptAmount: Number(receiptAmount || 0),
-        deliveryNote: deliveryNote,
-        deliveryPaid: deliveryPaid, // boolean
+        deliveryNote,
+        deliveryPaid,
       };
 
       if (mode === "edit" && orderId) {
@@ -330,7 +308,7 @@ export default function SingleSalePage({
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold text-gray-800">
           <button
-            onClick={handleBack}
+            onClick={() => (typeof onBack === "function" ? onBack() : nav(-1))}
             className="mr-3 text-gray-500 cursor-pointer"
           >
             <FiArrowLeft />
@@ -351,36 +329,45 @@ export default function SingleSalePage({
             <input
               value={custName}
               onChange={(e) => {
-                setCustName(e.target.value);
+                const v = e.target.value;
+                setCustName(v);
                 setCustId(null);
-                setCustSug(suggest(e.target.value));
+                setCustSug(suggestions(v));
               }}
-              onFocus={() => setShowCustSug(true)}
-              onBlur={() => setTimeout(() => setShowCustSug(false), 120)}
+              onFocus={() => setCustSug(suggestions(custName))}
+              onBlur={() => setTimeout(() => setCustSug([]), 120)}
               placeholder="Customer name"
               className="pl-10 pr-3 py-2 border rounded-lg w-full"
             />
-            {showCustSug && custSug.length > 0 && (
-              <ul className="absolute z-20 w-full bg-white border rounded-lg shadow max-h-40 overflow-auto">
+            {custSug.length > 0 && (
+              <ul className="absolute z-20 w-full bg-white border rounded-lg shadow max-h-56 overflow-auto">
                 {custSug.map((c) => (
                   <li
                     key={c._id}
                     onClick={() => {
                       setCustId(c._id);
-                      setCustName(`${c.firstName} ${c.lastName}`);
+                      setCustName(`${c.firstName} ${c.lastName}`.trim());
                       setCustPhone(c.whatAppNumber || "");
+                      setCustEmail(c.email || "");
                       setCustSug([]);
                     }}
-                    className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                    className="px-3 py-2 hover:bg-gray-50 cursor-pointer flex justify-between"
                   >
-                    {c.firstName} {c.lastName} — {c.whatAppNumber}
+                    <span>
+                      {c.firstName} {c.lastName} — {c.whatAppNumber}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {(c.totalOrders || 0) > 0
+                        ? `${c.totalOrders} orders`
+                        : "no orders"}
+                    </span>
                   </li>
                 ))}
               </ul>
             )}
           </div>
 
-          {/* phone – becomes read-only when we picked an existing user */}
+          {/* phone – read-only when we picked an existing user */}
           <div className="relative">
             <FiPhone className="absolute left-3 top-3 text-gray-400" />
             <input
@@ -392,8 +379,22 @@ export default function SingleSalePage({
             />
           </div>
 
-          {/* POS */}
+          {/* email – NEW (read-only when picked from suggestions) */}
           <div className="relative">
+            <FiMail className="absolute left-3 top-3 text-gray-400" />
+            <input
+              value={custEmail}
+              onChange={(e) => setCustEmail(e.target.value)}
+              placeholder="Customer email"
+              className="pl-10 pr-3 py-2 border rounded-lg w-full"
+              readOnly={!!custId}
+            />
+          </div>
+        </div>
+
+        {/* POS */}
+        <div className="grid lg:grid-cols-3 gap-4">
+          <div className="relative lg:col-span-1">
             <FiMapPin className="absolute left-3 top-3 text-gray-400" />
             <input
               value={pos}
@@ -404,24 +405,24 @@ export default function SingleSalePage({
           </div>
         </div>
 
-        {/* ───── row 2  (referral) ───── */}
+        {/* ───── referral (kept same) ───── */}
         <div className="grid lg:grid-cols-3 gap-4 lg:justify-items-center">
-          {/* referral name – suggestions share the same list */}
           <div className="relative lg:col-start-2">
             <FiUser className="absolute left-3 top-3 text-gray-400" />
             <input
               value={refName}
               onChange={(e) => {
-                setRefName(e.target.value);
+                const v = e.target.value;
+                setRefName(v);
                 setRefId(null);
-                setRefSug(suggest(e.target.value));
+                setRefSug(suggestions(v));
               }}
-              onFocus={() => setShowRefSug(true)}
-              onBlur={() => setTimeout(() => setShowRefSug(false), 120)}
+              onFocus={() => setRefSug(suggestions(refName))}
+              onBlur={() => setTimeout(() => setRefSug([]), 120)}
               placeholder="Referral name"
               className="pl-10 pr-3 py-2 border rounded-lg w-full"
             />
-            {showRefSug && refSug.length > 0 && (
+            {refSug.length > 0 && (
               <ul className="absolute z-20 w-full bg-white border rounded-lg shadow max-h-40 overflow-auto">
                 {refSug.map((c) => (
                   <li
@@ -441,7 +442,6 @@ export default function SingleSalePage({
             )}
           </div>
 
-          {/* referral phone */}
           <div className="relative lg:col-start-3">
             <FiPhone className="absolute left-3 top-3 text-gray-400" />
             <input
@@ -501,8 +501,6 @@ export default function SingleSalePage({
                   <div className="min-w-0">
                     <p className="text-xs truncate">{p.productName}</p>
                     <p className="text-[11px] font-semibold">
-                      {/* ₦{p.sellingPrice.toLocaleString()}
-                       */}
                       ₦{Number(p.sellingPrice ?? 0).toLocaleString()}
                     </p>
                   </div>
@@ -528,7 +526,7 @@ export default function SingleSalePage({
         </div>
       </section>
 
-      {/* ───────── delivery ───────── */}
+      {/* ───────── delivery (unchanged pieces) ───────── */}
       {mode !== "invoice" && (
         <section className="space-y-4">
           <h3 className="text-lg font-semibold">Delivery</h3>
@@ -551,13 +549,10 @@ export default function SingleSalePage({
             ))}
           </div>
 
-          {/* ─── extra choices only for pick-up ─── */}
           {orderType === "pickup" && (
             <>
-              {/* … existing delivery UI … */}
               {(method === "logistics" || method === "park") && (
                 <div className="grid gap-4 md:grid-cols-2">
-                  {/* address, receiver, receipt name, receipt amount (keep first one) */}
                   <textarea
                     rows={2}
                     value={shipAddr}
@@ -592,7 +587,6 @@ export default function SingleSalePage({
                     className="border rounded-lg px-3 py-2"
                   />
 
-                  {/* NEW — Delivery fee input (replaces the duplicated receipt input) */}
                   <input
                     type="number"
                     value={deliveryFee}
@@ -609,7 +603,6 @@ export default function SingleSalePage({
                     className="border rounded-lg px-3 py-2 md:col-span-2"
                   />
 
-                  {/* Delivery payment status */}
                   <div className="flex items-center gap-6 col-span-full">
                     <span className="text-sm">Delivery paid?</span>
                     <label className="flex items-center gap-1">
@@ -720,7 +713,6 @@ export default function SingleSalePage({
           <span>Tax</span>
           <span>₦{taxTotal.toLocaleString()}</span>
         </div>
-        {/* NEW — always show delivery line; tag as unpaid if not paid */}
         <div className="flex justify-between text-gray-600">
           <span>Delivery {deliveryPaid ? "" : "(unpaid)"}</span>
           <span>₦{Number(deliveryFee || 0).toLocaleString()}</span>

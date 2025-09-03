@@ -426,7 +426,7 @@ export default function SalesTable() {
     }
   };
 
-  const computeTotal = (o) => {
+  const computeTotal = (o) => { 
     const items = o.orderItems.reduce((s, i) => s + i.qty * i.price, 0);
     return (
       items + (o.shippingPrice || 0) + (o.taxPrice || 0) - (o.discount || 0)
