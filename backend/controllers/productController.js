@@ -13,6 +13,14 @@ export const parseMaybeJSON = (val, fallback = null) => {
   } // ← if it’s plain text just return it
 };
 
+const isBlank = (v) =>
+  v === undefined || v === null || (typeof v === "string" && v.trim() === "");
+const toNumOrUndef = (v) => {
+  if (isBlank(v)) return undefined;
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : undefined;
+};
+
 export const getGroupedStock = asyncHandler(async (req, res) => {
   const grouped = await Product.aggregate([
     {
@@ -118,6 +126,60 @@ export const createProduct = asyncHandler(async (req, res) => {
   res.status(201).json(product);
 });
 
+// /* ─────────────  UPDATE  ───────────── */
+// export const updateProduct = asyncHandler(async (req, res) => {
+//   const product = await Product.findById(req.params.id);
+//   if (!product) {
+//     res.status(404);
+//     throw new Error("Product not found");
+//   }
+
+//   /* ─ upload any new images ─ */
+//   if (req.files?.length) {
+//     for (const f of req.files) {
+//       const fileName = `${uuid()}`;
+//       const link = await uploadBufferToCloudinary(f.buffer, fileName);
+//       product.images.push(link);
+//     }
+//   }
+
+//   /* plain scalar fields */
+//   [
+//     "productName",
+//     "productCategory",
+//     "brand",
+//     "costPrice",
+//     "sellingPrice",
+//     "quantity",
+//     "availability",
+//     "status",
+//     "reorderLevel",
+//     "stockLocation",
+//     "description",
+//   ].forEach((f) => {
+//     if (req.body[f] !== undefined) product[f] = req.body[f];
+//   });
+
+//   /* arrays */
+//   if (req.body.serialNumbers !== undefined)
+//     product.serialNumbers = req.body.serialNumbers;
+//   if (req.body.productCondition !== undefined)
+//     product.productCondition = req.body.productCondition;
+
+//   if (req.body.storageRam !== undefined)
+//     product.storageRam = req.body.storageRam;
+//   if (req.body.Storage !== undefined) product.Storage = req.body.Storage;
+//   if (req.body.variants)
+//     product.variants = parseMaybeJSON(req.body.variants, []);
+//   if (req.body.features)
+//     product.features = parseMaybeJSON(req.body.features, []);
+//   if (req.body.baseSpecs)
+//     product.baseSpecs = parseMaybeJSON(req.body.baseSpecs, []);
+
+//   const updated = await product.save();
+//   res.json(updated);
+// });
+
 /* ─────────────  UPDATE  ───────────── */
 export const updateProduct = asyncHandler(async (req, res) => {
   const product = await Product.findById(req.params.id);
@@ -126,7 +188,7 @@ export const updateProduct = asyncHandler(async (req, res) => {
     throw new Error("Product not found");
   }
 
-  /* ─ upload any new images ─ */
+  /* upload any new images */
   if (req.files?.length) {
     for (const f of req.files) {
       const fileName = `${uuid()}`;
@@ -135,38 +197,57 @@ export const updateProduct = asyncHandler(async (req, res) => {
     }
   }
 
-  /* plain scalar fields */
-  [
+  /* strings: only set when not blank */
+  const stringFields = [
     "productName",
     "productCategory",
     "brand",
+    "availability",
+    "status",
+    "stockLocation",
+    "description",
+    "productCondition",
+    "storageRam",
+    "Storage",
+    "supplier",
+    "productId",
+  ];
+  stringFields.forEach((f) => {
+    if (req.body.hasOwnProperty(f) && !isBlank(req.body[f])) {
+      product[f] = req.body[f];
+    }
+  });
+
+  /* numbers: only set when clean number provided */
+  const numericFields = [
     "costPrice",
     "sellingPrice",
     "quantity",
-    "availability",
-    "status",
     "reorderLevel",
-    "stockLocation",
-    "description",
-  ].forEach((f) => {
-    if (req.body[f] !== undefined) product[f] = req.body[f];
+  ];
+  numericFields.forEach((f) => {
+    if (req.body.hasOwnProperty(f)) {
+      const n = toNumOrUndef(req.body[f]);
+      if (n !== undefined) product[f] = n;
+      // if undefined or NaN/blank -> ignore (keep existing value)
+    }
   });
 
-  /* arrays */
-  if (req.body.serialNumbers !== undefined)
-    product.serialNumbers = req.body.serialNumbers;
-  if (req.body.productCondition !== undefined)
-    product.productCondition = req.body.productCondition;
-
-  if (req.body.storageRam !== undefined)
-    product.storageRam = req.body.storageRam;
-  if (req.body.Storage !== undefined) product.Storage = req.body.Storage;
-  if (req.body.variants)
+  /* arrays / objects */
+  if (req.body.variants !== undefined)
     product.variants = parseMaybeJSON(req.body.variants, []);
-  if (req.body.features)
+  if (req.body.features !== undefined)
     product.features = parseMaybeJSON(req.body.features, []);
-  if (req.body.baseSpecs)
+  if (req.body.baseSpecs !== undefined)
     product.baseSpecs = parseMaybeJSON(req.body.baseSpecs, []);
+  if (req.body.removedImages) {
+    const removed = parseMaybeJSON(req.body.removedImages, []);
+    if (Array.isArray(removed) && removed.length) {
+      product.images = (product.images || []).filter(
+        (u) => !removed.includes(u)
+      );
+    }
+  }
 
   const updated = await product.save();
   res.json(updated);
@@ -281,14 +362,10 @@ export const getProducts = asyncHandler(async (req, res) => {
     category = "",
     page = 1,
     limit = 50,
-    inStockOnly,                   // 👈 new flag
+    inStockOnly, // 👈 new flag
   } = req.query;
 
-  const tokens = search
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 5);
+  const tokens = search.trim().split(/\s+/).filter(Boolean).slice(0, 5);
 
   const tokenConditions = tokens.map((t) => {
     const term = new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
@@ -333,7 +410,6 @@ export const getProducts = asyncHandler(async (req, res) => {
 
   res.json({ products, total, page: +page, pages: Math.ceil(total / limit) });
 });
-
 
 // export const bulkCreateProduct = asyncHandler(async (req, res) => {
 //   const { products = [] } = req.body;

@@ -712,7 +712,7 @@ export default function EditProduct() {
           </L>
         </Block>
       )}
-
+ 
       <SaveButtons />
 
       {/* validation summary */}

@@ -226,7 +226,7 @@ export default function SingleSalePage({
   );
   const taxTotal = (subtotal * taxPct) / 100;
   const deliveryIncluded = deliveryPaid ? Number(deliveryFee || 0) : 0;
-  const grand = subtotal + taxTotal + deliveryIncluded;
+  const grand = Number(subtotal) + Number(taxTotal) + Number(deliveryIncluded);
 
   /* --------------- save ----------------------- */
   const [isSaving, setIsSaving] = useState(false);
@@ -298,9 +298,10 @@ export default function SingleSalePage({
         taxPrice: taxTotal,
         shippingPrice: Number(deliveryFee || 0),
         totalPrice:
-          subtotal + taxTotal + (deliveryPaid ? Number(deliveryFee || 0) : 0),
+          Number(subtotal) +
+          Number(taxTotal) +
+          (deliveryPaid ? Number(deliveryFee || 0) : 0),
 
-        // 👇 Always send what’s currently in the inputs
         customerName: custName,
         customerPhone: custPhone,
         customerEmail: custEmail,
@@ -330,6 +331,16 @@ export default function SingleSalePage({
     } catch (err) {
       toast.error(err.response?.data?.message || err.message);
       setIsSaving(false);
+    }
+  };
+
+  // NEW helper to toggle orderType and set method
+  const handleOrderTypeChange = (v) => {
+    setOrderType(v);
+    if (v === "pickup") {
+      setMethod((prev) => (prev === "self" ? "logistics" : prev));
+    } else {
+      setMethod("self");
     }
   };
 
@@ -555,7 +566,7 @@ export default function SingleSalePage({
         </div>
       </section>
 
-      {/* Delivery (unchanged UI) */}
+      {/* Delivery */}
       {mode !== "invoice" && (
         <section className="space-y-4">
           <h3 className="text-lg font-semibold">Delivery</h3>
@@ -566,7 +577,7 @@ export default function SingleSalePage({
             ].map(([v, lbl]) => (
               <button
                 key={v}
-                onClick={() => setOrderType(v)}
+                onClick={() => handleOrderTypeChange(v)}
                 className={`px-4 py-1.5 rounded-lg border ${
                   orderType === v
                     ? "bg-orange-600 text-white border-orange-600"
@@ -580,17 +591,41 @@ export default function SingleSalePage({
 
           {orderType === "pickup" && (
             <>
+              {/* Delivery method selector */}
+              <div className="flex gap-3 flex-wrap">
+                {[
+                  ["logistics", "Logistics (Door Delivery)"],
+                  ["park", "Transport Park"],
+                  ["self", "Self Pickup"],
+                ].map(([val, label]) => (
+                  <button
+                    key={val}
+                    onClick={() => setMethod(val)}
+                    className={`px-3 py-1.5 rounded-lg border ${
+                      method === val
+                        ? "bg-orange-600 text-white border-orange-600"
+                        : "border-gray-300 text-gray-700"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
               {(method === "logistics" || method === "park") && (
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 md:grid-cols-2 mt-2">
                   <textarea
                     rows={2}
                     value={shipAddr}
                     onChange={(e) => setShip(e.target.value)}
-                    placeholder="Shipping / Park address"
+                    placeholder={
+                      method === "logistics"
+                        ? "Destination / Delivery address"
+                        : "Park address & state"
+                    }
                     className="border rounded-lg px-3 py-2"
                   />
-                  <textarea
-                    rows={2}
+                  <input
                     value={receiverName}
                     onChange={(e) => setReceiverName(e.target.value)}
                     placeholder="Receiver name"
@@ -611,14 +646,14 @@ export default function SingleSalePage({
                   <input
                     type="number"
                     value={receiptAmount}
-                    onChange={(e) => setReceiptAmount(e.target.value)}
+                    onChange={(e) => setReceiptAmount(+e.target.value || 0)}
                     placeholder="Amount on receipt"
                     className="border rounded-lg px-3 py-2"
                   />
                   <input
                     type="number"
                     value={deliveryFee}
-                    onChange={(e) => setDeliveryFee(e.target.value)}
+                    onChange={(e) => setDeliveryFee(+e.target.value || 0)}
                     placeholder="Delivery fee (₦)"
                     className="border rounded-lg px-3 py-2"
                   />
