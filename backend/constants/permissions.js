@@ -4,6 +4,8 @@ export const ALL_PERMISSIONS = [
   { id: "order.manage", label: "Can manage orders (legacy)" },
   { id: "order.create", label: "Can create orders" },
   { id: "order.edit", label: "Can edit orders" },
+  { id: "order.delete", label: "Can delete orders" }, // ✅ NEW
+  { id: "order.return", label: "Can return orders" },
   { id: "order.ship", label: "Can mark as shipped / delivered" },
 
   /* ─── Sales ────────────────────────────── */

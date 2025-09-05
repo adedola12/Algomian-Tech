@@ -11,6 +11,7 @@ import {
   updateOrderDetails,
   approveSale,
   verifyInventory,
+  returnOrder,
 } from "../controllers/orderController.js";
 import {
   protect,
@@ -40,6 +41,12 @@ router.patch(
   approveSale
 );
 router.patch("/:id/verify-inventory", protect, isInventory, verifyInventory);
+
+/* ✅ NEW: return sale (permission-gated) */
+router.patch("/:id/return", protect, authorize("order.return"), returnOrder);
+
+/* ✅ CHANGE: delete sale (permission-gated) */
+router.route("/:id").delete(protect, authorize("order.delete"), deleteOrder);
 
 // routes/orderRoutes.js
 // router.get("/", protect, isAdmin, getOrders);

@@ -14,6 +14,7 @@ import {
   updateUserRoles,
 } from "../controllers/adminUserController.js";
 import { getInventoryStats } from "../controllers/adminController.js";
+import { downloadInventoryCsv } from "../controllers/inventoryController.js"; // ✅ NEW
 
 const router = express.Router();
 
@@ -27,5 +28,13 @@ router
 // router.get("/stats", protect, authorize("stats.view"), getAdminStats);
 
 router.get("/stats", protect, authorize("stats.view"), getInventoryStats);
+
+/* ✅ inventory download (CSV) */
+router.get(
+  "/inventory/download",
+  protect,
+  authorize("inventory.download"),
+  downloadInventoryCsv
+);
 
 export default router;

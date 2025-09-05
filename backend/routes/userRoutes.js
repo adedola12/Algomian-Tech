@@ -112,6 +112,7 @@ router.get("/:id/orders", getUserOrders);
 
 router.put("/:id/role", protect, isAdmin, updateUserRole);
 
-router.delete("/:id", protect, isAdmin, deleteUser);
+/* ✅ customer delete now permission-based */
+router.delete("/:id", protect, authorize("customer.delete"), deleteUser);
 
 export default router;

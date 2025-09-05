@@ -338,15 +338,15 @@ export const updateUserRole = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "User role updated successfully" });
 });
 
-export const deleteUser = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.params.id);
-  if (!user) {
-    res.status(404);
-    throw new Error("User not found");
-  }
-  await user.deleteOne();
-  res.json({ message: "User deleted" });
-});
+// export const deleteUser = asyncHandler(async (req, res) => {
+//   const user = await User.findById(req.params.id);
+//   if (!user) {
+//     res.status(404);
+//     throw new Error("User not found");
+//   }
+//   await user.deleteOne();
+//   res.json({ message: "User deleted" });
+// });
 
 export const changePassword = asyncHandler(async (req, res) => {
   const { currentPassword, newPassword } = req.body;
@@ -405,6 +405,24 @@ export const updateUserPermissions = asyncHandler(async (req, res) => {
       email: user.email,
     },
   });
+});
+
+/* ————————————————— DELETE USER (Customers only) ————————————— */
+export const deleteUser = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (!user) {
+    res.status(404);
+    throw new Error("User not found");
+  }
+
+  // Only allow deleting Customer accounts via this endpoint
+  if (user.userType !== "Customer") {
+    res.status(403);
+    throw new Error("Only customer accounts can be deleted here");
+  }
+
+  await user.deleteOne();
+  res.json({ message: "Customer deleted" });
 });
 
 /* ─────────────────────────────────────────────

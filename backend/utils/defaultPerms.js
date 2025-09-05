@@ -9,6 +9,8 @@ export const DEFAULT_PERMS_BY_TYPE = {
   Manager: [
     "order.view",
     "order.edit",
+    "order.delete", // ✅ NEW
+    "order.return", // ✅ NEW
     "sale.approve",
     "product.view",
     "product.edit",
@@ -22,6 +24,7 @@ export const DEFAULT_PERMS_BY_TYPE = {
     "inventory.approve",
     "shipment.view",
     "customer.view",
+    "customer.delete",
     "stats.view",
   ],
 

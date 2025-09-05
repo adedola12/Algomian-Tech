@@ -5,9 +5,11 @@ export const ALL_PERMISSIONS = [
   /* ─── Orders ───────────────────────────── */
   { id: "order.view", label: "Can view orders" },
   { id: "order.create", label: "Can create orders" },
-  { id: "order.manage", label: "Can manage orders (legacy)" },
   { id: "order.edit", label: "Can edit orders" },
   { id: "order.ship", label: "Can mark as shipped / delivered" },
+  { id: "order.delete", label: "Can delete orders" }, // ✅ NEW
+  { id: "order.return", label: "Can return orders" },
+  { id: "order.manage", label: "Can manage orders (legacy)" },
 
   /* ─── Sales ────────────────────────────── */
   { id: "sale.approve", label: "Can approve sales" },

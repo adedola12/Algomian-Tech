@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import Order from "../models/orderModel.js";
 import User from "../models/userModel.js"; // ✅ Add this
 import Product from "../models/productModel.js";
+import Return from "../models/returnModel.js";   // ✅ ensure this exists
 import crypto from "crypto";
 import { ALL_PERMISSIONS } from "../constants/permissions.js";
 import { PERM } from "../constants/permKeys.js"; // 👈 REQUIRED!
