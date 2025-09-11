@@ -1,3 +1,4 @@
+// routes/orderRoutes.js
 import express from "express";
 import {
   getOrders,
@@ -5,14 +6,16 @@ import {
   getOrderById,
   getMyOrders,
   updateOrderStatus,
-  deleteOrder,
   getNewOrdersCount,
   streamNewOrders,
   updateOrderDetails,
   approveSale,
   verifyInventory,
   returnOrder,
+  deleteOrder,
+  restoreOrder,
 } from "../controllers/orderController.js";
+
 import {
   protect,
   isAdmin,
@@ -24,31 +27,37 @@ import {
 
 const router = express.Router();
 
+/* meta / streaming */
 router.get("/new-count", protect, getNewOrdersCount);
 router.get("/stream", protect, streamNewOrders);
-router.route("/myorders").get(protect, getMyOrders);
 
-router.route("/").get(protect, canViewOrders, getOrders); // SalesRep + Admin
-router.route("/").post(protect, isSalesTeam, addOrderItems); // Admin + SalesRep
-router.route("/:id").get(protect, getOrderById);
-router.route("/:id/status").put(protect, isSalesTeam, updateOrderStatus); // Admin only
-// router.route("/:id").delete(protect, deleteOrder);
+/* my orders */
+router.get("/myorders", protect, getMyOrders);
+
+/* list + create */
+router.get("/", protect, canViewOrders, getOrders); // SalesRep + Admin
+router.post("/", protect, isSalesTeam, addOrderItems); // Admin + SalesRep
+
+/* single order read */
+router.get("/:id", protect, getOrderById);
+
+/* status/flags (make this Admin-only; change to isSalesTeam if desired) */
+router.put("/:id/status", protect, isAdmin, updateOrderStatus);
+
+/* partial update from UI (qty, shipping, etc.) */
 router.patch("/:id", protect, isSalesTeam, updateOrderDetails);
-router.patch(
-  "/:id/approve",
-  protect,
-  authorize("sale.approve"), // <── new gate
-  approveSale
-);
+
+/* approvals */
+router.patch("/:id/approve", protect, authorize("sale.approve"), approveSale);
+
+/* inventory check (e.g., serial assignment) */
 router.patch("/:id/verify-inventory", protect, isInventory, verifyInventory);
 
-/* ✅ NEW: return sale (permission-gated) */
+/* returns (restock + log) */
 router.patch("/:id/return", protect, authorize("order.return"), returnOrder);
 
-/* ✅ CHANGE: delete sale (permission-gated) */
-router.route("/:id").delete(protect, authorize("order.delete"), deleteOrder);
-
-// routes/orderRoutes.js
-// router.get("/", protect, isAdmin, getOrders);
+/* delete (soft delete) + restore */
+router.delete("/:id", protect, authorize("order.delete"), deleteOrder);
+router.patch("/:id/restore", protect, isAdmin, restoreOrder);
 
 export default router;

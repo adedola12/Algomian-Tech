@@ -3,17 +3,20 @@ import asyncHandler from "express-async-handler";
 import Order from "../models/orderModel.js";
 import Return from "../models/returnModel.js";
 import User from "../models/userModel.js";
-import AuditLog from "../models/auditLogModel.js"; // if you have it; else skip audit parts
+import Product from "../models/productModel.js"; // ✅ FIX: import Product
+import AuditLog from "../models/auditLogModel.js";
 
+/* ─────────────  KPIs  ───────────── */
 export const getAgentKpis = asyncHandler(async (req, res) => {
-  // lock down to Admins (or use your authorize middleware)
   if ((req.user?.userType || "").toLowerCase() !== "admin") {
     res.status(403);
     throw new Error("Admins only");
   }
 
-  // Sales per agent (createdBy)
   const salesAgg = await Order.aggregate([
+    {
+      $match: { isDeleted: { $ne: true } }, // ignore trashed orders
+    },
     {
       $group: {
         _id: "$createdBy",
@@ -23,7 +26,6 @@ export const getAgentKpis = asyncHandler(async (req, res) => {
     },
   ]);
 
-  // Returns per agent – prefer Return.performedBy; fallback to the order's createdBy
   const returnsAgg = await Return.aggregate([
     {
       $lookup: {
@@ -46,7 +48,6 @@ export const getAgentKpis = asyncHandler(async (req, res) => {
     },
   ]);
 
-  // Optional: product adds & order deletes via AuditLog (if you have it)
   const productAddsAgg = AuditLog?.aggregate
     ? await AuditLog.aggregate([
         { $match: { action: "product.create" } },
@@ -61,7 +62,6 @@ export const getAgentKpis = asyncHandler(async (req, res) => {
       ])
     : [];
 
-  // collect all agent ids
   const ids = new Set(
     [
       ...salesAgg.map((d) => String(d._id || "")),
@@ -75,7 +75,6 @@ export const getAgentKpis = asyncHandler(async (req, res) => {
     "firstName lastName userType"
   );
 
-  // index helpers
   const byId = (arr) => new Map(arr.map((d) => [String(d._id), d]));
   const salesMap = byId(salesAgg);
   const returnsMap = byId(returnsAgg);
@@ -103,4 +102,74 @@ export const getAgentKpis = asyncHandler(async (req, res) => {
   });
 
   res.json({ rows });
+});
+
+/* ─────────────  Recent activity per agent  ───────────── */
+export const getAgentActivity = asyncHandler(async (req, res) => {
+  if ((req.user?.userType || "").toLowerCase() !== "admin") {
+    res.status(403);
+    throw new Error("Admins only");
+  }
+
+  const { userId, limit = 50 } = req.query;
+  if (!userId) {
+    res.status(400);
+    throw new Error("userId is required");
+  }
+
+  const logs = await AuditLog.find({ actor: userId })
+    .sort({ createdAt: -1 })
+    .limit(Number(limit));
+
+  // collect ids to hydrate titles
+  const ids = { Order: [], Product: [], Return: [] };
+  for (const l of logs) ids[l.targetType]?.push(l.targetId);
+
+  const [orders, products, returns] = await Promise.all([
+    ids.Order.length
+      ? Order.find({ _id: { $in: ids.Order } }).select(
+          "trackingId customerName isDeleted"
+        )
+      : Promise.resolve([]),
+    ids.Product.length
+      ? Product.find({ _id: { $in: ids.Product } }).select("productName")
+      : Promise.resolve([]),
+    ids.Return.length
+      ? Return.find({ _id: { $in: ids.Return } }).select("orderId totalValue")
+      : Promise.resolve([]),
+  ]);
+
+  const oMap = new Map(orders.map((d) => [String(d._id), d]));
+  const pMap = new Map(products.map((d) => [String(d._id), d]));
+  const rMap = new Map(returns.map((d) => [String(d._id), d]));
+
+  const items = logs.map((l) => {
+    let title = "";
+    if (l.targetType === "Order") {
+      const o = oMap.get(String(l.targetId));
+      title = o
+        ? `${o.trackingId} — ${o.customerName || ""}${
+            o.isDeleted ? " (trashed)" : ""
+          }`
+        : l.meta?.trackingId || String(l.targetId);
+    } else if (l.targetType === "Product") {
+      title = pMap.get(String(l.targetId))?.productName || l.meta?.name || "";
+    } else if (l.targetType === "Return") {
+      const r = rMap.get(String(l.targetId));
+      title = `Return of ${r?.orderId || l.meta?.orderId || ""}`;
+    } else {
+      title = l.meta?.title || ""; // safety for unknown targetType
+    }
+
+    return {
+      id: l._id,
+      action: l.action,
+      targetType: l.targetType,
+      targetId: l.targetId,
+      title,
+      createdAt: l.createdAt,
+    };
+  });
+
+  res.json({ items });
 });

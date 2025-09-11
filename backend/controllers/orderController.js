@@ -1038,13 +1038,13 @@ export const addOrderItems = asyncHandler(async (req, res) => {
 // });
 
 /* get my orders (unchanged) */
-export const getMyOrders = asyncHandler(async (req, res) => {
-  const orders = await Order.find({ user: req.user._id }).populate(
-    "user",
-    "firstName lastName"
-  );
-  res.json(orders);
-});
+// export const getMyOrders = asyncHandler(async (req, res) => {
+//   const orders = await Order.find({ user: req.user._id }).populate(
+//     "user",
+//     "firstName lastName"
+//   );
+//   res.json(orders);
+// });
 
 /* order by id (populate createdBy so editor can use if needed) */
 export const getOrderById = asyncHandler(async (req, res) => {
@@ -1072,12 +1072,12 @@ export const getOrderById = asyncHandler(async (req, res) => {
 });
 
 /* admin list: populate both linked customer and sales rep */
-export const getOrders = asyncHandler(async (req, res) => {
-  const orders = await Order.find({})
-    .populate("user", "firstName lastName")
-    .populate("createdBy", "firstName");
-  res.json(orders);
-});
+// export const getOrders = asyncHandler(async (req, res) => {
+//   const orders = await Order.find({})
+//     .populate("user", "firstName lastName")
+//     .populate("createdBy", "firstName");
+//   res.json(orders);
+// });
 
 /* explode a requested order line into a stored line (unchanged) */
 // const makeOrderLine = async (src) => {
@@ -1302,17 +1302,64 @@ export const deleteOrder = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error("Order not found");
   }
+  if (order.isDeleted) return res.json({ message: "Order already in trash" });
+
+  order.isDeleted = true;
+  order.deletedAt = new Date();
+  order.deletedBy = req.user._id;
+  await order.save();
 
   await AuditLog.create({
     actor: req.user._id,
     action: "order.delete",
     targetType: "Order",
     targetId: order._id,
-    meta: { total: order.totalPrice, status: order.status },
+    meta: { trackingId: order.trackingId, total: order.totalPrice },
   });
 
-  await order.deleteOne();
-  res.json({ message: "Order deleted" });
+  res.json({ message: "Order moved to trash" });
+});
+
+export const restoreOrder = asyncHandler(async (req, res) => {
+  const order = await Order.findById(req.params.id);
+  if (!order) {
+    res.status(404);
+    throw new Error("Order not found");
+  }
+  if (!order.isDeleted) {
+    res.status(400);
+    throw new Error("Order is not deleted");
+  }
+
+  order.isDeleted = false;
+  order.deletedAt = undefined;
+  order.deletedBy = undefined;
+  await order.save();
+
+  await AuditLog.create({
+    actor: req.user._id,
+    action: "order.restore",
+    targetType: "Order",
+    targetId: order._id,
+    meta: { trackingId: order.trackingId, total: order.totalPrice },
+  });
+
+  res.json({ message: "Order restored", order });
+});
+
+export const getOrders = asyncHandler(async (req, res) => {
+  const orders = await Order.find({ isDeleted: false })
+    .populate("user", "firstName lastName")
+    .populate("createdBy", "firstName");
+  res.json(orders);
+});
+
+export const getMyOrders = asyncHandler(async (req, res) => {
+  const orders = await Order.find({
+    user: req.user._id,
+    isDeleted: false,
+  }).populate("user", "firstName lastName");
+  res.json(orders);
 });
 
 // export const returnOrder = asyncHandler(async (req, res) => {

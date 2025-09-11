@@ -116,8 +116,13 @@ const orderSchema = new mongoose.Schema(
     approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     approvedAt: { type: Date },
     approveNote: { type: String },
+    isDeleted: { type: Boolean, default: false },
+    deletedAt: { type: Date },
+    deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true }
 );
+
+orderSchema.index({ isDeleted: 1, deletedAt: -1 });
 
 export default mongoose.model("Order", orderSchema);

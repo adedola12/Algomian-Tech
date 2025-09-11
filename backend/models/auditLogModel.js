@@ -15,6 +15,7 @@ const auditSchema = new mongoose.Schema(
         "order.create",
         "order.return",
         "order.delete",
+        "order.restore",
         "product.create",
         "product.update",
         "product.delete",
@@ -33,5 +34,3 @@ auditSchema.index({ action: 1, createdAt: -1 });
 auditSchema.index({ actor: 1, createdAt: -1 });
 
 export default mongoose.model("AuditLog", auditSchema);
-
-
