@@ -497,9 +497,6 @@ export default function SingleSalePage({
         </div>
       </section>
 
-      {/* products … delivery … payment … summary (unchanged) */}
-      {/* --- keep your existing sections below --- */}
-
       {/* Products */}
       <section className="space-y-4">
         <h3 className="text-lg font-semibold">Products</h3>

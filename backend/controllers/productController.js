@@ -1,5 +1,6 @@
 import asyncHandler from "express-async-handler";
 import Product from "../models/productModel.js";
+import AuditLog from "../models/auditLogModel.js";
 import { uploadBufferToCloudinary } from "../utils/cloudinaryUpload.js";
 import { v4 as uuid } from "uuid";
 
@@ -121,6 +122,14 @@ export const createProduct = asyncHandler(async (req, res) => {
     variants,
     features,
     images: imageLinks,
+  });
+
+  await AuditLog.create({
+    actor: req.user._id,
+    action: "product.create",
+    targetType: "Product",
+    targetId: product._id,
+    meta: { name: product.productName },
   });
 
   res.status(201).json(product);
@@ -250,6 +259,15 @@ export const updateProduct = asyncHandler(async (req, res) => {
   }
 
   const updated = await product.save();
+
+  await AuditLog.create({
+    actor: req.user._id,
+    action: "product.update",
+    targetType: "Product",
+    targetId: updated._id,
+    meta: { name: updated.productName },
+  });
+
   res.json(updated);
 });
 
@@ -260,6 +278,15 @@ export const deleteProduct = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error("Product not found");
   }
+
+  await AuditLog.create({
+    actor: req.user._id,
+    action: "product.delete",
+    targetType: "Product",
+    targetId: product._id,
+    meta: { name: product.productName },
+  });
+
   await product.deleteOne();
   // (Optional) delete files from Drive here
   res.json({ message: "Product removed" });

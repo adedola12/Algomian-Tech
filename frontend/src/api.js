@@ -20,6 +20,8 @@ const api = axios.create({
 // export const createOrder = (orderData) =>
 //   api.post("/api/orders", orderData).then((res) => res.data);
 
+// export const createOrder = (orderData) => api.post("/api/orders", orderData); // ← send payload as JSON as-is
+
 export const createOrder = (payload) => api.post("/api/orders", payload); // ← send payload as JSON as-is
 
 export const fetchMyOrders = () =>

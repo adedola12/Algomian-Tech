@@ -18,6 +18,7 @@ const returnItemSchema = new mongoose.Schema(
   { _id: false }
 );
 
+// models/returnModel.js
 const returnSchema = new mongoose.Schema(
   {
     orderId: {
@@ -25,7 +26,8 @@ const returnSchema = new mongoose.Schema(
       ref: "Order",
       required: true,
     },
-    user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // the customer
+    performedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // the staff who did the return
     totalValue: Number,
     returnedAt: { type: Date, default: Date.now },
     items: [returnItemSchema],

@@ -4,6 +4,8 @@ import Order from "../models/orderModel.js";
 import User from "../models/userModel.js"; // ✅ Add this
 import Product from "../models/productModel.js";
 import Return from "../models/returnModel.js"; // ✅ ensure this exists
+import AuditLog from "../models/auditLogModel.js";
+
 import crypto from "crypto";
 import { ALL_PERMISSIONS } from "../constants/permissions.js";
 import { PERM } from "../constants/permKeys.js"; // 👈 REQUIRED!
@@ -555,7 +557,7 @@ export const addOrderItems = asyncHandler(async (req, res) => {
       ? req.body.orderItems.length
       : "not array"
   );
-  
+
   const {
     orderItems = [],
     shippingAddress = {},
@@ -591,10 +593,10 @@ export const addOrderItems = asyncHandler(async (req, res) => {
     throw new Error("No order items provided");
   }
 
-  // Build & validate lines
+  // Build & validate lines (ensures price/qty/specs are correct per product)
   const detailedItems = await Promise.all(orderItems.map(makeOrderLine));
 
-  // ---------------- Determine / ensure a customer ----------------
+  /* ---------------- Determine / ensure a customer ---------------- */
   let userDoc = null;
 
   if (selectedCustomerId) {
@@ -639,10 +641,11 @@ export const addOrderItems = asyncHandler(async (req, res) => {
     }
   }
 
-  // ---------------- If cashier edited details, update the customer ----------------
+  /* ---- If cashier edited details, update the customer (best-effort) ---- */
   try {
     if (userDoc && userDoc.userType === "Customer") {
       const updates = {};
+
       // name
       if (customerName.trim()) {
         const [f, ...r] = customerName.trim().split(/\s+/);
@@ -650,6 +653,7 @@ export const addOrderItems = asyncHandler(async (req, res) => {
         if (f && f !== userDoc.firstName) updates.firstName = f;
         if (ln && ln !== userDoc.lastName) updates.lastName = ln;
       }
+
       // phone (skip if taken by someone else)
       if (customerPhone && customerPhone !== userDoc.whatAppNumber) {
         const phoneTaken = await User.findOne({
@@ -658,6 +662,7 @@ export const addOrderItems = asyncHandler(async (req, res) => {
         });
         if (!phoneTaken) updates.whatAppNumber = customerPhone;
       }
+
       // email (lowercase; skip if taken)
       const normEmail = (customerEmail || "").trim().toLowerCase();
       if (normEmail && normEmail !== userDoc.email) {
@@ -674,31 +679,34 @@ export const addOrderItems = asyncHandler(async (req, res) => {
       }
     }
   } catch (e) {
-    // Never block the sale because of a profile update hiccup
     console.warn("Customer profile update skipped:", e.message);
   }
 
-  const userId = userDoc?._id;
+  const userId = userDoc?._id || null;
 
-  // ---------------- Totals ----------------
-  const itemsPrice = detailedItems.reduce(
+  /* ---------------- Totals ---------------- */
+  const itemsPriceRaw = detailedItems.reduce(
     (s, it) =>
       s +
       it.qty *
-        (it.price + it.variantSelections.reduce((p, v) => p + v.cost, 0)),
+        (Number(it.price || 0) +
+          (Array.isArray(it.variantSelections)
+            ? it.variantSelections.reduce((p, v) => p + Number(v.cost || 0), 0)
+            : 0)),
     0
   );
-  const items = Number(itemsPrice || 0);
+
+  const itemsPrice = Number(itemsPriceRaw || 0);
   const tax = Number(taxPrice || 0);
   const shipping = Number(shippingPrice || 0);
   const includeShipping = deliveryPaid ? shipping : 0;
-  const totalPrice = items + tax + includeShipping;
+  const totalPrice = itemsPrice + tax + includeShipping;
 
-  // ---------------- Build order doc ----------------
+  /* ---------------- Build order doc ---------------- */
   const base = {
     trackingId: crypto.randomBytes(4).toString("hex").toUpperCase(),
     user: userId,
-    customerName, // keep what the cashier typed for the receipt
+    customerName, // keep what was typed for the receipt
     customerPhone,
     createdBy: req.user._id,
 
@@ -750,13 +758,22 @@ export const addOrderItems = asyncHandler(async (req, res) => {
       ? { ...base, status: "Invoice", isPaid: false, paymentMethod: undefined }
       : { ...base, paymentMethod, isPaid };
 
-  // const order = await Order.create(doc);
-  // const createdOrder = await order.save();
-  const createdOrder = await Order.create(doc);
+  // ✅ Create once and use this variable everywhere
+  const orderDoc = await Order.create(doc);
 
-  // Link order to customer's history
-  if (userDoc && Array.isArray(userDoc.orders)) {
-    userDoc.orders.push(createdOrder._id);
+  // Audit
+  await AuditLog.create({
+    actor: req.user._id,
+    action: "order.create",
+    targetType: "Order",
+    targetId: orderDoc._id,
+    meta: { total: orderDoc.totalPrice, lines: orderDoc.orderItems.length },
+  });
+
+  // Link order to customer's history (initialize array if needed)
+  if (userDoc) {
+    if (!Array.isArray(userDoc.orders)) userDoc.orders = [];
+    userDoc.orders.push(orderDoc._id);
     await userDoc.save();
   }
 
@@ -765,27 +782,35 @@ export const addOrderItems = asyncHandler(async (req, res) => {
   await Promise.all(
     detailedItems.map(async (item) => {
       const product = await Product.findById(item.product);
-      product.quantity -= item.qty;
-      if (product.quantity <= product.reorderLevel) {
+      if (!product) return;
+
+      const newQty = Math.max(
+        0,
+        Number(product.quantity || 0) - Number(item.qty || 0)
+      );
+      product.quantity = newQty;
+
+      const reorderLevel = Number(product.reorderLevel || 0);
+      if (newQty <= reorderLevel) {
         product.availability = "restocking";
         lowStockWarnings.push(
-          `⚠️ ${product.productName} is low on stock (${product.quantity} left)`
+          `⚠️ ${product.productName} is low on stock (${newQty} left)`
         );
       }
       await product.save();
     })
   );
 
-  // Optional: WhatsApp (kept simple)
+  // Optional WhatsApp notification (best-effort)
   try {
-    if (customerPhone) {
+    if (customerPhone && typeof sendWhatsApp === "function") {
       const msisdn = customerPhone.replace(/^0/, "234").replace(/\D/g, "");
       const msg = [
         `Hello ${customerName || "Customer"},`,
         ``,
-        `Your order *${createdOrder.trackingId}* has been received ✅`,
-        `Status : ${createdOrder.status}`,
-        `Total  : ₦${createdOrder.totalPrice.toLocaleString()}`,
+        `Your order *${orderDoc.trackingId}* has been received ✅`,
+        `Status : ${orderDoc.status}`,
+        `Total  : ₦${Number(orderDoc.totalPrice || 0).toLocaleString()}`,
         ``,
         `Thank you for shopping with us!`,
       ].join("\n");
@@ -797,7 +822,7 @@ export const addOrderItems = asyncHandler(async (req, res) => {
 
   res.status(201).json({
     message: "Order placed successfully",
-    order: createdOrder,
+    order: orderDoc,
     lowStockWarnings,
   });
 });
@@ -1277,6 +1302,15 @@ export const deleteOrder = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error("Order not found");
   }
+
+  await AuditLog.create({
+    actor: req.user._id,
+    action: "order.delete",
+    targetType: "Order",
+    targetId: order._id,
+    meta: { total: order.totalPrice, status: order.status },
+  });
+
   await order.deleteOne();
   res.json({ message: "Order deleted" });
 });
@@ -1355,81 +1389,96 @@ export const deleteOrder = asyncHandler(async (req, res) => {
 // controllers/orderController.js
 export const returnOrder = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
-  session.startTransaction();
   try {
-    const order = await Order.findById(req.params.id).session(session);
-    if (!order) {
-      res.status(404);
-      throw new Error("Order not found");
-    }
-
-    const itemsLog = [];
-
-    for (const item of order.orderItems) {
-      const product = await Product.findById(item.product).session(session);
-      if (!product) continue;
-
-      // qty back
-      product.quantity = (product.quantity || 0) + (item.qty || 0);
-
-      // restore missing serials only (avoid duplicates) + unassign
-      const existing = new Set(
-        (product.baseSpecs || []).map((s) => s.serialNumber).filter(Boolean)
-      );
-      const toRestore = (item.soldSpecs || []).filter(
-        (s) => s.serialNumber && !existing.has(s.serialNumber)
-      );
-      if (toRestore.length) product.baseSpecs.push(...toRestore);
-
-      product.baseSpecs = product.baseSpecs.map((spec) =>
-        item.soldSpecs?.some((s) => s.serialNumber === spec.serialNumber)
-          ? { ...spec, assigned: false }
-          : spec
-      );
-
-      if (
-        product.availability === "restocking" &&
-        product.quantity > (product.reorderLevel || 0)
-      ) {
-        product.availability = "inStock";
+    await session.withTransaction(async () => {
+      const order = await Order.findById(req.params.id).session(session);
+      if (!order) {
+        res.status(404);
+        throw new Error("Order not found");
       }
 
-      await product.save({ session });
+      const itemsLog = [];
 
-      itemsLog.push({
-        product: product._id,
-        productName: item.name,
-        qty: item.qty,
-        specs: toRestore,
+      for (const item of order.orderItems) {
+        const product = await Product.findById(item.product).session(session);
+        if (!product) continue;
+
+        // 1) put qty back
+        product.quantity = (product.quantity || 0) + (item.qty || 0);
+
+        // 2) restore missing serials (avoid duplicates) and unassign
+        const existing = new Set(
+          (product.baseSpecs || []).map((s) => s.serialNumber).filter(Boolean)
+        );
+        const toRestore = (item.soldSpecs || []).filter(
+          (s) => s.serialNumber && !existing.has(s.serialNumber)
+        );
+        if (toRestore.length) product.baseSpecs.push(...toRestore);
+
+        product.baseSpecs = (product.baseSpecs || []).map((spec) =>
+          item.soldSpecs?.some((s) => s.serialNumber === spec.serialNumber)
+            ? { ...spec, assigned: false }
+            : spec
+        );
+
+        // 3) availability bump (if needed)
+        if (
+          product.availability === "restocking" &&
+          product.quantity > (product.reorderLevel || 0)
+        ) {
+          product.availability = "inStock";
+        }
+
+        await product.save({ session });
+
+        itemsLog.push({
+          product: product._id,
+          productName: item.name,
+          qty: item.qty,
+          specs: toRestore, // or use item.soldSpecs if you prefer full log
+        });
+      }
+
+      // single Return doc (with performedBy)
+      const [retDoc] = await Return.create(
+        [
+          {
+            orderId: order._id,
+            user: order.user,
+            performedBy: req.user._id,
+            totalValue: order.totalPrice,
+            returnedAt: new Date(),
+            items: itemsLog,
+          },
+        ],
+        { session }
+      );
+
+      // audit inside the same transaction
+      await AuditLog.create(
+        [
+          {
+            actor: req.user._id,
+            action: "order.return",
+            targetType: "Return",
+            targetId: retDoc._id,
+            meta: { orderId: order._id, total: order.totalPrice },
+          },
+        ],
+        { session }
+      );
+
+      // remove the order
+      await order.deleteOne({ session });
+
+      // response from inside withTransaction is fine
+      res.json({
+        message: "Order returned and stock restored.",
+        items: itemsLog,
       });
-    }
-
-    await Return.create(
-      [
-        {
-          orderId: order._id,
-          user: order.user,
-          totalValue: order.totalPrice,
-          returnedAt: new Date(),
-          items: itemsLog,
-        },
-      ],
-      { session }
-    );
-
-    await order.deleteOne({ session });
-
-    await session.commitTransaction();
-    session.endSession();
-
-    res.json({
-      message: "Order returned and stock restored.",
-      items: itemsLog,
     });
-  } catch (e) {
-    await session.abortTransaction();
+  } finally {
     session.endSession();
-    throw e;
   }
 });
 
