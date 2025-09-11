@@ -31,6 +31,14 @@ export default function UserTypePermissionManager({ userType, onBack }) {
       { permissions: [...dirty] },
       { withCredentials: true }
     );
+
+    // refresh *current session’s* JWT to pick up the new policy
+    await api.post(
+      "/api/users/refresh-permissions",
+      {},
+      { withCredentials: true }
+    );
+
     setSaving(false);
     alert("Saved!");
     onBack();

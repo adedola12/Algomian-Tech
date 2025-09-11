@@ -407,6 +407,23 @@ export const updateUserPermissions = asyncHandler(async (req, res) => {
   });
 });
 
+// controllers/userController.js
+
+export const refreshPermissions = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id);
+  const policy = await AccessPolicy.findOne({ userType: user.userType });
+  const finalPerms =
+    (policy?.permissions?.length
+      ? policy.permissions
+      : DEFAULT_PERMS_BY_TYPE[user.userType]) ?? [];
+  const token = generateToken(user._id, finalPerms);
+  res.cookie("algomianToken", token, cookieOpts).json({
+    ...safeUser(user),
+    permissions: finalPerms,
+    token,
+  });
+});
+
 /* ————————————————— DELETE USER (Customers only) ————————————— */
 export const deleteUser = asyncHandler(async (req, res) => {
   const user = await User.findById(req.params.id);

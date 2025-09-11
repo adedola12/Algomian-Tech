@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import Order from "../models/orderModel.js";
 import User from "../models/userModel.js"; // ✅ Add this
 import Product from "../models/productModel.js";
-import Return from "../models/returnModel.js";   // ✅ ensure this exists
+import Return from "../models/returnModel.js"; // ✅ ensure this exists
 import crypto from "crypto";
 import { ALL_PERMISSIONS } from "../constants/permissions.js";
 import { PERM } from "../constants/permKeys.js"; // 👈 REQUIRED!
@@ -511,32 +511,32 @@ const hasChangeStream = () => {
 //   });
 // });
 
-const makeOrderLine = async (src) => {
-  const prod = await Product.findById(src.product);
-  if (!prod) throw new Error(`Product not found: ${src.product}`);
-  if (prod.quantity < src.qty) {
-    throw new Error(
-      `Insufficient stock for ${prod.productName} – have ${prod.quantity}`
-    );
-  }
-  return {
-    product: prod._id,
-    name: prod.productName,
-    baseRam: src.baseRam ?? "",
-    baseStorage: src.baseStorage ?? "",
-    baseCPU: src.baseCPU ?? "",
-    variantSelections: Array.isArray(src.variantSelections)
-      ? src.variantSelections.map((v) => ({
-          label: v.label || "",
-          cost: Number(v.cost) || 0,
-        }))
-      : [],
-    qty: src.qty,
-    price: src.price,
-    image: prod.images?.[0] || "",
-    maxQty: prod.quantity,
-  };
-};
+// const makeOrderLine = async (src) => {
+//   const prod = await Product.findById(src.product);
+//   if (!prod) throw new Error(`Product not found: ${src.product}`);
+//   if (prod.quantity < src.qty) {
+//     throw new Error(
+//       `Insufficient stock for ${prod.productName} – have ${prod.quantity}`
+//     );
+//   }
+//   return {
+//     product: prod._id,
+//     name: prod.productName,
+//     baseRam: src.baseRam ?? "",
+//     baseStorage: src.baseStorage ?? "",
+//     baseCPU: src.baseCPU ?? "",
+//     variantSelections: Array.isArray(src.variantSelections)
+//       ? src.variantSelections.map((v) => ({
+//           label: v.label || "",
+//           cost: Number(v.cost) || 0,
+//         }))
+//       : [],
+//     qty: src.qty,
+//     price: src.price,
+//     image: prod.images?.[0] || "",
+//     maxQty: prod.quantity,
+//   };
+// };
 
 const slug = (s = "") =>
   String(s)
@@ -549,6 +549,13 @@ const slug = (s = "") =>
  * POST /api/orders
  */
 export const addOrderItems = asyncHandler(async (req, res) => {
+  console.log(
+    "[addOrderItems] orderItems length:",
+    Array.isArray(req.body.orderItems)
+      ? req.body.orderItems.length
+      : "not array"
+  );
+  
   const {
     orderItems = [],
     shippingAddress = {},
@@ -743,8 +750,9 @@ export const addOrderItems = asyncHandler(async (req, res) => {
       ? { ...base, status: "Invoice", isPaid: false, paymentMethod: undefined }
       : { ...base, paymentMethod, isPaid };
 
-  const order = await Order.create(doc);
-  const createdOrder = await order.save();
+  // const order = await Order.create(doc);
+  // const createdOrder = await order.save();
+  const createdOrder = await Order.create(doc);
 
   // Link order to customer's history
   if (userDoc && Array.isArray(userDoc.orders)) {
@@ -1073,6 +1081,36 @@ export const getOrders = asyncHandler(async (req, res) => {
 //     maxQty: prod.quantity,
 //   };
 // };
+const makeOrderLine = async (src) => {
+  const prod = await Product.findById(src.product);
+  if (!prod) throw new Error(`Product not found: ${src.product}`);
+
+  const qty = Number(src.qty || 0);
+  const price = Number(src.price || 0);
+  if (prod.quantity < qty) {
+    throw new Error(
+      `Insufficient stock for ${prod.productName} – have ${prod.quantity}`
+    );
+  }
+
+  return {
+    product: prod._id,
+    name: prod.productName,
+    baseRam: src.baseRam ?? "",
+    baseStorage: src.baseStorage ?? "",
+    baseCPU: src.baseCPU ?? "",
+    variantSelections: Array.isArray(src.variantSelections)
+      ? src.variantSelections.map((v) => ({
+          label: v.label || "",
+          cost: Number(v.cost) || 0,
+        }))
+      : [],
+    qty, // ← number
+    price, // ← number
+    image: prod.images?.[0] || "",
+    maxQty: Number(prod.quantity || 0),
+  };
+};
 
 /**
  * @desc   Get order by ID
@@ -1243,6 +1281,158 @@ export const deleteOrder = asyncHandler(async (req, res) => {
   res.json({ message: "Order deleted" });
 });
 
+// export const returnOrder = asyncHandler(async (req, res) => {
+//   const order = await Order.findById(req.params.id);
+//   if (!order) {
+//     res.status(404);
+//     throw new Error("Order not found");
+//   }
+
+//   const itemsLog = [];
+
+//   // For each line, add qty back and (if you use serials) make sure they exist and are not marked assigned
+//   for (const item of order.orderItems) {
+//     const product = await Product.findById(item.product);
+//     if (!product) continue;
+
+//     // 1) Put quantity back
+//     product.quantity = (product.quantity || 0) + (item.qty || 0);
+
+//     // 2) Serial management (safe — no duplicates)
+//     const existingSerials = new Set(
+//       (product.baseSpecs || []).map((s) => s.serialNumber).filter(Boolean)
+//     );
+
+//     // a) add missing serials from the sale back into baseSpecs
+//     const toAdd = (item.soldSpecs || []).filter(
+//       (s) => s.serialNumber && !existingSerials.has(s.serialNumber)
+//     );
+//     if (toAdd.length) {
+//       product.baseSpecs.push(...toAdd);
+//     }
+
+//     // b) if you track assignment, unassign any of those serials
+//     product.baseSpecs = product.baseSpecs.map((spec) => {
+//       if (item.soldSpecs?.some((s) => s.serialNumber === spec.serialNumber)) {
+//         return { ...spec, assigned: false };
+//       }
+//       return spec;
+//     });
+
+//     // 3) Bump availability when stock is now above reorder level
+//     if (
+//       product.availability === "restocking" &&
+//       product.quantity > (product.reorderLevel || 0)
+//     ) {
+//       product.availability = "inStock";
+//     }
+
+//     await product.save();
+
+//     itemsLog.push({
+//       product: product._id,
+//       productName: item.name,
+//       qty: item.qty,
+//       specs: item.soldSpecs || [],
+//     });
+//   }
+
+//   // 4) Log the return for audit
+//   await Return.create({
+//     orderId: order._id,
+//     user: order.user,
+//     totalValue: order.totalPrice,
+//     returnedAt: new Date(),
+//     items: itemsLog,
+//   });
+
+//   // 5) Remove the order (a return is not just a delete)
+//   await order.deleteOne();
+
+//   res.json({ message: "Order returned and stock restored.", items: itemsLog });
+// });
+
+// controllers/orderController.js
+export const returnOrder = asyncHandler(async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    const order = await Order.findById(req.params.id).session(session);
+    if (!order) {
+      res.status(404);
+      throw new Error("Order not found");
+    }
+
+    const itemsLog = [];
+
+    for (const item of order.orderItems) {
+      const product = await Product.findById(item.product).session(session);
+      if (!product) continue;
+
+      // qty back
+      product.quantity = (product.quantity || 0) + (item.qty || 0);
+
+      // restore missing serials only (avoid duplicates) + unassign
+      const existing = new Set(
+        (product.baseSpecs || []).map((s) => s.serialNumber).filter(Boolean)
+      );
+      const toRestore = (item.soldSpecs || []).filter(
+        (s) => s.serialNumber && !existing.has(s.serialNumber)
+      );
+      if (toRestore.length) product.baseSpecs.push(...toRestore);
+
+      product.baseSpecs = product.baseSpecs.map((spec) =>
+        item.soldSpecs?.some((s) => s.serialNumber === spec.serialNumber)
+          ? { ...spec, assigned: false }
+          : spec
+      );
+
+      if (
+        product.availability === "restocking" &&
+        product.quantity > (product.reorderLevel || 0)
+      ) {
+        product.availability = "inStock";
+      }
+
+      await product.save({ session });
+
+      itemsLog.push({
+        product: product._id,
+        productName: item.name,
+        qty: item.qty,
+        specs: toRestore,
+      });
+    }
+
+    await Return.create(
+      [
+        {
+          orderId: order._id,
+          user: order.user,
+          totalValue: order.totalPrice,
+          returnedAt: new Date(),
+          items: itemsLog,
+        },
+      ],
+      { session }
+    );
+
+    await order.deleteOne({ session });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.json({
+      message: "Order returned and stock restored.",
+      items: itemsLog,
+    });
+  } catch (e) {
+    await session.abortTransaction();
+    session.endSession();
+    throw e;
+  }
+});
+
 export const getNewOrdersCount = asyncHandler(async (req, res) => {
   let { since } = req.query;
 
@@ -1319,9 +1509,13 @@ export const verifyInventory = asyncHandler(async (req, res) => {
       return spec;
     });
 
+    // if (modified) {
+    //   product.quantity -= item.selectedSerials.length;
+    //   await product.save();
+    // }
+
     if (modified) {
-      product.quantity -= item.selectedSerials.length;
-      await product.save();
+      await product.save(); // no quantity change here
     }
 
     const orderItem = order.orderItems.find(
@@ -1380,44 +1574,44 @@ export const approveSale = asyncHandler(async (req, res) => {
   res.json({ message: "Sale approved", order });
 });
 
-export const returnOrder = asyncHandler(async (req, res) => {
-  const order = await Order.findById(req.params.id);
-  if (!order) {
-    res.status(404);
-    throw new Error("Order not found");
-  }
+// export const returnOrder = asyncHandler(async (req, res) => {
+//   const order = await Order.findById(req.params.id);
+//   if (!order) {
+//     res.status(404);
+//     throw new Error("Order not found");
+//   }
 
-  const returnItems = [];
+//   const returnItems = [];
 
-  for (const item of order.orderItems) {
-    const product = await Product.findById(item.product);
-    if (!product) continue;
+//   for (const item of order.orderItems) {
+//     const product = await Product.findById(item.product);
+//     if (!product) continue;
 
-    product.quantity += item.qty;
+//     product.quantity += item.qty;
 
-    if (Array.isArray(item.soldSpecs)) {
-      product.baseSpecs.push(...item.soldSpecs);
-    }
+//     if (Array.isArray(item.soldSpecs)) {
+//       product.baseSpecs.push(...item.soldSpecs);
+//     }
 
-    await product.save();
+//     await product.save();
 
-    returnItems.push({
-      product: item.product,
-      productName: item.name,
-      qty: item.qty,
-      specs: item.soldSpecs,
-    });
-  }
+//     returnItems.push({
+//       product: item.product,
+//       productName: item.name,
+//       qty: item.qty,
+//       specs: item.soldSpecs,
+//     });
+//   }
 
-  await Return.create({
-    orderId: order._id,
-    user: order.user,
-    totalValue: order.totalPrice,
-    returnedAt: new Date(),
-    items: returnItems,
-  });
+//   await Return.create({
+//     orderId: order._id,
+//     user: order.user,
+//     totalValue: order.totalPrice,
+//     returnedAt: new Date(),
+//     items: returnItems,
+//   });
 
-  await order.deleteOne();
+//   await order.deleteOne();
 
-  res.json({ message: "Order returned and logged successfully." });
-});
+//   res.json({ message: "Order returned and logged successfully." });
+// });

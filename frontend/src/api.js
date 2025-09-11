@@ -9,16 +9,18 @@ const api = axios.create({
   withCredentials: true, // keep your cookies / JWTs working
 });
 
-api.interceptors.request.use((config) => {
-  // If you use a Bearer token, attach it here:
-  const token = localStorage.getItem("token");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
+// api.interceptors.request.use((config) => {
+//   // If you use a Bearer token, attach it here:
+//   const token = localStorage.getItem("token");
+//   if (token) config.headers.Authorization = `Bearer ${token}`;
+//   return config;
+// });
 
 // at top of your existing axios setup
-export const createOrder = (orderData) =>
-  api.post("/api/orders", orderData).then((res) => res.data);
+// export const createOrder = (orderData) =>
+//   api.post("/api/orders", orderData).then((res) => res.data);
+
+export const createOrder = (payload) => api.post("/api/orders", payload); // ← send payload as JSON as-is
 
 export const fetchMyOrders = () =>
   api.get("/api/orders/myorders").then((res) => res.data);

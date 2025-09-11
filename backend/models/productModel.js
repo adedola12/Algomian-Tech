@@ -27,6 +27,7 @@ const productSchema = new mongoose.Schema(
         baseStorage: String,
         baseCPU: String,
         serialNumber: String,
+        assigned: { type: Boolean, default: false },
       },
     ],
 

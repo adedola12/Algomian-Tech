@@ -18,6 +18,7 @@ import {
   updateUserPermissions,
   forgotPassword,
   resetPassword,
+  refreshPermissions,
 } from "../controllers/userController.js";
 import {
   protect,
@@ -111,6 +112,7 @@ router.get("/:id", getUserById);
 router.get("/:id/orders", getUserOrders);
 
 router.put("/:id/role", protect, isAdmin, updateUserRole);
+router.post("/refresh-permissions", protect, refreshPermissions);
 
 /* ✅ customer delete now permission-based */
 router.delete("/:id", protect, authorize("customer.delete"), deleteUser);

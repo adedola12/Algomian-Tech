@@ -21,7 +21,7 @@ const buildLine = (p) => {
     Array.isArray(p.baseSpecs) && p.baseSpecs.length ? p.baseSpecs[0] : {};
   return {
     id: p._id,
-    image: p.images?.[0] || "",
+    image: p.images?.[0] || null,
     name: p.productName,
     baseRam: first.baseRam || "",
     baseStorage: first.baseStorage || "",
@@ -129,8 +129,11 @@ export default function SingleSalePage({
         setOrderType(dlvMethod === "self" ? "order" : "pickup");
         setDeliveryFee(Number(order.shippingPrice || 0));
         setDeliveryPaid(!!order.deliveryPaid);
-        setShip(order.shippingAddress?.address || "");
-        setPark(order.pointOfSale || "");
+        // setShip(order.shippingAddress?.address || "");
+        // setPark(order.pointOfSale || "");
+        const addr = order.shippingAddress?.address || "";
+        setShip(addr);
+        setPark(addr);
         setReceiverName(order.receiverName || "");
         setReceiverPhone(order.receiverPhone || "");
         setReceiptName(order.receiptName || "");
@@ -556,7 +559,7 @@ export default function SingleSalePage({
               product={it}
               expanded={it.expanded}
               onToggle={() => update(it.id, { expanded: !it.expanded })}
-              onQtyChange={(id, qty) => update(id, { qty })}
+              onQtyChange={(id, qty) => update(id, { qty: Number(qty) })}
               onSpecChange={(id, f, v) => update(id, { [f]: v })}
               onDelete={(id) =>
                 setItems((prev) => prev.filter((l) => l.id !== id))
