@@ -6,6 +6,8 @@ import {
 } from "../controllers/locationController.js";
 
 const router = express.Router();
+
 router.get("/", protect, listLocations);
 router.post("/", protect, allowRoles("Admin"), addLocation);
+
 export default router;

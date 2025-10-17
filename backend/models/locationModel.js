@@ -8,6 +8,7 @@ const locationSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// case-insensitive unique index on name
 locationSchema.index(
   { name: 1 },
   { unique: true, collation: { locale: "en", strength: 2 } }
