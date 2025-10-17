@@ -6,6 +6,7 @@ export default function StockManagementView() {
   const [data, setData] = useState([]);
   const [search, setSearch] = useState("");
   const [sortAsc, setSortAsc] = useState(true);
+  const [sortBy, setSortBy] = useState("name"); // "name" | "status"
   const [loading, setLoading] = useState(false);
   const [totalStock, setTotalStock] = useState(0);
 
@@ -19,6 +20,17 @@ export default function StockManagementView() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const handleSortToggle = (key) => {
+    setSortBy((prevKey) => {
+      if (prevKey === key) {
+        setSortAsc((prev) => !prev); // same column → flip direction
+        return prevKey;
+      }
+      setSortAsc(true); // new column → default to ascending
+      return key;
+    });
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -86,19 +98,40 @@ export default function StockManagementView() {
     }
   };
 
+  /* ---------- status helpers (declare BEFORE use) ---------- */
+  const getStatusRank = (item, currentLevel) => {
+    if (item.totalQuantity === 0) return 0; // Out of stock
+    if (item.totalQuantity <= currentLevel) return 1; // Low stock
+    return 2; // In stock
+  };
+
+  const getStatusLabel = (item, currentLevel) => {
+    const r = getStatusRank(item, currentLevel);
+    return r === 0 ? "Out of stock" : r === 1 ? "Low stock" : "In stock";
+  };
+
   // ── filter + sort ──────────────────────────────────────────
   const filtered = (data || [])
     .filter((d) => d.displayName.toLowerCase().includes(search.toLowerCase()))
-    .sort((a, b) =>
-      sortAsc
-        ? a.displayName.localeCompare(b.displayName)
-        : b.displayName.localeCompare(a.displayName)
-    );
+    .sort((a, b) => {
+      if (sortBy === "status") {
+        const aLevel = reorderInputs[a.displayName] ?? a.reorderLevel;
+        const bLevel = reorderInputs[b.displayName] ?? b.reorderLevel;
+        const ra = getStatusRank(a, aLevel);
+        const rb = getStatusRank(b, bLevel);
+        return sortAsc ? ra - rb : rb - ra;
+      } else {
+        // name
+        return sortAsc
+          ? a.displayName.localeCompare(b.displayName)
+          : b.displayName.localeCompare(a.displayName);
+      }
+    });
 
   // Reset to first page when filters/sort change
   useEffect(() => {
     setPage(1);
-  }, [search, sortAsc, data]);
+  }, [search, sortAsc, sortBy, data]);
 
   // ── pagination derivations ─────────────────────────────────
   const totalItems = filtered.length;
@@ -107,6 +140,21 @@ export default function StockManagementView() {
   const start = (clampedPage - 1) * PAGE_SIZE;
   const end = Math.min(start + PAGE_SIZE, totalItems);
   const pageRows = filtered.slice(start, end);
+
+  // derive counts for badges
+  const counts = (() => {
+    let inStock = 0,
+      low = 0,
+      out = 0;
+    (data || []).forEach((item) => {
+      const lvl = reorderInputs[item.displayName] ?? item.reorderLevel;
+      const r = getStatusRank(item, lvl);
+      if (r === 2) inStock++;
+      else if (r === 1) low++;
+      else out++;
+    });
+    return { inStock, low, out };
+  })();
 
   const nextPage = () => setPage((p) => Math.min(p + 1, totalPages));
   const prevPage = () => setPage((p) => Math.max(p - 1, 1));
@@ -135,6 +183,19 @@ export default function StockManagementView() {
         </button>
       </div>
 
+      {/* Status counters */}
+      <div className="flex flex-wrap gap-2 mb-3 text-sm">
+        <span className="px-2 py-1 rounded-full bg-green-100 text-green-700">
+          In stock: {counts.inStock}
+        </span>
+        <span className="px-2 py-1 rounded-full bg-orange-100 text-orange-700">
+          Low stock: {counts.low}
+        </span>
+        <span className="px-2 py-1 rounded-full bg-red-100 text-red-700">
+          Out of stock: {counts.out}
+        </span>
+      </div>
+
       {loading ? (
         <p>Loading…</p>
       ) : (
@@ -145,15 +206,23 @@ export default function StockManagementView() {
                 <tr>
                   <th
                     className="cursor-pointer py-3"
-                    onClick={() => setSortAsc(!sortAsc)}
+                    onClick={() => handleSortToggle("name")}
+                    title="Sort by name"
                   >
-                    Product Name {sortAsc ? "▲" : "▼"}
+                    Product Name{" "}
+                    {sortBy === "name" ? (sortAsc ? "▲" : "▼") : ""}
                   </th>
                   <th>Brand</th>
                   <th>Category</th>
                   <th>Total Qty</th>
                   <th>Reorder Level</th>
-                  <th>Status</th>
+                  <th
+                    className="cursor-pointer"
+                    onClick={() => handleSortToggle("status")}
+                    title="Sort by status"
+                  >
+                    Status {sortBy === "status" ? (sortAsc ? "▲" : "▼") : ""}
+                  </th>
                   <th className="text-center">Save</th>
                 </tr>
               </thead>
@@ -172,25 +241,25 @@ export default function StockManagementView() {
                       : "bg-green-100 border-green-400 text-green-800";
 
                   const statusBadge = () => {
-                    if (item.totalQuantity === 0) {
+                    const label = getStatusLabel(item, currentLevel);
+                    if (label === "Out of stock") {
                       return (
                         <span className="text-red-600 font-medium">
                           Out of stock
                         </span>
                       );
-                    } else if (item.totalQuantity <= currentLevel) {
+                    } else if (label === "Low stock") {
                       return (
                         <span className="text-orange-500 font-medium">
                           Low stock
                         </span>
                       );
-                    } else {
-                      return (
-                        <span className="text-green-600 font-medium">
-                          In stock
-                        </span>
-                      );
                     }
+                    return (
+                      <span className="text-green-600 font-medium">
+                        In stock
+                      </span>
+                    );
                   };
 
                   return (
