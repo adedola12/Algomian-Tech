@@ -20,6 +20,7 @@ dotenv.config();
 connectDB();
 
 const app = express();
+app.disable("x-powered-by");
 app.use(express.json());
 app.use(cookieParser());
 
@@ -33,23 +34,20 @@ const allowlist = [
 
 const corsOptions = {
   origin: (origin, cb) => {
-    // - no Origin header when you call the API from Postman or a cron job
-    if (!origin) return cb(null, true);
-
+    if (!origin) return cb(null, true); // e.g. Postman, server-to-server
     if (allowlist.includes(origin)) return cb(null, true);
     cb(new Error(`CORS: ${origin} not allowed`));
   },
-  credentials: true, // ← lets cookies through
+  credentials: true,
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
   allowedHeaders: ["Content-Type", "Authorization"],
   optionsSuccessStatus: 204,
 };
 
 app.use(cors(corsOptions));
-// app.options("/api/*", cors(corsOptions));
+// ❌ remove this (breaks on Express 5): app.options("/api/*", cors(corsOptions));
 
 app.use("/api/users", userRoutes);
-
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/admin", adminRoutes);
