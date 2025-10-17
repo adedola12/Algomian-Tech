@@ -428,7 +428,7 @@ export default function SalesTable() {
                           >
                             Return Sale
                           </button>
-                          <button
+                          {/* <button
                             onClick={() => {
                               deleteOrder(r.id);
                               setActionsOpenFor(null);
@@ -436,7 +436,7 @@ export default function SalesTable() {
                             className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
                           >
                             Delete Sale
-                          </button>
+                          </button> */}
 
                           <button
                             onClick={() => {

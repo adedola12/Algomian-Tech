@@ -24,6 +24,7 @@ export default function TrackOrderCard({ timeline }) {
       : steps.findIndex((s) => s.status !== "Delivered");
 
   const renderStatus = (step, idx) => {
+    const label = LABELS[step?.status] || step?.status || "—";
     let state = "upcoming";
     if (idx < currentIdx) state = "complete";
     else if (idx === currentIdx) state = "current";
@@ -44,10 +45,11 @@ export default function TrackOrderCard({ timeline }) {
               state === "upcoming" ? "text-gray-500" : "text-gray-800"
             }`}
           >
-            {LABELS[step.status]}
+            {label}
           </span>
           <time className="text-sm text-gray-500 mt-1">
-            {new Date(step.time).toLocaleTimeString()}
+            {/* {new Date(step.time).toLocaleTimeString()} */}
+            {step?.time ? new Date(step.time).toLocaleTimeString() : "—"}
           </time>
         </div>
       </li>

@@ -116,7 +116,7 @@ export default function CreateShipment() {
   if (loading) return <p className="p-6">Loading…</p>;
   if (!order) return null;
 
-  const deliveryMode = order.shippingAddress.address
+  const deliveryMode = order?.shippingAddress?.address
     ? `${order.shippingAddress.address}, ${order.shippingAddress.city}`
     : order.pointOfSale || "—";
 
@@ -172,7 +172,10 @@ export default function CreateShipment() {
         {/* LEFT */}
         <div className="space-y-6 lg:col-span-2">
           <OrderCard
-            items={order.orderItems.map((it) => ({
+            items={(Array.isArray(order?.orderItems)
+              ? order.orderItems
+              : []
+            ).map((it) => ({
               id: it._id,
               image: it.image,
               name: it.name,
