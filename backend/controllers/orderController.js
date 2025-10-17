@@ -1278,8 +1278,24 @@ export const restoreOrder = asyncHandler(async (req, res) => {
   res.json({ message: "Order restored", order });
 });
 
+// export const getOrders = asyncHandler(async (req, res) => {
+//   const orders = await Order.find({ isDeleted: false })
+//     .populate("user", "firstName lastName")
+//     .populate("createdBy", "firstName");
+//   res.json(orders);
+// });
+
+// export const getMyOrders = asyncHandler(async (req, res) => {
+//   const orders = await Order.find({
+//     user: req.user._id,
+//     isDeleted: false,
+//   }).populate("user", "firstName lastName");
+//   res.json(orders);
+// });
+
+// controllers/orderController.js
 export const getOrders = asyncHandler(async (req, res) => {
-  const orders = await Order.find({ isDeleted: false })
+  const orders = await Order.find({ isDeleted: { $ne: true } })
     .populate("user", "firstName lastName")
     .populate("createdBy", "firstName");
   res.json(orders);
@@ -1288,7 +1304,7 @@ export const getOrders = asyncHandler(async (req, res) => {
 export const getMyOrders = asyncHandler(async (req, res) => {
   const orders = await Order.find({
     user: req.user._id,
-    isDeleted: false,
+    isDeleted: { $ne: true },
   }).populate("user", "firstName lastName");
   res.json(orders);
 });
