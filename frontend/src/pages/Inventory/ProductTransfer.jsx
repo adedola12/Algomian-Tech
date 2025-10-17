@@ -1,34 +1,30 @@
+// src/pages/Inventory/ProductTransfer.jsx
 import { useEffect, useMemo, useState } from "react";
 import { FiPlus, FiArrowRight, FiSearch } from "react-icons/fi";
 import { toast } from "react-toastify";
 import { fetchProducts } from "../../api";
-import axios from "axios";
+import api from "../../api"; // 👈 use your configured axios instance
 import { useAuth } from "../../context/AuthContext";
 
 export default function ProductTransfer() {
   const { user } = useAuth();
+  const isAdmin = (user?.userType || "").toLowerCase() === "admin"; // 👈 gate Add location
 
-  const [locations, setLocations] = useState([]); // always keep an array of { _id?, name }
+  const [locations, setLocations] = useState([]);
   const [activeTab, setActiveTab] = useState("All");
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // search + totals
   const [query, setQuery] = useState("");
   const [totalAll, setTotalAll] = useState(0);
   const [totalSelected, setTotalSelected] = useState(0);
 
-  // selection
   const [targetLocation, setTargetLocation] = useState("");
-  const [checked, setChecked] = useState({}); // productId -> boolean
-  const [qty, setQty] = useState({}); // productId -> number
+  const [checked, setChecked] = useState({});
+  const [qty, setQty] = useState({});
 
-  /** Normalize anything the /api/locations endpoint throws at us into
-   *  [{_id?: string, name: string}, ...]
-   */
   const normalizeLocations = (raw) => {
     if (Array.isArray(raw)) {
-      // array of objects or strings
       return raw
         .map((l, i) =>
           typeof l === "string"
@@ -46,27 +42,20 @@ export default function ProductTransfer() {
         )
         .filter((l) => l.name);
     }
-    // anything else (object, string, null) -> empty array
     return [];
   };
 
   const loadLocations = async () => {
     try {
-      const { data } = await axios.get("/api/locations");
+      const { data } = await api.get("/api/locations"); // 👈 use api
       const safe = normalizeLocations(data);
       setLocations(safe);
-      // set a default destination if none selected
       if (!targetLocation) {
         const first = safe[0]?.name || user?.location || "Lagos";
         setTargetLocation(first);
       }
-    } catch (e) {
-      // keep locations as [] so UI remains stable
+    } catch {
       setLocations([]);
-      if (process.env.NODE_ENV === "development") {
-        // eslint-disable-next-line no-console
-        console.error("Failed to load locations:", e);
-      }
       toast.error("Failed to load locations");
     }
   };
@@ -74,7 +63,6 @@ export default function ProductTransfer() {
   const loadProducts = async (loc) => {
     setLoading(true);
     try {
-      // 1) total across ALL locations
       const totalResp = await fetchProducts({
         limit: 1,
         page: 1,
@@ -83,7 +71,6 @@ export default function ProductTransfer() {
       });
       setTotalAll(Number(totalResp?.total || 0));
 
-      // 2) rows for the selected tab
       const { products: list = [], total: selTotal = 0 } = await fetchProducts({
         limit: 1000,
         search: query,
@@ -93,11 +80,7 @@ export default function ProductTransfer() {
 
       setProducts(Array.isArray(list) ? list : []);
       setTotalSelected(Number(selTotal || 0));
-    } catch (e) {
-      if (process.env.NODE_ENV === "development") {
-        // eslint-disable-next-line no-console
-        console.error("Failed to load products:", e);
-      }
+    } catch {
       toast.error("Failed to load products");
     } finally {
       setLoading(false);
@@ -106,21 +89,18 @@ export default function ProductTransfer() {
 
   useEffect(() => {
     loadLocations();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
+  }, []);
   useEffect(() => {
     loadProducts(activeTab);
     setChecked({});
     setQty({});
-  }, [activeTab, query]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeTab, query]);
 
-  // tabs are derived from safe array; never call .map on non-array
   const tabs = useMemo(() => {
-    const arr = Array.isArray(locations) ? locations : [];
-    const names = arr.map((l) => l?.name).filter(Boolean);
-    // remove dupes just in case
-    const uniq = Array.from(new Set(names));
-    return ["All", ...uniq];
+    const names = (Array.isArray(locations) ? locations : [])
+      .map((l) => l?.name)
+      .filter(Boolean);
+    return ["All", ...Array.from(new Set(names))];
   }, [locations]);
 
   const toggle = (id, max) => {
@@ -129,14 +109,22 @@ export default function ProductTransfer() {
   };
 
   const doAddLocation = async () => {
+    if (!isAdmin) return toast.error("Only Admins can add locations");
     const name = window.prompt("New location name:");
     if (!name) return;
     try {
-      await axios.post("/api/locations", { name });
+      await api.post("/api/locations", { name }); // 👈 use api (adds JWT + baseURL)
       toast.success("Location added");
       loadLocations();
     } catch (e) {
-      toast.error(e?.response?.data?.message || "Failed to add location");
+      const msg =
+        e?.response?.data?.message ||
+        (e?.response?.status === 401
+          ? "You’re not logged in"
+          : e?.response?.status === 403
+          ? "Only Admins can add locations"
+          : "Failed to add location");
+      toast.error(msg);
     }
   };
 
@@ -159,7 +147,7 @@ export default function ProductTransfer() {
       return toast.error("Pick a different destination");
 
     try {
-      const { data } = await axios.post("/api/products/transfer", {
+      const { data } = await api.post("/api/products/transfer", {
         fromLocation,
         toLocation: targetLocation,
         items: list,
@@ -178,11 +166,9 @@ export default function ProductTransfer() {
 
   return (
     <div className="p-4 sm:p-6 space-y-4">
-      {/* Header / actions */}
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <h2 className="text-xl font-semibold">Product Transfer</h2>
 
-        {/* mobile-friendly action bar */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-2">
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600">Move to</span>
@@ -207,7 +193,11 @@ export default function ProductTransfer() {
 
           <button
             onClick={doAddLocation}
-            className="px-3 py-2 rounded-lg border hover:bg-gray-50 flex items-center gap-2"
+            disabled={!isAdmin}
+            className={`px-3 py-2 rounded-lg border flex items-center gap-2 ${
+              !isAdmin ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50"
+            }`}
+            title={isAdmin ? "Add a new location" : "Admins only"}
           >
             <FiPlus /> Add location
           </button>
