@@ -173,3 +173,11 @@ export const getAgentActivity = asyncHandler(async (req, res) => {
 
   res.json({ items });
 });
+
+export const getTransferActivity = asyncHandler(async (req, res) => {
+  const { limit = 100 } = req.query;
+  const items = await AuditLog.find({ action: "product.transfer" })
+    .sort({ createdAt: -1 })
+    .limit(Number(limit));
+  res.json({ items });
+});

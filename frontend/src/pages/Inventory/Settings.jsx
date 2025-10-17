@@ -10,6 +10,7 @@ import AdminUACSummary from "../../components/Settings/AdminUACSummary"; // â¬…ï
 const TABS = [
   { key: "profile", label: "Profile", component: SettingProfile },
   { key: "pref", label: "Preference", component: SettingPreference },
+  
 
   // Visible to Admins or anyone with uac.view
   {

@@ -35,6 +35,7 @@ import CreateShipment from "./components/Logistics/CreatShipment";
 import CustomerInventoryOrderDetails from "./pages/Inventory/CustomerInventoryOrderDetails";
 import CustomerAccountDetails from "./pages/Inventory/CustomerAccountDetails";
 import Settings from "./pages/Inventory/Settings";
+import ProductTransfer from "./pages/Inventory/ProductTransfer";
 
 /* ─ route guard ─ */
 import PrivateRoute from "./routes/PrivateRoute";
@@ -89,6 +90,7 @@ export default function App() {
             />
             <Route path="inventory/orders" element={<InventoryOrder />} />
             <Route path="inventoryManager" element={<InvMan />} />
+            <Route path="transfer" element={<ProductTransfer />} />
             <Route
               path="/invman-order-details/:id"
               element={<InvManOrderDetails />}

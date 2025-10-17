@@ -13,6 +13,7 @@ import {
   FiLogOut,
   FiX,
   FiSave,
+  FiRepeat,
 } from "react-icons/fi";
 import { BsClipboard } from "react-icons/bs";
 import { assets } from "../assets/assets";
@@ -45,6 +46,12 @@ const NAV_LINKS = [
     label: "Inventory",
     icon: <BsClipboard />,
     perm: "product.view",
+  },
+  {
+    path: "/transfer",
+    label: "Product Transfer",
+    icon: <FiRepeat />,
+    perm: "product.transfer", // if you already use perms
   },
   {
     path: "/stock",
@@ -97,13 +104,12 @@ export default function InventSideBar({ isOpen, setIsOpen, user, onLogout }) {
     safeUser.perms && safeUser.perms.length
       ? safeUser.perms
       : DEFAULT_PERMS_BY_TYPE[safeUser.userType] ?? [];
-  // const role = user?.userType ?? "Customer";
-  // const links = React.useMemo(
-  //   () => NAV_LINKS.filter((l) => l.roles.includes(role)),
-  //   [role]
-  // );
 
-  const links = NAV_LINKS.filter((l) => !l.perm || perms.includes(l.perm));
+  // const links = NAV_LINKS.filter((l) => !l.perm || perms.includes(l.perm));
+  const isAdmin = (safeUser.userType || "").toLowerCase() === "admin";
+  const links = NAV_LINKS.filter(
+    (l) => !l.perm || perms.includes(l.perm) || isAdmin
+  );
 
   return (
     <>

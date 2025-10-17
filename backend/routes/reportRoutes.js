@@ -5,7 +5,11 @@ import {
   allowRoles,
   authorize,
 } from "../middleware/authMiddleware.js";
-import { getAgentKpis, getAgentActivity } from "../controllers/reportController.js";
+import {
+  getAgentKpis,
+  getAgentActivity,
+  getTransferActivity,
+} from "../controllers/reportController.js";
 
 const router = express.Router();
 
@@ -13,5 +17,6 @@ const router = express.Router();
 router.get("/agent-kpis", protect, allowRoles("Admin"), getAgentKpis);
 // or: router.get("/agent-kpis", protect, authorize("uac.view"), getAgentKpis);
 router.get("/agent-activity", protect, allowRoles("Admin"), getAgentActivity); // 👈 new
+router.get("/transfer-logs", protect, allowRoles("Admin"), getTransferActivity);
 
 export default router;

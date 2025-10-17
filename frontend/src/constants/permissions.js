@@ -20,6 +20,7 @@ export const ALL_PERMISSIONS = [
   { id: "product.edit", label: "Can edit products (legacy)" },
   { id: "product.delete", label: "Can delete products" },
   { id: "product.approve", label: "Can approve new products" },
+  { id: "product.transfer", label: "Can transfer products" },
 
   /* granular sections inside Add-Product */
   { id: "product.section.general", label: "Edit ‘General’ section" },

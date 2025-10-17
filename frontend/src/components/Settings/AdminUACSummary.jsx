@@ -12,6 +12,8 @@ export default function AdminUACSummary() {
   const [openFor, setOpenFor] = useState(null); // userId whose actions are open
   const [actions, setActions] = useState([]);
   const [actionsLoading, setActionsLoading] = useState(false);
+  const [transferLogs, setTransferLogs] = useState([]);
+  const [transferLoading, setTransferLoading] = useState(false);
 
   useEffect(() => {
     if (!isAdmin) return setLoading(false);
@@ -23,6 +25,27 @@ export default function AdminUACSummary() {
         setRows(data.rows || []);
       } finally {
         setLoading(false);
+      }
+    })();
+  }, [isAdmin]);
+
+  // load recent transfer logs (admin only)
+  useEffect(() => {
+    if (!isAdmin) return;
+    (async () => {
+      setTransferLoading(true);
+      try {
+        const { data } = await api.get("/api/reports/transfer-logs", {
+          params: { limit: 200 },
+          withCredentials: true,
+        });
+        setTransferLogs(data.items || []);
+      } catch (e) {
+        toast.error(
+          e?.response?.data?.message || "Failed to load transfer logs"
+        );
+      } finally {
+        setTransferLoading(false);
       }
     })();
   }, [isAdmin]);
@@ -54,6 +77,8 @@ export default function AdminUACSummary() {
       toast.error(e.response?.data?.message || "Restore failed");
     }
   };
+
+  // const { data } = await axios.get("/api/reports/transfer-logs?limit=200");
 
   if (!isAdmin)
     return (
@@ -173,6 +198,33 @@ export default function AdminUACSummary() {
             ) : (
               <p className="text-sm text-gray-500">No recent activity</p>
             )}
+
+            {/* Transfer log */}
+            <div className="mt-8">
+              <h3 className="text-lg font-semibold mb-2">
+                Recent Product Transfers
+              </h3>
+              {transferLoading ? (
+                <p>Loading…</p>
+              ) : transferLogs.length ? (
+                <ul className="divide-y">
+                  {transferLogs.map((l) => (
+                    <li key={l._id} className="py-2 text-sm">
+                      <span className="font-medium">
+                        {l.meta?.productName || "Product"}
+                      </span>{" "}
+                      — moved <b>{l.meta?.qty}</b> from <b>{l.meta?.from}</b> to{" "}
+                      <b>{l.meta?.to}</b>{" "}
+                      <span className="text-gray-500">
+                        ({new Date(l.createdAt).toLocaleString()})
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-gray-500">No transfers yet.</p>
+              )}
+            </div>
           </div>
         </div>
       )}

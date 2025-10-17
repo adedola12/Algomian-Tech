@@ -1,5 +1,6 @@
 import asyncHandler from "express-async-handler";
 import Product from "../models/productModel.js";
+import Location from "../models/locationModel.js";
 import AuditLog from "../models/auditLogModel.js";
 import { uploadBufferToCloudinary } from "../utils/cloudinaryUpload.js";
 import { v4 as uuid } from "uuid";
@@ -54,7 +55,6 @@ export const getGroupedStock = asyncHandler(async (req, res) => {
 export const createProduct = asyncHandler(async (req, res) => {
   /* ---------- DUPLICATE CHECK (case-insensitive) ---------- */
   const { productName = "" } = req.body;
-
 
   const {
     productCondition,
@@ -122,60 +122,6 @@ export const createProduct = asyncHandler(async (req, res) => {
 
   res.status(201).json(product);
 });
-
-// /* ─────────────  UPDATE  ───────────── */
-// export const updateProduct = asyncHandler(async (req, res) => {
-//   const product = await Product.findById(req.params.id);
-//   if (!product) {
-//     res.status(404);
-//     throw new Error("Product not found");
-//   }
-
-//   /* ─ upload any new images ─ */
-//   if (req.files?.length) {
-//     for (const f of req.files) {
-//       const fileName = `${uuid()}`;
-//       const link = await uploadBufferToCloudinary(f.buffer, fileName);
-//       product.images.push(link);
-//     }
-//   }
-
-//   /* plain scalar fields */
-//   [
-//     "productName",
-//     "productCategory",
-//     "brand",
-//     "costPrice",
-//     "sellingPrice",
-//     "quantity",
-//     "availability",
-//     "status",
-//     "reorderLevel",
-//     "stockLocation",
-//     "description",
-//   ].forEach((f) => {
-//     if (req.body[f] !== undefined) product[f] = req.body[f];
-//   });
-
-//   /* arrays */
-//   if (req.body.serialNumbers !== undefined)
-//     product.serialNumbers = req.body.serialNumbers;
-//   if (req.body.productCondition !== undefined)
-//     product.productCondition = req.body.productCondition;
-
-//   if (req.body.storageRam !== undefined)
-//     product.storageRam = req.body.storageRam;
-//   if (req.body.Storage !== undefined) product.Storage = req.body.Storage;
-//   if (req.body.variants)
-//     product.variants = parseMaybeJSON(req.body.variants, []);
-//   if (req.body.features)
-//     product.features = parseMaybeJSON(req.body.features, []);
-//   if (req.body.baseSpecs)
-//     product.baseSpecs = parseMaybeJSON(req.body.baseSpecs, []);
-
-//   const updated = await product.save();
-//   res.json(updated);
-// });
 
 /* ─────────────  UPDATE  ───────────── */
 export const updateProduct = asyncHandler(async (req, res) => {
@@ -377,7 +323,8 @@ export const getProducts = asyncHandler(async (req, res) => {
     category = "",
     page = 1,
     limit = 50,
-    inStockOnly, // 👈 new flag
+    inStockOnly,
+    stockLocation,
   } = req.query;
 
   const tokens = search.trim().split(/\s+/).filter(Boolean).slice(0, 5);
@@ -413,6 +360,7 @@ export const getProducts = asyncHandler(async (req, res) => {
       category ? { productCategory: category } : {},
       // 👇 only items with stock when flag is truthy (e.g. "1", "true")
       inStockOnly ? { quantity: { $gt: 0 } } : {},
+      stockLocation ? { stockLocation } : {},
     ],
   };
 
@@ -425,44 +373,6 @@ export const getProducts = asyncHandler(async (req, res) => {
 
   res.json({ products, total, page: +page, pages: Math.ceil(total / limit) });
 });
-
-// export const bulkCreateProduct = asyncHandler(async (req, res) => {
-//   const { products = [] } = req.body;
-
-//   if (!Array.isArray(products) || !products.length) {
-//     res.status(400);
-//     throw new Error("No valid product data submitted.");
-//   }
-
-//   const created = await Product.insertMany(
-//     products.map((p) => ({
-//       productName: p.productName,
-//       brand: p.brand,
-//       baseSpecs: [
-//         {
-//           baseCPU: p.baseCPU || "",
-//           baseRam: p.baseRam || "",
-//           baseStorage: p.baseStorage || "",
-//           serialNumber: p.serialNumber || "",
-//         },
-//       ],
-//       supplier: p.supplier || "",
-//       productCategory: "Laptops",
-//       productCondition: "UK Used",
-//       quantity: 1,
-//       availability: "restocking",
-//       status: "Status",
-//       productId: uuid(), // ✅ add this line to avoid duplicate nulls
-//       stockLocation: "Lagos",
-//     })),
-//     { ordered: false }
-//   );
-
-//   res.status(201).json({
-//     added: created.length,
-//     message: "Bulk products added successfully.",
-//   });
-// });
 
 export const bulkCreateProduct = asyncHandler(async (req, res) => {
   const { products = [] } = req.body;
@@ -554,4 +464,127 @@ export const bulkCreateProduct = asyncHandler(async (req, res) => {
     skipped, // [{name, reason}]
     message: `Bulk products added: ${added}`,
   });
+});
+
+export const transferProducts = asyncHandler(async (req, res) => {
+  const { fromLocation = "", toLocation = "", items = [] } = req.body;
+
+  if (!fromLocation || !toLocation || fromLocation === toLocation) {
+    res.status(400);
+    throw new Error("Provide different source and destination locations");
+  }
+  if (!Array.isArray(items) || !items.length) {
+    res.status(400);
+    throw new Error("No items to transfer");
+  }
+
+  // ensure destination exists (source may only exist on Product rows)
+  const dest = await Location.findOne({ name: toLocation });
+  if (!dest) {
+    res.status(400);
+    throw new Error("Destination location does not exist");
+  }
+
+  const session = await mongoose.startSession();
+  const results = [];
+  try {
+    await session.withTransaction(async () => {
+      for (const it of items) {
+        const { productId, qty } = it;
+        const moveQty = Math.max(0, Number(qty || 0));
+        if (!productId || moveQty <= 0) {
+          results.push({ ok: false, productId, error: "Invalid item/qty" });
+          continue;
+        }
+
+        // source doc
+        const src = await Product.findOne({
+          _id: productId,
+          stockLocation: fromLocation,
+        }).session(session);
+        if (!src) {
+          results.push({
+            ok: false,
+            productId,
+            error: "Source product not found at that location",
+          });
+          continue;
+        }
+        if ((src.quantity || 0) < moveQty) {
+          results.push({
+            ok: false,
+            productId,
+            error: `Insufficient qty. Have ${src.quantity}`,
+          });
+          continue;
+        }
+
+        // target "same product" matcher – keep this simple: name + brand + category + condition
+        const match = {
+          productName: src.productName,
+          brand: src.brand || "",
+          productCategory: src.productCategory || "",
+          productCondition: src.productCondition || "New",
+          stockLocation: toLocation,
+        };
+
+        let destDoc = await Product.findOne(match).session(session);
+        if (!destDoc) {
+          // clone minimal fields into new doc at destination
+          destDoc = await Product.create(
+            [
+              {
+                ...match,
+                quantity: 0,
+                sellingPrice: src.sellingPrice,
+                costPrice: src.costPrice,
+                availability: src.availability,
+                status: src.status,
+                reorderLevel: src.reorderLevel,
+                supplier: src.supplier,
+                storageRam: src.storageRam,
+                Storage: src.Storage,
+                images: src.images || [],
+                baseSpecs: [], // optional: serials stick to per-location; keep empty here
+                productId: src.productId,
+                description: src.description,
+              },
+            ],
+            { session }
+          ).then((a) => a[0]);
+        }
+
+        // apply move
+        src.quantity = (src.quantity || 0) - moveQty;
+        destDoc.quantity = (destDoc.quantity || 0) + moveQty;
+        await Promise.all([src.save({ session }), destDoc.save({ session })]);
+
+        // audit
+        await AuditLog.create(
+          [
+            {
+              actor: req.user._id,
+              action: "product.transfer",
+              targetType: "Product",
+              targetId: src._id,
+              meta: {
+                from: fromLocation,
+                to: toLocation,
+                productName: src.productName,
+                qty: moveQty,
+                destProductId: destDoc._id,
+              },
+            },
+          ],
+          { session }
+        );
+
+        results.push({ ok: true, productId, toProductId: destDoc._id });
+      }
+    });
+
+    res.json({ results });
+  } finally {
+    session.endSession();
+  }
 });

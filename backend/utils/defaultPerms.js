@@ -16,6 +16,7 @@ export const DEFAULT_PERMS_BY_TYPE = {
     "product.edit",
     "product.add",
     "product.approve",
+    "product.transfer",
     "product.section.general",
     "product.section.variants",
     "product.section.availability",

@@ -19,6 +19,8 @@ const auditSchema = new mongoose.Schema(
         "product.create",
         "product.update",
         "product.delete",
+        "product.transfer", // 👈 NEW
+        "location.create", // 👈 NEW
       ],
     },
     targetType: { type: String, required: true }, // "Order" | "Product" | "Return"

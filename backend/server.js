@@ -13,6 +13,7 @@ import logisticsRoutes from "./routes/logisticsRoutes.js";
 import accessRoutes from "./routes/accessRoutes.js";
 import returnRoutes from "./routes/returnRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
+import locationRoutes from "./routes/locationRoutes.js";
 import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
 
 dotenv.config();
@@ -21,22 +22,6 @@ connectDB();
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
-
-// const whitelist = [
-//   "http://localhost:5173",
-//   "https://algomian-web-app.vercel.app",
-//   "https://algomian-tech.vercel.app",
-//   "https://www.algomian.com",
-//   "https://algomian.com",
-// ];
-// app.use(
-//   cors({
-//     origin: whitelist,
-//     credentials: true,
-//     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-//     allowedHeaders: ["Content-Type", "Authorization"],
-//   })
-// );
 
 const allowlist = [
   "http://localhost:5173",
@@ -73,6 +58,7 @@ app.use("/api/logistics", logisticsRoutes);
 app.use("/api/access", accessRoutes);
 app.use("/api/returns", returnRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/locations", locationRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
