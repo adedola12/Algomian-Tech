@@ -1,4 +1,3 @@
-// src/pages/Inventory/ProductTransfer.jsx
 import { useEffect, useMemo, useState } from "react";
 import { FiPlus, FiArrowRight, FiSearch } from "react-icons/fi";
 import { toast } from "react-toastify";
@@ -8,12 +7,13 @@ import { useAuth } from "../../context/AuthContext";
 
 export default function ProductTransfer() {
   const { user } = useAuth();
-  const [locations, setLocations] = useState([]);
+
+  const [locations, setLocations] = useState([]); // always keep an array of { _id?, name }
   const [activeTab, setActiveTab] = useState("All");
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // NEW: search + totals
+  // search + totals
   const [query, setQuery] = useState("");
   const [totalAll, setTotalAll] = useState(0);
   const [totalSelected, setTotalSelected] = useState(0);
@@ -23,16 +23,58 @@ export default function ProductTransfer() {
   const [checked, setChecked] = useState({}); // productId -> boolean
   const [qty, setQty] = useState({}); // productId -> number
 
+  /** Normalize anything the /api/locations endpoint throws at us into
+   *  [{_id?: string, name: string}, ...]
+   */
+  const normalizeLocations = (raw) => {
+    if (Array.isArray(raw)) {
+      // array of objects or strings
+      return raw
+        .map((l, i) =>
+          typeof l === "string"
+            ? { _id: String(i), name: l }
+            : { _id: l._id ?? String(i), name: l.name ?? "" }
+        )
+        .filter((l) => l.name);
+    }
+    if (Array.isArray(raw?.locations)) {
+      return raw.locations
+        .map((l, i) =>
+          typeof l === "string"
+            ? { _id: String(i), name: l }
+            : { _id: l._id ?? String(i), name: l.name ?? "" }
+        )
+        .filter((l) => l.name);
+    }
+    // anything else (object, string, null) -> empty array
+    return [];
+  };
+
   const loadLocations = async () => {
-    const { data } = await axios.get("/api/locations");
-    setLocations(data || []);
-    if (!targetLocation && data?.[0]) setTargetLocation(data[0].name);
+    try {
+      const { data } = await axios.get("/api/locations");
+      const safe = normalizeLocations(data);
+      setLocations(safe);
+      // set a default destination if none selected
+      if (!targetLocation) {
+        const first = safe[0]?.name || user?.location || "Lagos";
+        setTargetLocation(first);
+      }
+    } catch (e) {
+      // keep locations as [] so UI remains stable
+      setLocations([]);
+      if (process.env.NODE_ENV === "development") {
+        // eslint-disable-next-line no-console
+        console.error("Failed to load locations:", e);
+      }
+      toast.error("Failed to load locations");
+    }
   };
 
   const loadProducts = async (loc) => {
     setLoading(true);
     try {
-      // 1) total across ALL locations (for the badge)
+      // 1) total across ALL locations
       const totalResp = await fetchProducts({
         limit: 1,
         page: 1,
@@ -49,9 +91,13 @@ export default function ProductTransfer() {
         ...(loc && loc !== "All" ? { stockLocation: loc } : {}),
       });
 
-      setProducts(list);
-      setTotalSelected(selTotal);
-    } catch {
+      setProducts(Array.isArray(list) ? list : []);
+      setTotalSelected(Number(selTotal || 0));
+    } catch (e) {
+      if (process.env.NODE_ENV === "development") {
+        // eslint-disable-next-line no-console
+        console.error("Failed to load products:", e);
+      }
       toast.error("Failed to load products");
     } finally {
       setLoading(false);
@@ -60,17 +106,22 @@ export default function ProductTransfer() {
 
   useEffect(() => {
     loadLocations();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     loadProducts(activeTab);
     setChecked({});
     setQty({});
-  }, [activeTab, query]);
+  }, [activeTab, query]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const tabs = useMemo(
-    () => ["All", ...locations.map((l) => l.name)],
-    [locations]
-  );
+  // tabs are derived from safe array; never call .map on non-array
+  const tabs = useMemo(() => {
+    const arr = Array.isArray(locations) ? locations : [];
+    const names = arr.map((l) => l?.name).filter(Boolean);
+    // remove dupes just in case
+    const uniq = Array.from(new Set(names));
+    return ["All", ...uniq];
+  }, [locations]);
 
   const toggle = (id, max) => {
     setChecked((p) => ({ ...p, [id]: !p[id] }));
@@ -113,8 +164,8 @@ export default function ProductTransfer() {
         toLocation: targetLocation,
         items: list,
       });
-      const ok = data.results?.filter((r) => r.ok).length || 0;
-      const bad = (data.results?.length || 0) - ok;
+      const ok = data?.results?.filter?.((r) => r.ok).length || 0;
+      const bad = (data?.results?.length || 0) - ok;
       if (ok) toast.success(`Transferred ${ok} item(s)`);
       if (bad) toast.warn(`${bad} item(s) failed`);
       loadProducts(activeTab);
@@ -140,8 +191,8 @@ export default function ProductTransfer() {
               onChange={(e) => setTargetLocation(e.target.value)}
               className="border rounded-lg px-2 py-2 text-sm"
             >
-              {locations.map((l) => (
-                <option key={l._id} value={l.name}>
+              {(Array.isArray(locations) ? locations : []).map((l) => (
+                <option key={l._id ?? l.name} value={l.name}>
                   {l.name}
                 </option>
               ))}
