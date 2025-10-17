@@ -12,11 +12,16 @@ import { toast } from "react-toastify";
 import { fetchProducts, createBulkOrders } from "../../api";
 
 const makeEmptyLine = () => ({
-  productId: "",
+  // selection
+  productId: "", // kept for compatibility (not used when grouped)
+  _picked: null, // the product chosen (for label)
+  _groupKey: "", // normalized name key
+  _groupProducts: [], // all product docs with the same name
+  _search: "",
+
+  // money/qty
   qty: 1,
   price: 0,
-  _picked: null,
-  _search: "",
 });
 
 const makeEmptyCustomer = () => ({
@@ -24,19 +29,22 @@ const makeEmptyCustomer = () => ({
   customerPhone: "",
   isPaid: true,
   paymentMethod: "cash",
-  rows: [makeEmptyLine()], // start with 1 line
+  rows: [makeEmptyLine()],
 });
+
+const norm = (s = "") => String(s).trim().toLowerCase();
 
 export default function BulkSalePage({ onClose }) {
   const [allProducts, setAllProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // customers
-  const minCustomers = 2; // ← minimum of 2; no max
+  const minCustomers = 2; // minimum 2, max = infinity
   const [customers, setCustomers] = useState(
     Array.from({ length: minCustomers }, () => makeEmptyCustomer())
   );
 
+  /* load stock */
   useEffect(() => {
     (async () => {
       try {
@@ -53,15 +61,40 @@ export default function BulkSalePage({ onClose }) {
     })();
   }, []);
 
+  /* group stock by product name (case-insensitive) */
+  const grouped = useMemo(() => {
+    const map = new Map(); // key => { displayName, totalQty, price, image, products[] }
+    for (const p of allProducts) {
+      const key = norm(p.productName);
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          displayName: p.productName,
+          totalQty: 0,
+          price: Number(p.sellingPrice || 0),
+          image: p.images?.[0] || "",
+          products: [],
+        });
+      }
+      const g = map.get(key);
+      g.totalQty += Number(p.quantity || 0);
+      g.products.push(p);
+      if (!g.price && Number(p.sellingPrice || 0))
+        g.price = Number(p.sellingPrice || 0);
+      if (!g.image && p.images?.[0]) g.image = p.images[0];
+    }
+    return map;
+  }, [allProducts]);
+
+  /* search options use grouped names */
   const visibleOptions = (needle) => {
-    const q = (needle || "").trim().toLowerCase();
-    if (!q) return allProducts.slice(0, 10);
-    return allProducts
-      .filter((p) => p.productName.toLowerCase().includes(q))
-      .slice(0, 10);
+    const q = norm(needle);
+    const arr = Array.from(grouped.values());
+    if (!q) return arr.slice(0, 10);
+    return arr.filter((g) => norm(g.displayName).includes(q)).slice(0, 10);
   };
 
-  // per-customer operations
+  // per-customer ops
   const updateCustomer = (idx, patch) => {
     setCustomers((prev) => {
       const cp = [...prev];
@@ -75,13 +108,13 @@ export default function BulkSalePage({ onClose }) {
 
   const removeCustomer = (idx) =>
     setCustomers((prev) => {
-      if (prev.length <= minCustomers) return prev; // keep at least 2
+      if (prev.length <= minCustomers) return prev;
       const cp = [...prev];
       cp.splice(idx, 1);
       return cp;
     });
 
-  // per-row operations
+  // per-row ops
   const addRow = (cIdx) =>
     setCustomers((prev) => {
       const cp = [...prev];
@@ -93,7 +126,7 @@ export default function BulkSalePage({ onClose }) {
     setCustomers((prev) => {
       const cp = [...prev];
       const rows = [...cp[cIdx].rows];
-      if (rows.length <= 1) return prev; // keep at least one line per customer card
+      if (rows.length <= 1) return prev; // keep at least one line
       rows.splice(rIdx, 1);
       cp[cIdx] = { ...cp[cIdx], rows };
       return cp;
@@ -105,13 +138,15 @@ export default function BulkSalePage({ onClose }) {
       const rows = [...cp[cIdx].rows];
       const next = { ...rows[rIdx], ...patch };
 
-      // reset pick when search changes
+      // if user edits search, clear selection so dropdown can re-open
       if (
         patch._search !== undefined &&
-        patch._search !== next._picked?.productName
+        patch._search !== (next._picked?.productName || "")
       ) {
         next._picked = null;
         next.productId = "";
+        next._groupKey = "";
+        next._groupProducts = [];
       }
 
       rows[rIdx] = next;
@@ -119,25 +154,50 @@ export default function BulkSalePage({ onClose }) {
       return cp;
     });
 
-  const pickProduct = (cIdx, rIdx, p) =>
+  /* when a grouped name is picked */
+  const pickProduct = (cIdx, rIdx, group) =>
     setCustomers((prev) => {
       const cp = [...prev];
       const rows = [...cp[cIdx].rows];
+      const first = group.products[0] || {};
+      // If nothing left, set qty = 0 and warn
+      const totalLeft = group.totalQty;
+      if (totalLeft <= 0) {
+        toast.warn(`No stock left for ${group.displayName}`);
+      }
       rows[rIdx] = {
         ...rows[rIdx],
-        productId: p._id,
-        price: Number(p.sellingPrice || 0),
-        _picked: p,
-        _search: p.productName,
+        productId: "", // we will split into real IDs when saving
+        _picked: first, // for label/image
+        _groupKey: group.key,
+        _groupProducts: group.products,
+        _search: "", // ← clear text so dropdown disappears
+        price:
+          rows[rIdx].price && rows[rIdx].price > 0
+            ? rows[rIdx].price
+            : Number(first.sellingPrice || group.price || 0),
+        qty: Math.max(0, Math.min(rows[rIdx].qty || 1, totalLeft || 0)),
       };
       cp[cIdx] = { ...cp[cIdx], rows };
       return cp;
     });
 
+  /* remaining stock for a grouped name on this customer card,
+     subtracting qty used by other rows with the same name (EXCLUDING this row) */
+  const remainingForName = (customer, groupKey, excludeIndex = -1) => {
+    if (!groupKey) return 0;
+    const total = grouped.get(groupKey)?.totalQty || 0;
+    const usedByOthers = (customer.rows || []).reduce((s, r, idx) => {
+      if (idx === excludeIndex) return s;
+      return r._groupKey === groupKey ? s + Number(r.qty || 0) : s;
+    }, 0);
+    return Math.max(0, total - usedByOthers);
+  };
+
   const customerSubtotal = (c) =>
     c.rows.reduce(
       (s, r) =>
-        r.productId ? s + Number(r.qty || 0) * Number(r.price || 0) : s,
+        r._groupKey ? s + Number(r.qty || 0) * Number(r.price || 0) : s,
       0
     );
 
@@ -146,23 +206,31 @@ export default function BulkSalePage({ onClose }) {
     [customers]
   );
 
+  /* validation */
   const validate = () => {
-    // at least one customer must have at least one product selected
-    const anyLines = customers.some((c) => c.rows.some((r) => !!r.productId));
+    // at least one actual line chosen
+    const anyLines = customers.some((c) => c.rows.some((r) => !!r._groupKey));
     if (!anyLines) return "Pick at least one product across customers.";
 
-    // each customer that has any product must have name & phone
     for (const [idx, c] of customers.entries()) {
-      const hasLines = c.rows.some((r) => !!r.productId);
+      const hasLines = c.rows.some((r) => !!r._groupKey);
       if (!hasLines) continue;
       if (!c.customerName.trim())
         return `Customer #${idx + 1}: name is required.`;
       if (!c.customerPhone.trim())
         return `Customer #${idx + 1}: mobile is required.`;
-      for (const r of c.rows) {
-        if (!r.productId) continue;
+
+      for (let i = 0; i < c.rows.length; i++) {
+        const r = c.rows[i];
+        if (!r._groupKey) continue;
+
+        const maxAllowed = remainingForName(c, r._groupKey, i);
         if (!Number(r.qty) || Number(r.qty) <= 0)
           return `Customer #${idx + 1}: quantity must be positive.`;
+        if (Number(r.qty) > maxAllowed)
+          return `Customer #${idx + 1}: qty exceeds stock for “${
+            grouped.get(r._groupKey)?.displayName || "item"
+          }”. Available: ${maxAllowed}.`;
         if (!Number.isFinite(Number(r.price)) || Number(r.price) < 0)
           return `Customer #${idx + 1}: price must be valid.`;
       }
@@ -172,19 +240,37 @@ export default function BulkSalePage({ onClose }) {
 
   const [saving, setSaving] = useState(false);
 
+  /* expand a grouped row into concrete orderItems (split across product IDs) */
+  const explodeRowIntoItems = (row) => {
+    const items = [];
+    let need = Number(row.qty || 0);
+    const products = row._groupProducts || [];
+    for (const p of products) {
+      if (need <= 0) break;
+      const available = Number(p.quantity || 0);
+      if (available <= 0) continue;
+      const take = Math.min(need, available);
+      items.push({
+        product: p._id,
+        qty: take,
+        price: Number(row.price || 0),
+      });
+      need -= take;
+    }
+    return items;
+  };
+
   const onSave = async () => {
     const err = validate();
     if (err) return toast.error(err);
 
     const sales = customers
       .map((c) => {
+        // build orderItems by expanding each grouped line
         const orderItems = c.rows
-          .filter((r) => !!r.productId)
-          .map((r) => ({
-            product: r.productId,
-            qty: Number(r.qty || 0),
-            price: Number(r.price || 0),
-          }));
+          .filter((r) => !!r._groupKey && Number(r.qty || 0) > 0)
+          .flatMap((r) => explodeRowIntoItems(r));
+
         if (!orderItems.length) return null;
 
         return {
@@ -340,11 +426,11 @@ export default function BulkSalePage({ onClose }) {
                   <tbody>
                     {c.rows.map((r, rIdx) => {
                       const options = visibleOptions(r._search);
-                      const maxQty =
-                        r._picked?.quantity ??
-                        allProducts.find((p) => p._id === r.productId)
-                          ?.quantity ??
-                        0;
+                      // ❗ Max allowed for this row is total - used by other rows (do NOT add this row's qty)
+                      const maxForThisRow = r._groupKey
+                        ? remainingForName(c, r._groupKey, rIdx)
+                        : 0;
+
                       return (
                         <tr key={rIdx} className="border-b">
                           <td className="px-3 py-2 min-w-[320px]">
@@ -357,73 +443,122 @@ export default function BulkSalePage({ onClose }) {
                                     _search: e.target.value,
                                   })
                                 }
-                                placeholder="Search product…"
+                                placeholder={
+                                  r._picked?.productName
+                                    ? r._picked.productName
+                                    : "Search product…"
+                                }
                                 className="w-full pl-9 pr-3 py-2 border rounded-lg"
                               />
-                              {!loading && (r._search?.trim() || "") !== "" && (
-                                <div className="absolute z-20 bg-white border rounded-lg shadow mt-1 max-h-56 overflow-auto w-full">
-                                  {options.length ? (
-                                    options.map((p) => (
-                                      <div
-                                        key={p._id}
-                                        onMouseDown={(e) => {
-                                          e.preventDefault();
-                                          pickProduct(cIdx, rIdx, p);
-                                        }}
-                                        className="px-3 py-2 hover:bg-gray-50 cursor-pointer flex items-center gap-2"
-                                      >
-                                        <img
-                                          alt=""
-                                          src={
-                                            p.images?.[0] ||
-                                            "https://via.placeholder.com/24"
-                                          }
-                                          className="w-6 h-6 rounded object-cover"
-                                        />
-                                        <div className="flex-1">
-                                          <div className="text-sm">
-                                            {p.productName}
-                                          </div>
-                                          <div className="text-xs text-gray-500">
-                                            ₦
-                                            {Number(
-                                              p.sellingPrice || 0
-                                            ).toLocaleString()}{" "}
-                                            — in stock: {p.quantity}
+                              {/* dropdown: only when typing AND not selected */}
+                              {!loading &&
+                                (r._search?.trim() || "") !== "" &&
+                                !r._picked && (
+                                  <div className="absolute z-20 bg-white border rounded-lg shadow mt-1 max-h-56 overflow-auto w-full">
+                                    {options.length ? (
+                                      options.map((g) => (
+                                        <div
+                                          key={g.key}
+                                          onMouseDown={(e) => {
+                                            e.preventDefault();
+                                            pickProduct(cIdx, rIdx, g);
+                                          }}
+                                          className="px-3 py-2 hover:bg-gray-50 cursor-pointer flex items-center gap-2"
+                                        >
+                                          <img
+                                            alt=""
+                                            src={
+                                              g.image ||
+                                              "https://via.placeholder.com/24"
+                                            }
+                                            className="w-6 h-6 rounded object-cover"
+                                          />
+                                          <div className="flex-1">
+                                            <div className="text-sm">
+                                              {g.displayName}
+                                            </div>
+                                            <div className="text-xs text-gray-500">
+                                              ₦
+                                              {Number(
+                                                g.price || 0
+                                              ).toLocaleString()}{" "}
+                                              — in stock: {g.totalQty}
+                                            </div>
                                           </div>
                                         </div>
+                                      ))
+                                    ) : (
+                                      <div className="px-3 py-2 text-sm text-gray-500">
+                                        No matches
                                       </div>
-                                    ))
-                                  ) : (
-                                    <div className="px-3 py-2 text-sm text-gray-500">
-                                      No matches
-                                    </div>
-                                  )}
-                                </div>
-                              )}
+                                    )}
+                                  </div>
+                                )}
                             </div>
                             {r._picked && (
                               <div className="text-xs text-gray-500 mt-1">
                                 Selected:{" "}
                                 <strong>{r._picked.productName}</strong> (in
-                                stock: {r._picked.quantity})
+                                stock: {grouped.get(r._groupKey)?.totalQty ?? 0}
+                                )
                               </div>
                             )}
                           </td>
+
                           <td className="px-3 py-2">
                             <input
                               type="number"
                               min={1}
-                              max={Math.max(1, maxQty)}
+                              // HTML max is advisory; we still clamp in JS below
+                              max={Math.max(1, maxForThisRow || 1)}
                               value={r.qty}
-                              onChange={(e) =>
-                                updateRow(cIdx, rIdx, {
-                                  qty: Math.max(1, Number(e.target.value || 1)),
-                                })
-                              }
+                              onChange={(e) => {
+                                const raw = Math.max(
+                                  1,
+                                  Number(e.target.value || 1)
+                                );
+                                const cap = maxForThisRow || 0;
+                                // If nothing left for this row, force 0 and warn
+                                if (cap <= 0) {
+                                  if (raw > 0) {
+                                    toast.warn(
+                                      `No stock available for this line.`
+                                    );
+                                  }
+                                  updateRow(cIdx, rIdx, { qty: 0 });
+                                  return;
+                                }
+                                const clamped = Math.min(raw, cap);
+                                if (raw > cap) {
+                                  toast.warn(
+                                    `Qty reduced to available (${cap}).`
+                                  );
+                                }
+                                updateRow(cIdx, rIdx, { qty: clamped });
+                              }}
+                              onBlur={(e) => {
+                                // extra safety on blur
+                                const raw = Math.max(
+                                  1,
+                                  Number(e.target.value || 1)
+                                );
+                                const cap = maxForThisRow || 0;
+                                const clamped =
+                                  cap <= 0 ? 0 : Math.min(raw, cap);
+                                if (clamped !== (r.qty || 0)) {
+                                  updateRow(cIdx, rIdx, { qty: clamped });
+                                }
+                              }}
                               className="w-24 border rounded-lg px-2 py-1"
+                              disabled={!r._groupKey || maxForThisRow === 0}
                             />
+                            {r._groupKey && maxForThisRow === 0 && (
+                              <div className="text-xs text-red-600 mt-1">
+                                Out of stock for this selection
+                              </div>
+                            )}
                           </td>
+
                           <td className="px-3 py-2">
                             <input
                               type="number"
@@ -434,14 +569,17 @@ export default function BulkSalePage({ onClose }) {
                                 })
                               }
                               className="w-32 border rounded-lg px-2 py-1"
+                              disabled={!r._groupKey}
                             />
                           </td>
+
                           <td className="px-3 py-2">
                             ₦
                             {(
                               Number(r.qty || 0) * Number(r.price || 0)
                             ).toLocaleString()}
                           </td>
+
                           <td className="px-3 py-2">
                             <button
                               onClick={() => removeRow(cIdx, rIdx)}
