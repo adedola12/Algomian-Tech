@@ -17,7 +17,7 @@ import {
  */
 export default function ShippingInfoCard({
   address  = '',
-  phone    = '',
+  phone    = '', 
   email    = '',
   readonly = false,
   onSave   = async () => {},

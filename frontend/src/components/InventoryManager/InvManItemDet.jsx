@@ -146,7 +146,7 @@ export default function InvManItemDet({ order, onOrderChange }) {
                     className="form-checkbox text-orange-600"
                     checked={(selectedSerials[item.product] || []).includes(
                       spec.serialNumber
-                    )}
+                    )} 
                     onChange={() =>
                       toggleSerial(item.product, spec.serialNumber)
                     }

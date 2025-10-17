@@ -99,7 +99,10 @@ export const getShipmentByOrder = asyncHandler(async (req, res) => {
   if (!shipment) {
     return res.status(204).end();
   }
-  res.json(shipment);
+  // res.json(shipment);
+  const safe = shipment.toObject();
+  if (!Array.isArray(safe.timeline)) safe.timeline = [];
+  res.json(safe);
 });
 
 /* ─ controllers/logisticsController.js ─────────────────────────── */
@@ -147,9 +150,10 @@ export const updateDeliveryContact = asyncHandler(async (req, res) => {
   res.json(logistic);
 });
 
-export const driverLogist =  asyncHandler(async (req, res) => {
-  const list = await Logistics
-                 .find({ assignedTo: req.user._id })
-                 .populate('order', 'trackingId status orderItems user shippingAddress');
+export const driverLogist = asyncHandler(async (req, res) => {
+  const list = await Logistics.find({ assignedTo: req.user._id }).populate(
+    "order",
+    "trackingId status orderItems user shippingAddress"
+  );
   res.json(list);
-})
+});

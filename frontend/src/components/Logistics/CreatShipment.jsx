@@ -64,7 +64,7 @@ export default function CreateShipment() {
               phone: lg.deliveryPhone || ord.shippingAddress.phone,
               email: lg.deliveryEmail || ord.user.email,
             });
-            setTimeline(lg.timeline || []);
+            setTimeline(Array.isArray(lg.timeline) ? lg.timeline : []);
           }
         } catch {
           setContact({
@@ -74,6 +74,7 @@ export default function CreateShipment() {
           });
         }
       } catch (err) {
+        setTimeline([]);
         toast.error(err.response?.data?.message || err.message);
         nav("/logistics");
       } finally {
