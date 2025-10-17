@@ -226,7 +226,7 @@ export default function CreateShipment() {
             readonly={readonly}
             onSave={saveContact}
           />
-          <TrackOrderCard timeline={timeline} />
+          <TrackOrderCard timeline={Array.isArray(timeline) ? timeline : []} />
         </div>
       </div>
     </div>

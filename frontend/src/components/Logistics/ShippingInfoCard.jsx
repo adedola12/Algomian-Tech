@@ -1,12 +1,6 @@
 /*  src/components/Logistics/ShippingInfoCard.jsx  */
-import React, { useState } from 'react';
-import {
-  FiEdit2,
-  FiCheck,
-  FiMapPin,
-  FiPhone,
-  FiMail,
-} from 'react-icons/fi';
+import React, { useState } from "react";
+import { FiEdit2, FiCheck, FiMapPin, FiPhone, FiMail } from "react-icons/fi";
 
 /**
  * @param {string}  address   defaults from Order.shippingAddress
@@ -16,20 +10,22 @@ import {
  * @param {function(addr,phone,email):Promise<void>} onSave  async cb
  */
 export default function ShippingInfoCard({
-  address  = '',
-  phone    = '', 
-  email    = '',
+  address = "",
+  phone = "",
+  email = "",
   readonly = false,
-  onSave   = async () => {},
+  onSave = async () => {},
 }) {
-  const [edit , setEdit ] = useState(false);
-  const [addr , setAddr ] = useState(address);
-  const [mobile, setMob  ] = useState(phone);
-  const [mail , setMail ] = useState(email);
-  const [busy , setBusy ] = useState(false);
+  const [edit, setEdit] = useState(false);
+  const [addr, setAddr] = useState(address);
+  const [mobile, setMob] = useState(phone);
+  const [mail, setMail] = useState(email);
+  const [busy, setBusy] = useState(false);
 
   const cancel = () => {
-    setAddr(address); setMob(phone); setMail(email);
+    setAddr(address);
+    setMob(phone);
+    setMail(email);
     setEdit(false);
   };
 
@@ -48,9 +44,10 @@ export default function ShippingInfoCard({
           Shipping Information
         </h3>
 
-        {!readonly && (
-          edit ? (
+        {!readonly &&
+          (edit ? (
             <button
+              type="button"
               disabled={busy}
               onClick={save}
               className="flex items-center text-sm font-medium text-green-600 hover:text-green-700 disabled:opacity-50"
@@ -60,14 +57,14 @@ export default function ShippingInfoCard({
             </button>
           ) : (
             <button
+              type="button"
               onClick={() => setEdit(true)}
               className="flex items-center text-sm font-medium text-orange-600 hover:text-orange-700"
             >
               <FiEdit2 className="mr-1" />
               Edit
             </button>
-          )
-        )}
+          ))}
       </div>
 
       {/* form / display */}
@@ -78,7 +75,7 @@ export default function ShippingInfoCard({
             <input
               type="text"
               value={addr}
-              onChange={e => setAddr(e.target.value)}
+              onChange={(e) => setAddr(e.target.value)}
               className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500"
             />
           </label>
@@ -88,7 +85,7 @@ export default function ShippingInfoCard({
             <input
               type="text"
               value={mobile}
-              onChange={e => setMob(e.target.value)}
+              onChange={(e) => setMob(e.target.value)}
               className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500"
             />
           </label>
@@ -98,7 +95,7 @@ export default function ShippingInfoCard({
             <input
               type="email"
               value={mail}
-              onChange={e => setMail(e.target.value)}
+              onChange={(e) => setMail(e.target.value)}
               className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500"
             />
           </label>
@@ -115,15 +112,15 @@ export default function ShippingInfoCard({
         <ul className="space-y-3 text-sm text-gray-700">
           <li className="flex items-start space-x-2">
             <FiMapPin className="mt-1 text-gray-500" />
-            <span>{address || '—'}</span>
+            <span>{address || "—"}</span>
           </li>
           <li className="flex items-center space-x-2">
             <FiPhone className="text-gray-500" />
-            <span>{phone || '—'}</span>
+            <span>{phone || "—"}</span>
           </li>
           <li className="flex items-center space-x-2">
             <FiMail className="text-gray-500" />
-            <span>{email || '—'}</span>
+            <span>{email || "—"}</span>
           </li>
         </ul>
       )}

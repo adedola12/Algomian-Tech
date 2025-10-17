@@ -13,15 +13,17 @@ const LABELS = {
 
 export default function TrackOrderCard({ timeline }) {
   const steps = Array.isArray(timeline) ? timeline : [];
-  /* ensure at least the first step exists */
-  //  const steps = timeline.length
-  //    ? timeline
-  //    : [{ status: 'Received', time: new Date() }];
+  const safeSteps = steps.filter(
+    (s) => s && typeof s === "object" && typeof s.status === "string"
+  );
 
+  const firstNonDelivered = safeSteps.findIndex(
+    (s) => s.status !== "Delivered"
+  );
   const currentIdx =
-    steps.findIndex((s) => s.status !== "Delivered") === -1
-      ? steps.length - 1
-      : steps.findIndex((s) => s.status !== "Delivered");
+    firstNonDelivered === -1
+      ? Math.max(0, safeSteps.length - 1)
+      : firstNonDelivered;
 
   const renderStatus = (step, idx) => {
     const label = LABELS[step?.status] || step?.status || "—";
@@ -60,7 +62,7 @@ export default function TrackOrderCard({ timeline }) {
     <div className="bg-white rounded-lg shadow p-6 max-w-md w-full">
       <h3 className="text-lg font-medium text-gray-800 mb-4">Order Tracking</h3>
       <ul className="relative border-l border-gray-200">
-        {steps.map(renderStatus)}
+        {safeSteps.map(renderStatus)}
       </ul>
     </div>
   );

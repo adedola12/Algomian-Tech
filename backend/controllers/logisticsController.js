@@ -101,7 +101,7 @@ export const getShipmentByOrder = asyncHandler(async (req, res) => {
   }
   // res.json(shipment);
   const safe = shipment.toObject();
-  if (!Array.isArray(safe.timeline)) safe.timeline = [];
+  safe.timeline = Array.isArray(safe.timeline) ? safe.timeline : [];
   res.json(safe);
 });
 
