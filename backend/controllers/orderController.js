@@ -298,248 +298,6 @@ const hasChangeStream = () => {
   return !!mongoose.connection?.db?.topology?.s?.hosts;
 };
 
-// /* explode a requested order line into a stored line */
-// const makeOrderLine = async (src) => {
-//   const prod = await Product.findById(src.product);
-//   if (!prod) throw new Error(`Product not found: ${src.product}`);
-//   if (prod.quantity < src.qty)
-//     throw new Error(
-//       `Insufficient stock for ${prod.productName} – have ${prod.quantity}`
-//     );
-
-//   return {
-//     product: prod._id,
-//     name: prod.productName,
-//     baseRam: src.baseRam ?? "",
-//     baseStorage: src.baseStorage ?? "",
-//     baseCPU: src.baseCPU ?? "",
-//     variantSelections: Array.isArray(src.variantSelections)
-//       ? src.variantSelections.map((v) => ({
-//           label: v.label || "",
-//           cost: Number(v.cost) || 0,
-//         }))
-//       : [],
-//     qty: src.qty,
-//     price: src.price,
-//     image: prod.images?.[0] || "",
-//     maxQty: prod.quantity,
-//   };
-// };
-
-// export const addOrderItems = asyncHandler(async (req, res) => {
-//   const {
-//     orderItems = [],
-//     shippingAddress = {},
-//     paymentMethod,
-//     orderType = "sale",
-//     isPaid = true,
-//     shippingPrice = 0,
-//     taxPrice = 0,
-//     pointOfSale,
-//     selectedCustomerId,
-//     customerName = "",
-//     customerPhone = "",
-//     deliveryMethod = "self",
-//     parkLocation = "",
-//     referralId,
-//     referralName,
-//     referralPhone,
-//     receiverName = "",
-//     receiverPhone = "",
-//     receiptName = "",
-//     receiptAmount = 0,
-//     deliveryNote = "",
-//     deliveryPaid = true,
-//   } = req.body;
-
-//   if (!orderItems || orderItems.length === 0) {
-//     res.status(400);
-//     throw new Error("No order items provided");
-//   }
-
-//   const detailedItems = await Promise.all(orderItems.map(makeOrderLine));
-
-//   // Pick the customer to link (if any)
-//   let userId = req.user._id; // will be overwritten when we have a real customer
-//   if (selectedCustomerId) {
-//     const customer = await User.findById(selectedCustomerId);
-//     if (!customer || customer.userType !== "Customer") {
-//       res.status(400);
-//       throw new Error("Invalid customer ID");
-//     }
-//     userId = customer._id;
-//   } else if (customerName && customerPhone) {
-//     const existingUser = await User.findOne({ whatAppNumber: customerPhone });
-//     if (existingUser) {
-//       userId = existingUser._id;
-//     } else {
-//       const [firstName, ...rest] = customerName.trim().split(" ");
-//       const lastName = rest.join(" ") || "-";
-//       const newCustomer = await User.create({
-//         firstName: firstName || "Unnamed",
-//         lastName: lastName || "-",
-//         whatAppNumber: customerPhone,
-//         email: `${customerPhone}@generated.com`,
-//         password: customerPhone + "123",
-//         userType: "Customer",
-//       });
-//       userId = newCustomer._id;
-//     }
-//   }
-
-//   /* money */
-//   const itemsPrice = detailedItems.reduce(
-//     (s, it) =>
-//       s +
-//       it.qty *
-//         (it.price + it.variantSelections.reduce((p, v) => p + v.cost, 0)),
-//     0
-//   );
-//   const items = Number(itemsPrice || 0);
-//   const tax = Number(taxPrice || 0);
-//   const shipping = Number(shippingPrice || 0);
-//   const includeShipping = deliveryPaid ? shipping : 0;
-//   const totalPrice = items + tax + includeShipping;
-
-//   const base = {
-//     trackingId: crypto.randomBytes(4).toString("hex").toUpperCase(),
-//     user: userId, // linked customer (if any)
-//     customerName, // NEW: always store what was typed
-//     customerPhone, // NEW
-//     createdBy: req.user._id, // NEW: who created the sale
-//     referral: null,
-//     referralName: referralName || "",
-//     referralPhone: referralPhone || "",
-//     pointOfSale,
-//     orderItems: detailedItems,
-//     shippingAddress,
-//     itemsPrice,
-//     shippingPrice,
-//     taxPrice,
-//     totalPrice,
-//     deliveryMethod,
-//     receiverName,
-//     receiverPhone,
-//     receiptName,
-//     receiptAmount,
-//     deliveryNote,
-//     deliveryPaid,
-//   };
-
-//   // optional referral linking
-//   if (referralId) {
-//     base.referral = referralId;
-//   } else if (referralName && referralPhone) {
-//     const existingRef = await User.findOne({ whatAppNumber: referralPhone });
-//     if (existingRef) {
-//       base.referral = existingRef._id;
-//     } else {
-//       const [first, ...rest] = referralName.trim().split(" ");
-//       const newRef = await User.create({
-//         firstName: first || "Ref",
-//         lastName: rest.join(" ") || "-",
-//         email: `${referralPhone}@ref.generated`,
-//         password: referralPhone + "123",
-//         userType: "Customer",
-//         whatAppNumber: referralPhone,
-//       });
-//       base.referral = newRef._id;
-//     }
-//   }
-
-//   const doc =
-//     orderType === "invoice"
-//       ? { ...base, status: "Invoice", isPaid: false, paymentMethod: undefined }
-//       : { ...base, paymentMethod };
-
-//   const order = await Order.create(doc);
-//   const createdOrder = await order.save();
-
-//   // WhatsApp fire-and-forget (unchanged)
-//   (async () => {
-//     try {
-//       if (customerPhone) {
-//         const msisdn = customerPhone.replace(/^0/, "234").replace(/\D/g, "");
-//         const msg = [
-//           `Hello ${customerName || "Customer"},`,
-//           ``,
-//           `Your order *${createdOrder.trackingId}* has been received ✅`,
-//           `Status : ${createdOrder.status}`,
-//           `Delivery: ${
-//             deliveryMethod === "logistics"
-//               ? `Logistics — ${shippingAddress.address}`
-//               : deliveryMethod === "park"
-//                 ? `Park Pick-Up — ${parkLocation}`
-//                 : "Self Pick-Up"
-//           }`,
-//           `Total  : ₦${createdOrder.totalPrice.toLocaleString()}`,
-//           ``,
-//           `Thank you for shopping with us!`,
-//         ].join("\n");
-//         await sendWhatsApp({ to: msisdn, body: msg });
-//       }
-//     } catch (err) {
-//       console.error("⚠️ WhatsApp message failed:", err.message);
-//     }
-//   })();
-
-//   // Link order to user (if it's genuinely a customer)
-//   const linkedUser = await User.findById(userId);
-//   if (linkedUser && Array.isArray(linkedUser.orders)) {
-//     linkedUser.orders.push(createdOrder._id);
-//     await linkedUser.save();
-//   }
-
-//   // Stock updates (unchanged)
-//   const lowStockWarnings = [];
-//   await Promise.all(
-//     detailedItems.map(async (item) => {
-//       const product = await Product.findById(item.product);
-//       product.quantity -= item.qty;
-//       if (product.quantity <= product.reorderLevel) {
-//         product.availability = "restocking";
-//         lowStockWarnings.push(
-//           `⚠️ ${product.productName} is low on stock (${product.quantity} left)`
-//         );
-//       }
-//       await product.save();
-//     })
-//   );
-
-//   res.status(201).json({
-//     message: "Order placed successfully",
-//     order: createdOrder,
-//     lowStockWarnings,
-//   });
-// });
-
-// const makeOrderLine = async (src) => {
-//   const prod = await Product.findById(src.product);
-//   if (!prod) throw new Error(`Product not found: ${src.product}`);
-//   if (prod.quantity < src.qty) {
-//     throw new Error(
-//       `Insufficient stock for ${prod.productName} – have ${prod.quantity}`
-//     );
-//   }
-//   return {
-//     product: prod._id,
-//     name: prod.productName,
-//     baseRam: src.baseRam ?? "",
-//     baseStorage: src.baseStorage ?? "",
-//     baseCPU: src.baseCPU ?? "",
-//     variantSelections: Array.isArray(src.variantSelections)
-//       ? src.variantSelections.map((v) => ({
-//           label: v.label || "",
-//           cost: Number(v.cost) || 0,
-//         }))
-//       : [],
-//     qty: src.qty,
-//     price: src.price,
-//     image: prod.images?.[0] || "",
-//     maxQty: prod.quantity,
-//   };
-// };
-
 const slug = (s = "") =>
   String(s)
     .toLowerCase()
@@ -1284,6 +1042,179 @@ export const updateOrderDetails = asyncHandler(async (req, res) => {
 
   const saved = await order.save();
   res.json(saved);
+});
+
+export const addBulkOrders = asyncHandler(async (req, res) => {
+  const { sales = [] } = req.body;
+
+  if (!Array.isArray(sales) || !sales.length) {
+    res.status(400);
+    throw new Error("No sales array provided");
+  }
+
+  const session = await mongoose.startSession();
+  const results = [];
+  const lowStockNotices = [];
+
+  try {
+    await session.withTransaction(async () => {
+      for (const sale of sales) {
+        try {
+          const {
+            customerName = "",
+            customerPhone = "",
+            customerEmail = "",
+            selectedCustomerId,
+            isPaid = true,
+            paymentMethod,
+            orderItems = [],
+          } = sale;
+
+          if (!Array.isArray(orderItems) || !orderItems.length) {
+            throw new Error("Sale must include orderItems");
+          }
+
+          // explode & validate lines
+          const detailedItems = await Promise.all(
+            orderItems.map(makeOrderLine)
+          );
+
+          // ensure/resolve customer (simplified)
+          let userDoc = null;
+          if (selectedCustomerId) {
+            const u = await User.findById(selectedCustomerId).session(session);
+            if (!u || u.userType !== "Customer")
+              throw new Error("Invalid customer ID");
+            userDoc = u;
+          } else {
+            const byPhone =
+              (customerPhone &&
+                (await User.findOne({ whatAppNumber: customerPhone }).session(
+                  session
+                ))) ||
+              null;
+
+            if (byPhone) {
+              userDoc = byPhone;
+            } else if (customerName.trim()) {
+              const [f, ...r] = customerName.trim().split(/\s+/);
+              userDoc = await User.create(
+                [
+                  {
+                    firstName: f || "Customer",
+                    lastName: r.join(" ") || "-",
+                    whatAppNumber: customerPhone || "",
+                    email:
+                      (customerEmail || "").trim().toLowerCase() ||
+                      `${(customerPhone || "cust").replace(/\D/g, "")}@generated.com`,
+                    password: (customerPhone || "Pass") + "123",
+                    userType: "Customer",
+                  },
+                ],
+                { session }
+              ).then((arr) => arr[0]);
+            } else {
+              throw new Error("Customer name & phone required for bulk sale");
+            }
+          }
+
+          // pricing
+          const itemsPrice = detailedItems.reduce(
+            (s, it) =>
+              s +
+              it.qty *
+                (Number(it.price || 0) +
+                  (Array.isArray(it.variantSelections)
+                    ? it.variantSelections.reduce(
+                        (p, v) => p + Number(v.cost || 0),
+                        0
+                      )
+                    : 0)),
+            0
+          );
+          const totalPrice = Number(itemsPrice || 0);
+
+          // doc
+          const doc = {
+            trackingId: crypto.randomBytes(4).toString("hex").toUpperCase(),
+            user: userDoc._id,
+            customerName,
+            customerPhone,
+            createdBy: req.user._id,
+            orderItems: detailedItems,
+            itemsPrice: totalPrice,
+            shippingPrice: 0,
+            taxPrice: 0,
+            totalPrice,
+            paymentMethod: isPaid ? paymentMethod || "cash" : undefined,
+            isPaid: !!isPaid,
+            status: "Pending",
+            deliveryMethod: "self",
+          };
+
+          const order = await Order.create([doc], { session }).then(
+            (a) => a[0]
+          );
+
+          // link order
+          if (!Array.isArray(userDoc.orders)) userDoc.orders = [];
+          userDoc.orders.push(order._id);
+          await userDoc.save({ session });
+
+          // stock decrement + restocking flag
+          for (const item of detailedItems) {
+            const product = await Product.findById(item.product).session(
+              session
+            );
+            if (!product) continue;
+            const newQty = Math.max(
+              0,
+              (product.quantity || 0) - (item.qty || 0)
+            );
+            product.quantity = newQty;
+
+            if (newQty <= (product.reorderLevel || 0)) {
+              product.availability = "restocking";
+              lowStockNotices.push(
+                `⚠️ ${product.productName} is low on stock (${newQty} left)`
+              );
+            }
+            await product.save({ session });
+          }
+
+          // audit
+          await AuditLog.create(
+            [
+              {
+                actor: req.user._id,
+                action: "order.create",
+                targetType: "Order",
+                targetId: order._id,
+                meta: {
+                  total: order.totalPrice,
+                  lines: order.orderItems.length,
+                },
+              },
+            ],
+            { session }
+          );
+
+          results.push({
+            ok: true,
+            orderId: order._id,
+            trackingId: order.trackingId,
+          });
+        } catch (e) {
+          // keep going for other rows; report failure for this one
+          results.push({ ok: false, error: e.message });
+        }
+      }
+    });
+  } finally {
+    session.endSession();
+  }
+
+  res.status(201).json({ results, lowStockNotices });
 });
 
 /**

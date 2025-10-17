@@ -14,6 +14,7 @@ import {
   returnOrder,
   deleteOrder,
   restoreOrder,
+  addBulkOrders,
 } from "../controllers/orderController.js";
 
 import {
@@ -30,6 +31,9 @@ const router = express.Router();
 /* meta / streaming */
 router.get("/new-count", protect, getNewOrdersCount);
 router.get("/stream", protect, streamNewOrders);
+
+
+router.post("/bulk", protect, isSalesTeam, addBulkOrders);
 
 /* my orders */
 router.get("/myorders", protect, getMyOrders);
@@ -59,5 +63,6 @@ router.patch("/:id/return", protect, authorize("order.return"), returnOrder);
 /* delete (soft delete) + restore */
 router.delete("/:id", protect, authorize("order.delete"), deleteOrder);
 router.patch("/:id/restore", protect, isAdmin, restoreOrder);
+
 
 export default router;

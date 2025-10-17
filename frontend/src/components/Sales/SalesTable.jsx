@@ -8,6 +8,8 @@ import {
   FiChevronRight,
 } from "react-icons/fi";
 import SingleSalePage from "./SingleSalePage";
+import BulkSalePage from "./BulkSalePage.jsx";
+
 import { useLocation } from "react-router-dom";
 
 /* ---------- tiny helper just for the "seed" nav flow ---------- */
@@ -96,7 +98,6 @@ export default function SalesTable() {
   const rows = useMemo(
     () =>
       (orders || []).map((o) => {
-        // const first = (o.orderItems || [])[0] || {};
         const names = (o.orderItems || []).map((i) => i?.name).filter(Boolean);
         const first = (o.orderItems || [])[0] || {};
         const productLabel =
@@ -108,7 +109,6 @@ export default function SalesTable() {
         return {
           id: o._id,
           time: new Date(o.createdAt).toLocaleString(),
-          // product: first.name || "—",
           product: productLabel,
           productTitle: names.join(", "),
           details: compactDetails(first),
@@ -117,7 +117,6 @@ export default function SalesTable() {
             linkedCustomerName ||
             "—",
           salesRep: o.createdBy?.firstName || "—",
-          // price: `NGN ${computeTotal(o).toLocaleString()}`,
           price: `NGN ${Number(
             o.totalPrice ?? computeTotal(o)
           ).toLocaleString()}`,
@@ -126,6 +125,8 @@ export default function SalesTable() {
       }),
     [orders]
   );
+
+  const [enterMenuOpen, setEnterMenuOpen] = useState(false);
 
   // search + sort
   const filtered = useMemo(() => {
@@ -180,7 +181,6 @@ export default function SalesTable() {
     fetchOrders();
   };
 
-  // with this:
   const returnSale = async (id) => {
     if (!window.confirm("Return this sale and restock the items?")) return;
     try {
@@ -219,23 +219,50 @@ export default function SalesTable() {
     return list;
   }, [page, totalPages]);
 
-  return showForm ? (
-    <SingleSalePage
-      mode={showForm.mode}
-      orderId={showForm.id}
-      onClose={() => {
-        setShowForm(null);
-        fetchOrders();
-      }}
-    />
-  ) : (
+  /* ---------- EARLY RETURNS FOR FORMS ---------- */
+  if (showForm?.mode === "sale" || showForm === true) {
+    return (
+      <SingleSalePage
+        mode="sale"
+        onClose={() => {
+          setShowForm(null);
+          fetchOrders();
+        }}
+      />
+    );
+  }
+
+  if (showForm?.mode === "invoice") {
+    return (
+      <SingleSalePage
+        mode="invoice"
+        onClose={() => {
+          setShowForm(null);
+          fetchOrders();
+        }}
+      />
+    );
+  }
+
+  if (showForm?.mode === "bulk") {
+    return (
+      <BulkSalePage
+        onClose={() => {
+          setShowForm(null);
+          fetchOrders();
+        }}
+      />
+    );
+  }
+
+  /* ---------- DEFAULT TABLE VIEW ---------- */
+  return (
     <div className="bg-white rounded-2xl shadow p-4 sm:p-6">
       {/* ---------- header: single line ---------- */}
       <div className="flex items-center gap-3 sm:gap-4 justify-between flex-wrap md:flex-nowrap mb-6">
         <h2 className="text-2xl font-semibold text-gray-800 shrink-0">
           Sales Management
         </h2>
-
         {/* search grows to fill middle space */}
         <div className="relative flex-1 min-w-[220px] max-w-xl">
           <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -248,14 +275,39 @@ export default function SalesTable() {
           />
         </div>
 
-        {/* buttons stay on the same line */}
-        <div className="flex gap-3 shrink-0">
-          <button
-            onClick={() => setShowForm(true)}
-            className="bg-orange-600 hover:bg-orange-700 text-white px-5 py-2 rounded-lg"
-          >
-            + Enter Sales
-          </button>
+        <div className="flex gap-3 shrink-0 relative">
+          {/* Simple menu to open forms */}
+          <div className="relative">
+            <button
+              onClick={() => setEnterMenuOpen((v) => !v)}
+              className="bg-orange-600 hover:bg-orange-700 text-white px-5 py-2 rounded-lg"
+            >
+              + Enter Sales
+            </button>
+            {enterMenuOpen && (
+              <div className="absolute right-0 top-12 w-56 bg-white border rounded-lg shadow-lg z-20">
+                <button
+                  onClick={() => {
+                    setShowForm({ mode: "sale" });
+                    setEnterMenuOpen(false);
+                  }}
+                  className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+                >
+                  Create Single Sale
+                </button>
+                <button
+                  onClick={() => {
+                    setShowForm({ mode: "bulk" });
+                    setEnterMenuOpen(false);
+                  }}
+                  className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+                >
+                  Create Multiple Sales
+                </button>
+              </div>
+            )}
+          </div>
+
           <button
             onClick={() => setShowForm({ mode: "invoice" })}
             className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2 rounded-lg"
@@ -369,7 +421,7 @@ export default function SalesTable() {
                           </button>
                           <button
                             onClick={() => {
-                              returnSale(r.id); // ⬅️ call the return endpoint
+                              returnSale(r.id);
                               setActionsOpenFor(null);
                             }}
                             className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
