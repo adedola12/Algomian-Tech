@@ -70,20 +70,71 @@ export default function InventTable() {
     );
 
   /* ------------ data loader (server pagination) ------------ */
+  // const loadProducts = useCallback(async () => {
+  //   setLoading(true);
+  //   try {
+  //     const {
+  //       products = [],
+  //       total: grandTotal = 0,
+  //       pages: apiPages,
+  //     } = await fetchProducts({
+  //       search: debouncedSearch || undefined,
+  //       category: category || undefined,
+  //       page,
+  //       limit: LIMIT,
+  //       inStockOnly: 1, // 👈 only fetch items with quantity > 0
+  //     });
+
+  //     const safeProducts = Array.isArray(products) ? products : [];
+
+  //     const verified = await Promise.all(
+  //       safeProducts.map(async (p) => {
+  //         const img = p.images?.[0] ? toEmbedUrl(p.images[0]) : null;
+  //         return {
+  //           ...p,
+  //           verifiedImage: img && (await testImage(img)) ? img : null,
+  //         };
+  //       })
+  //     );
+
+  //     setRows(verified);
+  //     setTotal(Number.isFinite(grandTotal) ? grandTotal : verified.length);
+  //     setPages(
+  //       Number.isFinite(apiPages)
+  //         ? apiPages
+  //         : Math.max(1, Math.ceil((grandTotal || verified.length) / LIMIT))
+  //     );
+  //     setError(null);
+  //   } catch (e) {
+  //     setError(e.response?.data?.message || e.message);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // }, [debouncedSearch, category, page]);
+
+  // keep the existing imports and the top: const { user } = useAuth();
+
   const loadProducts = useCallback(async () => {
     setLoading(true);
     try {
-      const {
-        products = [],
-        total: grandTotal = 0,
-        pages: apiPages,
-      } = await fetchProducts({
+      // restrict SalesRep / Manager to their location
+      const isRestricted = ["SalesRep", "Manager"].includes(user?.userType);
+      const baseParams = {
         search: debouncedSearch || undefined,
         category: category || undefined,
         page,
         limit: LIMIT,
-        inStockOnly: 1, // 👈 only fetch items with quantity > 0
-      });
+        inStockOnly: 1, // keep only items with quantity > 0
+        ...(isRestricted && user?.location
+          ? { stockLocation: user.location }
+          : {}),
+      };
+
+      const {
+        products = [],
+        total: grandTotal = 0,
+        pages: apiPages,
+      } = await fetchProducts(baseParams);
 
       const safeProducts = Array.isArray(products) ? products : [];
 
@@ -110,7 +161,7 @@ export default function InventTable() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, category, page]);
+  }, [user?.userType, user?.location, debouncedSearch, category, page]);
 
   useEffect(() => {
     loadProducts();

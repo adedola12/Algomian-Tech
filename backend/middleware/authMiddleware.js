@@ -71,3 +71,17 @@ export const authorize =
     }
     next();
   };
+
+export const protectSoft = async (req, _res, next) => {
+  try {
+    const token =
+      req.cookies?.algomianToken ||
+      (req.headers.authorization || "").replace("Bearer ", "");
+    if (!token) return next();
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = await User.findById(decoded.id).select("-password");
+  } catch (_) {
+    // ignore invalid token; treat as public
+  }
+  next();
+};

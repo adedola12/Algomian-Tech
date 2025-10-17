@@ -14,14 +14,14 @@ import {
   getGroupedStock,
   transferProducts
 } from "../controllers/productController.js";
-import { protect, allowRoles } from "../middleware/authMiddleware.js";
+import { protect, allowRoles,protectSoft } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 router
   .route("/")
-  .get(getProducts) //  ← LIST
+  .get(protectSoft, getProducts) //  ← LIST
   .post(protect, upload.array("images", 10), createProduct);
 
 router.get("/grouped", protect, getGroupedStock); // 👈 New route

@@ -317,6 +317,73 @@ export const getProduct = asyncHandler(async (req, res) => {
 });
 
 // controllers/productController.js
+// export const getProducts = asyncHandler(async (req, res) => {
+//   const {
+//     search = "",
+//     category = "",
+//     page = 1,
+//     limit = 50,
+//     inStockOnly,
+//     stockLocation,
+//   } = req.query;
+
+//   // If a logged-in Sales/Manager is asking, force their location.
+//   const role = (req.user?.userType || "").toLowerCase();
+//   const mustRestrict = role === "salesrep" || role === "manager";
+//   const enforcedLocation = mustRestrict ? req.user?.location || "Lagos" : null;
+
+//   const tokens = search.trim().split(/\s+/).filter(Boolean).slice(0, 5);
+
+//   const tokenConditions = tokens.map((t) => {
+//     const term = new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+//     return {
+//       $or: [
+//         { productName: term },
+//         { brand: term },
+//         { productCategory: term },
+//         { storageRam: term },
+//         { Storage: term },
+//         {
+//           baseSpecs: {
+//             $elemMatch: {
+//               $or: [
+//                 { baseCPU: term },
+//                 { baseRam: term },
+//                 { baseStorage: term },
+//                 { serialNumber: term },
+//               ],
+//             },
+//           },
+//         },
+//       ],
+//     };
+//   });
+
+//   const q = {
+//     $and: [
+//       ...(tokenConditions.length ? tokenConditions : [{}]),
+//       category ? { productCategory: category } : {},
+//       // 👇 only items with stock when flag is truthy (e.g. "1", "true")
+//       // inStockOnly ? { quantity: { $gt: 0 } } : {},
+//       enforcedLocation
+//         ? { stockLocation: enforcedLocation } // forced for Sales/Manager
+//         : stockLocation
+//           ? { stockLocation } // optional filter for others
+//           : {},
+//       stockLocation ? { stockLocation } : {},
+//     ],
+//   };
+
+//   const skip = (+page - 1) * +limit;
+//   const total = await Product.countDocuments(q);
+//   const products = await Product.find(q)
+//     .sort("-createdAt")
+//     .skip(skip)
+//     .limit(+limit);
+
+//   res.json({ products, total, page: +page, pages: Math.ceil(total / limit) });
+// });
+// controllers/productController.js
 export const getProducts = asyncHandler(async (req, res) => {
   const {
     search = "",
@@ -327,8 +394,12 @@ export const getProducts = asyncHandler(async (req, res) => {
     stockLocation,
   } = req.query;
 
-  const tokens = search.trim().split(/\s+/).filter(Boolean).slice(0, 5);
+  // Force location for SalesRep/Manager
+  const role = (req.user?.userType || "").toLowerCase();
+  const mustRestrict = role === "salesrep" || role === "manager";
+  const enforcedLocation = mustRestrict ? req.user?.location || "Lagos" : null;
 
+  const tokens = search.trim().split(/\s+/).filter(Boolean).slice(0, 5);
   const tokenConditions = tokens.map((t) => {
     const term = new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
     return {
@@ -358,9 +429,12 @@ export const getProducts = asyncHandler(async (req, res) => {
     $and: [
       ...(tokenConditions.length ? tokenConditions : [{}]),
       category ? { productCategory: category } : {},
-      // 👇 only items with stock when flag is truthy (e.g. "1", "true")
-      inStockOnly ? { quantity: { $gt: 0 } } : {},
-      stockLocation ? { stockLocation } : {},
+      inStockOnly ? { quantity: { $gt: 0 } } : {}, // ✅ keep this
+      enforcedLocation
+        ? { stockLocation: enforcedLocation } // ✅ force for Sales/Manager
+        : stockLocation
+          ? { stockLocation }
+          : {}, // optional for others
     ],
   };
 
