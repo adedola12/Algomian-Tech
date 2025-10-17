@@ -321,10 +321,59 @@ export const updatePreferences = asyncHandler(async (req, res) => {
   res.status(200).json(user.preferences);
 });
 
+// export const getAllUsers = asyncHandler(async (req, res) => {
+//   const users = await User.find().select("-password"); // strip hashes
+//   res.status(200).json(users);
+// });
+
+// GET all users (admin) with optional search q=name/email
 export const getAllUsers = asyncHandler(async (req, res) => {
-  const users = await User.find().select("-password"); // strip hashes
+  const q = (req.query.q || "").trim();
+  const where = q
+    ? {
+        $or: [
+          { firstName: new RegExp(q, "i") },
+          { lastName: new RegExp(q, "i") },
+          { email: new RegExp(q, "i") },
+        ],
+      }
+    : {};
+
+  const users = await User.find(where).select("-password");
   res.status(200).json(users);
 });
+
+export const adminUpdateUser = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const user = await User.findById(id);
+  if (!user) {
+    res.status(404);
+    throw new Error("User not found");
+  }
+
+  // allow limited fields to be updated by admin
+  if (req.body.userType) user.userType = req.body.userType;
+  if (typeof req.body.whatAppNumber === "string") {
+    user.whatAppNumber = req.body.whatAppNumber.trim();
+  }
+  if (typeof req.body.location === "string" && req.body.location.trim()) {
+    user.location = req.body.location.trim();
+  }
+
+  const saved = await user.save();
+  // return the updated safe fields so UI can refresh row
+  res.json({
+    _id: saved._id,
+    firstName: saved.firstName,
+    lastName: saved.lastName,
+    email: saved.email,
+    whatAppNumber: saved.whatAppNumber,
+    userType: saved.userType,
+    updatedAt: saved.updatedAt,
+    location: saved.location,
+  });
+});
+
 
 // Add to backend/controllers/userController.js
 export const updateUserRole = asyncHandler(async (req, res) => {

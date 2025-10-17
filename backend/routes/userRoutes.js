@@ -15,10 +15,12 @@ import {
   getPreferences,
   updatePreferences,
   getAllUsers,
+  adminUpdateUser,
   updateUserPermissions,
   forgotPassword,
   resetPassword,
   refreshPermissions,
+  
 } from "../controllers/userController.js";
 import {
   protect,
@@ -53,11 +55,11 @@ router
   .get(protect, getPreferences)
   .put(protect, updatePreferences);
 
-router.get(
-  "/all",
+// Secure this endpoint (admin) and add search with ?q=
+router.get("/all", protect, isAdmin, getAllUsers);
 
-  getAllUsers
-);
+// Admin update (role/phone/location)
+router.put("/:id", protect, isAdmin, adminUpdateUser);
 
 router.post("/register", registerUser);
 router.post("/login", authUser);
