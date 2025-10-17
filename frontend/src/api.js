@@ -48,13 +48,6 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// export async function createBulkOrders(payload) {
-//   const { data } = await api.post("/api/orders/bulk", payload, {
-//     withCredentials: true,
-//   });
-//   return data;
-// }
-
 export const createBulkOrders = (payload) =>
   api.post("/api/orders/bulk", payload).then((r) => r.data);
 
