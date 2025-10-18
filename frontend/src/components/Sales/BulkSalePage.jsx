@@ -11,16 +11,35 @@ import {
 import { toast } from "react-toastify";
 import { fetchProducts, createBulkOrders } from "../../api";
 
+/* ---------- helpers ---------- */
+const norm = (s = "") => String(s).trim().toLowerCase();
+
+const specLabel = (p = {}) => {
+  const b =
+    Array.isArray(p.baseSpecs) && p.baseSpecs.length ? p.baseSpecs[0] : {};
+  const cpu = b.baseCPU || p.baseCPU || "";
+  const ram = b.baseRam || p.storageRam || "";
+  const sto = b.baseStorage || p.Storage || "";
+  const bits = [
+    cpu && `CPU: ${cpu}`,
+    ram && `RAM: ${ram}`,
+    sto && `Storage: ${sto}`,
+  ].filter(Boolean);
+  return bits.length ? bits.join(" | ") : "Standard spec";
+};
+
 const makeEmptyLine = () => ({
   // selection
-  productId: "", // kept for compatibility (not used when grouped)
-  _picked: null, // the product chosen (for label)
+  _picked: null, // display info (first product of group)
   _groupKey: "", // normalized name key
   _groupProducts: [], // all product docs with the same name
   _search: "",
+  _selectedIds: [], // MULTI: chosen product ids
+  _selectedLabels: [], // pretty labels (same index as ids)
+  _specOpen: false, // 👈 controls collapsed/expanded spec panel
 
   // money/qty
-  qty: 1,
+  qty: 0, // mirrors _selectedIds.length when multi is used
   price: 0,
 });
 
@@ -32,14 +51,12 @@ const makeEmptyCustomer = () => ({
   rows: [makeEmptyLine()],
 });
 
-const norm = (s = "") => String(s).trim().toLowerCase();
-
 export default function BulkSalePage({ onClose }) {
   const [allProducts, setAllProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // customers
-  const minCustomers = 2; // minimum 2, max = infinity
+  const minCustomers = 2;
   const [customers, setCustomers] = useState(
     Array.from({ length: minCustomers }, () => makeEmptyCustomer())
   );
@@ -63,7 +80,7 @@ export default function BulkSalePage({ onClose }) {
 
   /* group stock by product name (case-insensitive) */
   const grouped = useMemo(() => {
-    const map = new Map(); // key => { displayName, totalQty, price, image, products[] }
+    const map = new Map();
     for (const p of allProducts) {
       const key = norm(p.productName);
       if (!map.has(key)) {
@@ -105,7 +122,6 @@ export default function BulkSalePage({ onClose }) {
 
   const addCustomer = () =>
     setCustomers((prev) => [...prev, makeEmptyCustomer()]);
-
   const removeCustomer = (idx) =>
     setCustomers((prev) => {
       if (prev.length <= minCustomers) return prev;
@@ -126,7 +142,7 @@ export default function BulkSalePage({ onClose }) {
     setCustomers((prev) => {
       const cp = [...prev];
       const rows = [...cp[cIdx].rows];
-      if (rows.length <= 1) return prev; // keep at least one line
+      if (rows.length <= 1) return prev;
       rows.splice(rIdx, 1);
       cp[cIdx] = { ...cp[cIdx], rows };
       return cp;
@@ -144,9 +160,20 @@ export default function BulkSalePage({ onClose }) {
         patch._search !== (next._picked?.productName || "")
       ) {
         next._picked = null;
-        next.productId = "";
         next._groupKey = "";
         next._groupProducts = [];
+        next._selectedIds = [];
+        next._selectedLabels = [];
+        next._specOpen = false;
+        next.qty = 0;
+      }
+
+      // if multiselect changed, mirror qty and auto-collapse when >=1 chosen
+      if (patch._selectedIds) {
+        next.qty = patch._selectedIds.length;
+        if (patch._selectedIds.length > 0) {
+          next._specOpen = false; // 👈 collapse after choosing
+        }
       }
 
       rows[rIdx] = next;
@@ -160,36 +187,60 @@ export default function BulkSalePage({ onClose }) {
       const cp = [...prev];
       const rows = [...cp[cIdx].rows];
       const first = group.products[0] || {};
-      // If nothing left, set qty = 0 and warn
       const totalLeft = group.totalQty;
-      if (totalLeft <= 0) {
-        toast.warn(`No stock left for ${group.displayName}`);
-      }
+
+      if (totalLeft <= 0) toast.warn(`No stock left for ${group.displayName}`);
+
       rows[rIdx] = {
         ...rows[rIdx],
-        productId: "", // we will split into real IDs when saving
-        _picked: first, // for label/image
+        _picked: first,
         _groupKey: group.key,
         _groupProducts: group.products,
-        _search: "", // ← clear text so dropdown disappears
+        _selectedIds: [],
+        _selectedLabels: [],
+        _specOpen: true, // 👈 open picker initially
+        _search: "",
         price:
           rows[rIdx].price && rows[rIdx].price > 0
             ? rows[rIdx].price
             : Number(first.sellingPrice || group.price || 0),
-        qty: Math.max(0, Math.min(rows[rIdx].qty || 1, totalLeft || 0)),
+        qty: 0, // multi-select drives qty
       };
       cp[cIdx] = { ...cp[cIdx], rows };
       return cp;
     });
 
-  /* remaining stock for a grouped name on this customer card,
-     subtracting qty used by other rows with the same name (EXCLUDING this row) */
+  /* remaining for a specific variant (productId), excluding a row's own usage */
+  const remainingForVariant = (customer, productId, excludeIndex = -1) => {
+    if (!productId) return 0;
+    const prod = allProducts.find((p) => String(p._id) === String(productId));
+    const total = Number(prod?.quantity || 0);
+    const usedByOthers = (customer.rows || []).reduce((s, r, idx) => {
+      if (idx === excludeIndex) return s;
+      const count =
+        Array.isArray(r._selectedIds) && r._selectedIds.length
+          ? r._selectedIds.filter((id) => String(id) === String(productId))
+              .length
+          : 0;
+      return s + count;
+    }, 0);
+    return Math.max(0, total - usedByOthers);
+  };
+
+  /* group remaining (only used when no specs selected and user typed qty) */
   const remainingForName = (customer, groupKey, excludeIndex = -1) => {
     if (!groupKey) return 0;
     const total = grouped.get(groupKey)?.totalQty || 0;
     const usedByOthers = (customer.rows || []).reduce((s, r, idx) => {
       if (idx === excludeIndex) return s;
-      return r._groupKey === groupKey ? s + Number(r.qty || 0) : s;
+      if (r._groupKey === groupKey) {
+        const take =
+          Array.isArray(r._selectedIds) && r._selectedIds.length
+            ? r._selectedIds.length
+            : Number(r.qty || 0);
+        return s + take;
+      }
+      return s;
     }, 0);
     return Math.max(0, total - usedByOthers);
   };
@@ -208,7 +259,6 @@ export default function BulkSalePage({ onClose }) {
 
   /* validation */
   const validate = () => {
-    // at least one actual line chosen
     const anyLines = customers.some((c) => c.rows.some((r) => !!r._groupKey));
     if (!anyLines) return "Pick at least one product across customers.";
 
@@ -224,13 +274,24 @@ export default function BulkSalePage({ onClose }) {
         const r = c.rows[i];
         if (!r._groupKey) continue;
 
-        const maxAllowed = remainingForName(c, r._groupKey, i);
-        if (!Number(r.qty) || Number(r.qty) <= 0)
-          return `Customer #${idx + 1}: quantity must be positive.`;
-        if (Number(r.qty) > maxAllowed)
-          return `Customer #${idx + 1}: qty exceeds stock for “${
-            grouped.get(r._groupKey)?.displayName || "item"
-          }”. Available: ${maxAllowed}.`;
+        if (Array.isArray(r._selectedIds) && r._selectedIds.length) {
+          for (const id of r._selectedIds) {
+            const cap = remainingForVariant(c, id, i);
+            if (cap <= 0)
+              return `Customer #${
+                idx + 1
+              }: selected spec is no longer available.`;
+          }
+        } else {
+          const cap = remainingForName(c, r._groupKey, i);
+          if (!Number(r.qty) || Number(r.qty) <= 0)
+            return `Customer #${idx + 1}: quantity must be positive.`;
+          if (Number(r.qty) > cap)
+            return `Customer #${
+              idx + 1
+            }: qty exceeds stock for this item. Available: ${cap}.`;
+        }
+
         if (!Number.isFinite(Number(r.price)) || Number(r.price) < 0)
           return `Customer #${idx + 1}: price must be valid.`;
       }
@@ -240,8 +301,15 @@ export default function BulkSalePage({ onClose }) {
 
   const [saving, setSaving] = useState(false);
 
-  /* expand a grouped row into concrete orderItems (split across product IDs) */
+  /* explode row into concrete orderItems */
   const explodeRowIntoItems = (row) => {
+    if (Array.isArray(row._selectedIds) && row._selectedIds.length) {
+      return row._selectedIds.map((id) => ({
+        product: id,
+        qty: 1,
+        price: Number(row.price || 0),
+      }));
+    }
     const items = [];
     let need = Number(row.qty || 0);
     const products = row._groupProducts || [];
@@ -250,11 +318,7 @@ export default function BulkSalePage({ onClose }) {
       const available = Number(p.quantity || 0);
       if (available <= 0) continue;
       const take = Math.min(need, available);
-      items.push({
-        product: p._id,
-        qty: take,
-        price: Number(row.price || 0),
-      });
+      items.push({ product: p._id, qty: take, price: Number(row.price || 0) });
       need -= take;
     }
     return items;
@@ -266,9 +330,13 @@ export default function BulkSalePage({ onClose }) {
 
     const sales = customers
       .map((c) => {
-        // build orderItems by expanding each grouped line
         const orderItems = c.rows
-          .filter((r) => !!r._groupKey && Number(r.qty || 0) > 0)
+          .filter(
+            (r) =>
+              !!r._groupKey &&
+              (Number(r.qty || 0) > 0 ||
+                (Array.isArray(r._selectedIds) && r._selectedIds.length))
+          )
           .flatMap((r) => explodeRowIntoItems(r));
 
         if (!orderItems.length) return null;
@@ -426,14 +494,17 @@ export default function BulkSalePage({ onClose }) {
                   <tbody>
                     {c.rows.map((r, rIdx) => {
                       const options = visibleOptions(r._search);
-                      // ❗ Max allowed for this row is total - used by other rows (do NOT add this row's qty)
-                      const maxForThisRow = r._groupKey
+                      const maxForGroup = r._groupKey
                         ? remainingForName(c, r._groupKey, rIdx)
                         : 0;
+                      const hasMulti =
+                        Array.isArray(r._selectedIds) &&
+                        r._selectedIds.length > 0;
 
                       return (
-                        <tr key={rIdx} className="border-b">
-                          <td className="px-3 py-2 min-w-[320px]">
+                        <tr key={rIdx} className="border-b align-top">
+                          <td className="px-3 py-2 min-w-[360px]">
+                            {/* Search input */}
                             <div className="relative">
                               <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                               <input
@@ -450,7 +521,7 @@ export default function BulkSalePage({ onClose }) {
                                 }
                                 className="w-full pl-9 pr-3 py-2 border rounded-lg"
                               />
-                              {/* dropdown: only when typing AND not selected */}
+                              {/* dropdown */}
                               {!loading &&
                                 (r._search?.trim() || "") !== "" &&
                                 !r._picked && (
@@ -495,64 +566,211 @@ export default function BulkSalePage({ onClose }) {
                                   </div>
                                 )}
                             </div>
+
+                            {/* Chosen group */}
                             {r._picked && (
-                              <div className="text-xs text-gray-500 mt-1">
-                                Selected:{" "}
-                                <strong>{r._picked.productName}</strong> (in
-                                stock: {grouped.get(r._groupKey)?.totalQty ?? 0}
-                                )
-                              </div>
+                              <>
+                                {/* Clickable product name toggles spec panel */}
+                                <button
+                                  type="button"
+                                  className="mt-1 text-left w-full"
+                                  onClick={() =>
+                                    updateRow(cIdx, rIdx, {
+                                      _specOpen: !r._specOpen,
+                                    })
+                                  }
+                                  title="Click to edit specifications"
+                                >
+                                  <div className="text-xs text-gray-600">
+                                    Selected item:{" "}
+                                    <strong className="underline decoration-dotted">
+                                      {r._picked.productName}
+                                    </strong>{" "}
+                                    (group stock:{" "}
+                                    {grouped.get(r._groupKey)?.totalQty ?? 0})
+                                  </div>
+                                  {/* If collapsed & has selections, show a summary chip list */}
+                                  {!r._specOpen && hasMulti && (
+                                    <div className="mt-1 flex flex-wrap gap-1">
+                                      {r._selectedLabels.map((lbl, i) => (
+                                        <span
+                                          key={`${lbl}-${i}`}
+                                          className="text-[11px] bg-gray-100 border rounded px-2 py-0.5"
+                                        >
+                                          {lbl}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </button>
+
+                                {/* Edit link (alternative target to open) */}
+                                {!r._specOpen && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      updateRow(cIdx, rIdx, { _specOpen: true })
+                                    }
+                                    className="mt-1 text-xs text-blue-600 underline"
+                                  >
+                                    Edit specs
+                                  </button>
+                                )}
+
+                                {/* Spec panel (collapsible) */}
+                                {r._specOpen && (
+                                  <div className="mt-2 border rounded-lg p-2">
+                                    <div className="text-xs font-medium text-gray-700 mb-1">
+                                      Pick specification(s):
+                                    </div>
+                                    <div className="space-y-1">
+                                      {r._groupProducts.map((p) => {
+                                        const id = String(p._id);
+                                        const label = specLabel(p);
+                                        const isSelected =
+                                          Array.isArray(r._selectedIds) &&
+                                          r._selectedIds.includes(id);
+                                        const remaining = remainingForVariant(
+                                          c,
+                                          id,
+                                          rIdx
+                                        );
+                                        const disable =
+                                          remaining <= 0 && !isSelected;
+                                        return (
+                                          <label
+                                            key={id}
+                                            className={`flex items-start gap-2 p-2 rounded hover:bg-gray-50 cursor-pointer ${
+                                              disable
+                                                ? "opacity-50 cursor-not-allowed"
+                                                : ""
+                                            }`}
+                                          >
+                                            <input
+                                              type="checkbox"
+                                              disabled={disable}
+                                              checked={!!isSelected}
+                                              onChange={(e) => {
+                                                if (e.target.checked) {
+                                                  const nextIds = [
+                                                    ...(r._selectedIds || []),
+                                                    id,
+                                                  ];
+                                                  const nextLabels = [
+                                                    ...(r._selectedLabels ||
+                                                      []),
+                                                    label,
+                                                  ];
+                                                  updateRow(cIdx, rIdx, {
+                                                    _selectedIds: nextIds,
+                                                    _selectedLabels: nextLabels,
+                                                    price:
+                                                      r.price > 0
+                                                        ? r.price
+                                                        : Number(
+                                                            p.sellingPrice ||
+                                                              r.price ||
+                                                              0
+                                                          ),
+                                                  });
+                                                } else {
+                                                  const nextIds = (
+                                                    r._selectedIds || []
+                                                  ).filter((x) => x !== id);
+                                                  const nextLabels = (
+                                                    r._selectedLabels || []
+                                                  ).filter(
+                                                    (_, i) =>
+                                                      (r._selectedIds || [])[
+                                                        i
+                                                      ] !== id
+                                                  );
+                                                  updateRow(cIdx, rIdx, {
+                                                    _selectedIds: nextIds,
+                                                    _selectedLabels: nextLabels,
+                                                  });
+                                                }
+                                              }}
+                                            />
+                                            <div className="flex-1">
+                                              <div className="text-sm">
+                                                {label}
+                                              </div>
+                                              <div className="text-xs text-gray-500">
+                                                In stock:{" "}
+                                                {Number(p.quantity || 0)} • ₦
+                                                {Number(
+                                                  p.sellingPrice || r.price || 0
+                                                ).toLocaleString()}
+                                              </div>
+                                            </div>
+                                          </label>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* If no selection yet, gentle hint */}
+                                {!hasMulti && !r._specOpen && (
+                                  <div className="text-xs text-orange-600 mt-1">
+                                    Tip: click the product name to open specs
+                                    and tick what you’re selling.
+                                  </div>
+                                )}
+                              </>
                             )}
                           </td>
 
+                          {/* Qty: from multi-select if present; else manual input */}
                           <td className="px-3 py-2">
-                            <input
-                              type="number"
-                              min={1}
-                              // HTML max is advisory; we still clamp in JS below
-                              max={Math.max(1, maxForThisRow || 1)}
-                              value={r.qty}
-                              onChange={(e) => {
-                                const raw = Math.max(
-                                  1,
-                                  Number(e.target.value || 1)
-                                );
-                                const cap = maxForThisRow || 0;
-                                // If nothing left for this row, force 0 and warn
-                                if (cap <= 0) {
-                                  if (raw > 0) {
-                                    toast.warn(
-                                      `No stock available for this line.`
-                                    );
-                                  }
-                                  updateRow(cIdx, rIdx, { qty: 0 });
-                                  return;
-                                }
-                                const clamped = Math.min(raw, cap);
-                                if (raw > cap) {
-                                  toast.warn(
-                                    `Qty reduced to available (${cap}).`
+                            {hasMulti ? (
+                              <div className="text-sm px-2 py-1 rounded bg-gray-50 inline-block">
+                                Qty: <strong>{r._selectedIds.length}</strong>
+                              </div>
+                            ) : (
+                              <input
+                                type="number"
+                                min={1}
+                                max={Math.max(1, maxForGroup || 1)}
+                                value={r.qty || 0}
+                                onChange={(e) => {
+                                  const raw = Math.max(
+                                    1,
+                                    Number(e.target.value || 1)
                                   );
-                                }
-                                updateRow(cIdx, rIdx, { qty: clamped });
-                              }}
-                              onBlur={(e) => {
-                                // extra safety on blur
-                                const raw = Math.max(
-                                  1,
-                                  Number(e.target.value || 1)
-                                );
-                                const cap = maxForThisRow || 0;
-                                const clamped =
-                                  cap <= 0 ? 0 : Math.min(raw, cap);
-                                if (clamped !== (r.qty || 0)) {
+                                  const cap = maxForGroup || 0;
+                                  if (cap <= 0) {
+                                    if (raw > 0)
+                                      toast.warn(
+                                        `No stock available for this selection.`
+                                      );
+                                    updateRow(cIdx, rIdx, { qty: 0 });
+                                    return;
+                                  }
+                                  const clamped = Math.min(raw, cap);
+                                  if (raw > cap)
+                                    toast.warn(
+                                      `Qty reduced to available (${cap}).`
+                                    );
                                   updateRow(cIdx, rIdx, { qty: clamped });
-                                }
-                              }}
-                              className="w-24 border rounded-lg px-2 py-1"
-                              disabled={!r._groupKey || maxForThisRow === 0}
-                            />
-                            {r._groupKey && maxForThisRow === 0 && (
+                                }}
+                                onBlur={(e) => {
+                                  const raw = Math.max(
+                                    1,
+                                    Number(e.target.value || 1)
+                                  );
+                                  const cap = maxForGroup || 0;
+                                  const clamped =
+                                    cap <= 0 ? 0 : Math.min(raw, cap);
+                                  if (clamped !== (r.qty || 0))
+                                    updateRow(cIdx, rIdx, { qty: clamped });
+                                }}
+                                className="w-24 border rounded-lg px-2 py-1"
+                                disabled={!r._groupKey || maxForGroup === 0}
+                              />
+                            )}
+                            {r._groupKey && !hasMulti && maxForGroup === 0 && (
                               <div className="text-xs text-red-600 mt-1">
                                 Out of stock for this selection
                               </div>
@@ -576,7 +794,9 @@ export default function BulkSalePage({ onClose }) {
                           <td className="px-3 py-2">
                             ₦
                             {(
-                              Number(r.qty || 0) * Number(r.price || 0)
+                              Number(
+                                (hasMulti ? r._selectedIds.length : r.qty) || 0
+                              ) * Number(r.price || 0)
                             ).toLocaleString()}
                           </td>
 

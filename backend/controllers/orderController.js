@@ -1217,16 +1217,6 @@ export const addBulkOrders = asyncHandler(async (req, res) => {
   res.status(201).json({ results, lowStockNotices });
 });
 
-/**
- * @desc   Admin: get all orders
- * @route  GET /api/orders
- * @access Private/Admin
- */
-// export const getOrders = asyncHandler(async (req, res) => {
-//   const orders = await Order.find({}).populate("user", "firstName lastName");
-//   res.json(orders);
-// });
-
 export const deleteOrder = asyncHandler(async (req, res) => {
   const order = await Order.findById(req.params.id);
   if (!order) {
@@ -1278,24 +1268,9 @@ export const restoreOrder = asyncHandler(async (req, res) => {
   res.json({ message: "Order restored", order });
 });
 
-// export const getOrders = asyncHandler(async (req, res) => {
-//   const orders = await Order.find({ isDeleted: false })
-//     .populate("user", "firstName lastName")
-//     .populate("createdBy", "firstName");
-//   res.json(orders);
-// });
-
-// export const getMyOrders = asyncHandler(async (req, res) => {
-//   const orders = await Order.find({
-//     user: req.user._id,
-//     isDeleted: false,
-//   }).populate("user", "firstName lastName");
-//   res.json(orders);
-// });
-
-// controllers/orderController.js
 export const getOrders = asyncHandler(async (req, res) => {
   const orders = await Order.find({ isDeleted: { $ne: true } })
+    .sort({ createdAt: -1 }) // 👈 add this
     .populate("user", "firstName lastName")
     .populate("createdBy", "firstName");
   res.json(orders);
@@ -1309,78 +1284,6 @@ export const getMyOrders = asyncHandler(async (req, res) => {
   res.json(orders);
 });
 
-// export const returnOrder = asyncHandler(async (req, res) => {
-//   const order = await Order.findById(req.params.id);
-//   if (!order) {
-//     res.status(404);
-//     throw new Error("Order not found");
-//   }
-
-//   const itemsLog = [];
-
-//   // For each line, add qty back and (if you use serials) make sure they exist and are not marked assigned
-//   for (const item of order.orderItems) {
-//     const product = await Product.findById(item.product);
-//     if (!product) continue;
-
-//     // 1) Put quantity back
-//     product.quantity = (product.quantity || 0) + (item.qty || 0);
-
-//     // 2) Serial management (safe — no duplicates)
-//     const existingSerials = new Set(
-//       (product.baseSpecs || []).map((s) => s.serialNumber).filter(Boolean)
-//     );
-
-//     // a) add missing serials from the sale back into baseSpecs
-//     const toAdd = (item.soldSpecs || []).filter(
-//       (s) => s.serialNumber && !existingSerials.has(s.serialNumber)
-//     );
-//     if (toAdd.length) {
-//       product.baseSpecs.push(...toAdd);
-//     }
-
-//     // b) if you track assignment, unassign any of those serials
-//     product.baseSpecs = product.baseSpecs.map((spec) => {
-//       if (item.soldSpecs?.some((s) => s.serialNumber === spec.serialNumber)) {
-//         return { ...spec, assigned: false };
-//       }
-//       return spec;
-//     });
-
-//     // 3) Bump availability when stock is now above reorder level
-//     if (
-//       product.availability === "restocking" &&
-//       product.quantity > (product.reorderLevel || 0)
-//     ) {
-//       product.availability = "inStock";
-//     }
-
-//     await product.save();
-
-//     itemsLog.push({
-//       product: product._id,
-//       productName: item.name,
-//       qty: item.qty,
-//       specs: item.soldSpecs || [],
-//     });
-//   }
-
-//   // 4) Log the return for audit
-//   await Return.create({
-//     orderId: order._id,
-//     user: order.user,
-//     totalValue: order.totalPrice,
-//     returnedAt: new Date(),
-//     items: itemsLog,
-//   });
-
-//   // 5) Remove the order (a return is not just a delete)
-//   await order.deleteOne();
-
-//   res.json({ message: "Order returned and stock restored.", items: itemsLog });
-// });
-
-// controllers/orderController.js
 export const returnOrder = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
   try {
