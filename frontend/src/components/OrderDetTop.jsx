@@ -19,14 +19,16 @@ export default function OrderDetTop({ order }) {
           Order ID:&nbsp;{order._id.slice(0, 5)}
         </h1>
 
-        <span className="mt-2 sm:mt-0 inline-block px-3 py-0.5
-                         bg-yellow-100 text-yellow-800 text-sm font-medium rounded-full">
+        <span
+          className="mt-2 sm:mt-0 inline-block px-3 py-0.5
+                         bg-yellow-100 text-yellow-800 text-sm font-medium rounded-full"
+        >
           {order.status}
         </span>
       </div>
 
       <p className="text-sm text-gray-600">
-        Sold by:{" "}
+        Sold to:{" "}
         <span className="font-medium text-gray-900">
           {order.user.firstName} {order.user.lastName}
         </span>
