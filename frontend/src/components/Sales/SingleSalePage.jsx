@@ -16,6 +16,8 @@ import { lineTotal } from "../../utils/money";
 import api, { fetchProducts, createOrder, fetchOrderById } from "../../api";
 
 /* ---------- helpers ---------- */
+const norm = (s = "") => String(s).toLowerCase().trim();
+
 const buildLine = (p) => {
   const first =
     Array.isArray(p.baseSpecs) && p.baseSpecs.length ? p.baseSpecs[0] : {};
@@ -45,7 +47,6 @@ const buildLineFromOrderItem = (oi) => {
     (s, v) => s + (Number(v.cost) || 0),
     0
   );
-
   return {
     id: oi.product,
     image: oi.image || "",
@@ -129,11 +130,11 @@ export default function SingleSalePage({
         setOrderType(dlvMethod === "self" ? "order" : "pickup");
         setDeliveryFee(Number(order.shippingPrice || 0));
         setDeliveryPaid(!!order.deliveryPaid);
-        // setShip(order.shippingAddress?.address || "");
-        // setPark(order.pointOfSale || "");
+
         const addr = order.shippingAddress?.address || "";
         setShip(addr);
         setPark(addr);
+
         setReceiverName(order.receiverName || "");
         setReceiverPhone(order.receiverPhone || "");
         setReceiptName(order.receiptName || "");
@@ -234,7 +235,7 @@ export default function SingleSalePage({
   /* --------------- save ----------------------- */
   const [isSaving, setIsSaving] = useState(false);
 
-  // ---- suggestion selection helpers (avoid blur-before-click) ----
+  // ---- suggestion selection helpers ----
   const getFullName = (c) =>
     `${c.firstName || ""} ${c.lastName || ""}`.trim() ||
     c.name ||
@@ -347,43 +348,103 @@ export default function SingleSalePage({
     }
   };
 
+  /* ---------- Product list limiting & ranked search ---------- */
+  const visibleProducts = useMemo(() => {
+    // default: only 5 items
+    if (!query.trim()) return (catalogue || []).slice(0, 5);
+
+    // ranked search over full catalogue; return top 10
+    const q = norm(query);
+    const score = (p) => {
+      const first =
+        Array.isArray(p.baseSpecs) && p.baseSpecs.length ? p.baseSpecs[0] : {};
+      const hay = [
+        p.productName,
+        p.brand,
+        first.baseCPU,
+        first.baseRam,
+        first.baseStorage,
+      ]
+        .filter(Boolean)
+        .map(norm)
+        .join(" | ");
+
+      let s = 0;
+      if (hay.includes(q)) s += 5; // strong match anywhere
+      if (norm(p.productName).startsWith(q)) s += 4;
+      if (norm(p.brand || "").includes(q)) s += 2;
+      if (norm(first.baseCPU || "").includes(q)) s += 1;
+      if (norm(first.baseRam || "").includes(q)) s += 1;
+      if (norm(first.baseStorage || "").includes(q)) s += 1;
+      return s;
+    };
+
+    return [...(catalogue || [])]
+      .map((p) => ({ p, s: score(p) }))
+      .filter((x) => x.s > 0)
+      .sort(
+        (a, b) =>
+          b.s - a.s ||
+          norm(a.p.productName).localeCompare(norm(b.p.productName))
+      )
+      .slice(0, 10)
+      .map((x) => x.p);
+  }, [catalogue, query]);
+
   /* --------------- UI ------------------------- */
   return (
-    <div className="bg-white rounded-2xl shadow p-4 sm:p-6 space-y-10 max-w-5xl mx-auto">
-      {/* header */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-gray-800">
-          <button
-            onClick={() => (typeof onBack === "function" ? onBack() : nav(-1))}
-            className="mr-3 text-gray-500 cursor-pointer"
-          >
-            <FiArrowLeft />
-          </button>
-          Sales Management
-        </h2>
+    <div className="bg-white rounded-none md:rounded-2xl shadow md:p-6 p-3 space-y-8 max-w-screen-lg mx-auto">
+      {/* Sticky header on mobile */}
+      <div className="sticky top-0 z-10 -mx-3 md:mx-0 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/70 border-b md:border-0 px-3 md:px-0 py-2 md:py-0">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg md:text-xl font-semibold text-gray-800">
+            <button
+              onClick={() =>
+                typeof onBack === "function" ? onBack() : nav(-1)
+              }
+              className="mr-3 text-gray-600 md:text-gray-500 cursor-pointer inline-flex items-center"
+              aria-label="Go back"
+              title="Back"
+            >
+              <FiArrowLeft />
+            </button>
+            Sales Management
+          </h2>
+          {/* Desktop total hint */}
+          <div className="hidden md:flex items-center gap-2 text-sm">
+            <span className="text-gray-500">Total:</span>
+            <span className="font-semibold">
+              ₦
+              {(
+                subtotal +
+                (subtotal * taxPct) / 100 +
+                (deliveryPaid ? Number(deliveryFee || 0) : 0)
+              ).toLocaleString()}
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* customer */}
-      <section className="space-y-4">
-        <h3 className="text-lg font-semibold">Customer details</h3>
+      <section className="space-y-3">
+        <h3 className="text-base md:text-lg font-semibold">Customer details</h3>
 
-        <div className="grid lg:grid-cols-3 gap-4">
+        <div className="grid md:grid-cols-3 gap-3">
           {/* name + suggestions */}
           <div className="relative">
-            <FiUser className="absolute left-3 top-3 text-gray-400" />
+            <FiUser className="absolute left-3 top-3 text-gray-400 pointer-events-none" />
             <input
               value={custName}
               onChange={(e) => {
                 const v = e.target.value;
                 setCustName(v);
-                // IMPORTANT: don't drop the link if the cashier edits the name slightly.
                 if (!v.trim()) setCustId(null);
                 setCustSug(suggestions(v));
               }}
               onFocus={() => setCustSug(suggestions(custName))}
               onBlur={() => setTimeout(() => setCustSug([]), 120)}
               placeholder="Customer name"
-              className="pl-10 pr-3 py-2 border rounded-lg w-full"
+              className="pl-10 pr-3 py-2 border rounded-lg w-full text-sm"
             />
             {custSug.length > 0 && (
               <ul className="absolute z-20 w-full bg-white border rounded-lg shadow max-h-56 overflow-auto">
@@ -396,7 +457,7 @@ export default function SingleSalePage({
                     }}
                     role="button"
                     tabIndex={-1}
-                    className="px-3 py-2 hover:bg-gray-50 cursor-pointer flex justify-between"
+                    className="px-3 py-2 hover:bg-gray-50 cursor-pointer flex justify-between text-sm"
                   >
                     <span>
                       {c.firstName} {c.lastName} — {getPhone(c)}
@@ -412,46 +473,46 @@ export default function SingleSalePage({
             )}
           </div>
 
-          {/* phone – now editable even if existing customer */}
+          {/* phone */}
           <div className="relative">
-            <FiPhone className="absolute left-3 top-3 text-gray-400" />
+            <FiPhone className="absolute left-3 top-3 text-gray-400 pointer-events-none" />
             <input
               value={custPhone}
               onChange={(e) => setCustPhone(e.target.value)}
               placeholder="Customer phone"
-              className="pl-10 pr-3 py-2 border rounded-lg w-full"
+              className="pl-10 pr-3 py-2 border rounded-lg w-full text-sm"
             />
           </div>
 
-          {/* email – now editable even if existing customer */}
+          {/* email */}
           <div className="relative">
-            <FiMail className="absolute left-3 top-3 text-gray-400" />
+            <FiMail className="absolute left-3 top-3 text-gray-400 pointer-events-none" />
             <input
               value={custEmail}
               onChange={(e) => setCustEmail(e.target.value)}
               placeholder="Customer email"
-              className="pl-10 pr-3 py-2 border rounded-lg w-full"
+              className="pl-10 pr-3 py-2 border rounded-lg w-full text-sm"
             />
           </div>
         </div>
 
         {/* POS */}
-        <div className="grid lg:grid-cols-3 gap-4">
-          <div className="relative lg:col-span-1">
-            <FiMapPin className="absolute left-3 top-3 text-gray-400" />
+        <div className="grid md:grid-cols-3 gap-3">
+          <div className="relative">
+            <FiMapPin className="absolute left-3 top-3 text-gray-400 pointer-events-none" />
             <input
               value={pos}
               onChange={(e) => setPOS(e.target.value)}
               placeholder="Point of sale"
-              className="pl-10 pr-3 py-2 border rounded-lg w-full"
+              className="pl-10 pr-3 py-2 border rounded-lg w-full text-sm"
             />
           </div>
         </div>
 
-        {/* referral (unchanged except pointerDown) */}
-        <div className="grid lg:grid-cols-3 gap-4 lg:justify-items-center">
-          <div className="relative lg:col-start-2">
-            <FiUser className="absolute left-3 top-3 text-gray-400" />
+        {/* referral */}
+        <div className="grid md:grid-cols-3 gap-3">
+          <div className="relative">
+            <FiUser className="absolute left-3 top-3 text-gray-400 pointer-events-none" />
             <input
               value={refName}
               onChange={(e) => {
@@ -463,7 +524,7 @@ export default function SingleSalePage({
               onFocus={() => setRefSug(suggestions(refName))}
               onBlur={() => setTimeout(() => setRefSug([]), 120)}
               placeholder="Referral name"
-              className="pl-10 pr-3 py-2 border rounded-lg w-full"
+              className="pl-10 pr-3 py-2 border rounded-lg w-full text-sm"
             />
             {refSug.length > 0 && (
               <ul className="absolute z-20 w-full bg-white border rounded-lg shadow max-h-40 overflow-auto">
@@ -476,7 +537,7 @@ export default function SingleSalePage({
                     }}
                     role="button"
                     tabIndex={-1}
-                    className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                    className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
                   >
                     {c.firstName} {c.lastName} — {getPhone(c)}
                   </li>
@@ -485,70 +546,75 @@ export default function SingleSalePage({
             )}
           </div>
 
-          <div className="relative lg:col-start-3">
-            <FiPhone className="absolute left-3 top-3 text-gray-400" />
+          <div className="relative md:col-span-2">
+            <FiPhone className="absolute left-3 top-3 text-gray-400 pointer-events-none" />
             <input
               value={refPhone}
               onChange={(e) => setRefPhone(e.target.value)}
               placeholder="Referral phone"
-              className="pl-10 pr-3 py-2 border rounded-lg w-full"
+              className="pl-10 pr-3 py-2 border rounded-lg w-full text-sm"
             />
           </div>
         </div>
       </section>
 
       {/* Products */}
-      <section className="space-y-4">
-        <h3 className="text-lg font-semibold">Products</h3>
+      <section className="space-y-3">
+        <h3 className="text-base md:text-lg font-semibold">Products</h3>
+
+        {/* search */}
         <div className="relative w-full md:w-80">
-          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search product…"
-            className="w-full pl-10 pr-3 py-2 border rounded-lg"
+            className="w-full pl-10 pr-3 py-2 border rounded-lg text-sm"
           />
           {loading && (
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
               …
             </span>
           )}
         </div>
-        <div className="overflow-x-auto">
-          <div className="grid grid-rows-3 gap-4 auto-cols-[100px] sm:auto-cols-[120px] md:auto-cols-[150px] grid-flow-col">
-            {catalogue
-              .filter((p) =>
-                p.productName.toLowerCase().includes(query.toLowerCase())
-              )
-              .map((p) => (
-                <label
-                  key={p._id}
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  <div className="relative shrink-0">
-                    <img
-                      src={p.images?.[0] || "https://via.placeholder.com/64"}
-                      alt={p.productName}
-                      className="w-12 h-12 rounded object-cover"
-                    />
-                    <input
-                      type="checkbox"
-                      className="w-4 h-4 absolute top-1 left-1 accent-orange-500"
-                      checked={isSel(p._id)}
-                      onChange={() => toggle(p)}
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs truncate">{p.productName}</p>
-                    <p className="text-[11px] font-semibold">
-                      ₦{Number(p.sellingPrice ?? 0).toLocaleString()}
-                    </p>
-                  </div>
-                </label>
-              ))}
-          </div>
+
+        {/* mobile list (vertical) / desktop grid — LIMITED RESULTS */}
+        <div className="grid gap-2 md:gap-3 md:grid-cols-2 lg:grid-cols-3">
+          {visibleProducts.map((p) => (
+            <label
+              key={p._id}
+              className="flex items-center gap-3 border rounded-lg px-3 py-2 cursor-pointer"
+            >
+              <div className="relative shrink-0">
+                <img
+                  src={p.images?.[0] || "https://via.placeholder.com/64"}
+                  alt={p.productName}
+                  className="w-12 h-12 rounded object-cover"
+                />
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 absolute top-1 left-1 accent-orange-500"
+                  checked={isSel(p._id)}
+                  onChange={() => toggle(p)}
+                />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium truncate">{p.productName}</p>
+                <p className="text-[12px] text-gray-600">
+                  ₦{Number(p.sellingPrice ?? 0).toLocaleString()}
+                </p>
+              </div>
+            </label>
+          ))}
+
+          {!loading && visibleProducts.length === 0 && (
+            <div className="text-sm text-gray-500 col-span-full">
+              No matching products.
+            </div>
+          )}
         </div>
 
+        {/* Selected items */}
         <div className="space-y-3">
           {items.map((it) => (
             <SelectedItemCard
@@ -568,9 +634,9 @@ export default function SingleSalePage({
 
       {/* Delivery */}
       {mode !== "invoice" && (
-        <section className="space-y-4">
-          <h3 className="text-lg font-semibold">Delivery</h3>
-          <div className="flex gap-4 flex-wrap">
+        <section className="space-y-3">
+          <h3 className="text-base md:text-lg font-semibold">Delivery</h3>
+          <div className="flex gap-2 flex-wrap">
             {[
               ["order", "Walk In"],
               ["pickup", "Online Order"],
@@ -578,7 +644,7 @@ export default function SingleSalePage({
               <button
                 key={v}
                 onClick={() => handleOrderTypeChange(v)}
-                className={`px-4 py-1.5 rounded-lg border ${
+                className={`px-3 py-1.5 rounded-lg border text-sm ${
                   orderType === v
                     ? "bg-orange-600 text-white border-orange-600"
                     : "border-gray-300 text-gray-700"
@@ -592,7 +658,7 @@ export default function SingleSalePage({
           {orderType === "pickup" && (
             <>
               {/* Delivery method selector */}
-              <div className="flex gap-3 flex-wrap">
+              <div className="flex gap-2 flex-wrap">
                 {[
                   ["logistics", "Logistics (Door Delivery)"],
                   ["park", "Transport Park"],
@@ -601,7 +667,7 @@ export default function SingleSalePage({
                   <button
                     key={val}
                     onClick={() => setMethod(val)}
-                    className={`px-3 py-1.5 rounded-lg border ${
+                    className={`px-3 py-1.5 rounded-lg border text-sm ${
                       method === val
                         ? "bg-orange-600 text-white border-orange-600"
                         : "border-gray-300 text-gray-700"
@@ -613,7 +679,7 @@ export default function SingleSalePage({
               </div>
 
               {(method === "logistics" || method === "park") && (
-                <div className="grid gap-4 md:grid-cols-2 mt-2">
+                <div className="grid gap-3 md:grid-cols-2 mt-1">
                   <textarea
                     rows={2}
                     value={shipAddr}
@@ -623,50 +689,50 @@ export default function SingleSalePage({
                         ? "Destination / Delivery address"
                         : "Park address & state"
                     }
-                    className="border rounded-lg px-3 py-2"
+                    className="border rounded-lg px-3 py-2 text-sm"
                   />
                   <input
                     value={receiverName}
                     onChange={(e) => setReceiverName(e.target.value)}
                     placeholder="Receiver name"
-                    className="border rounded-lg px-3 py-2"
+                    className="border rounded-lg px-3 py-2 text-sm"
                   />
                   <input
                     value={receiverPhone}
                     onChange={(e) => setReceiverPhone(e.target.value)}
                     placeholder="Receiver phone"
-                    className="border rounded-lg px-3 py-2"
+                    className="border rounded-lg px-3 py-2 text-sm"
                   />
                   <input
                     value={receiptName}
                     onChange={(e) => setReceiptName(e.target.value)}
                     placeholder="Name on receipt"
-                    className="border rounded-lg px-3 py-2"
+                    className="border rounded-lg px-3 py-2 text-sm"
                   />
                   <input
                     type="number"
                     value={receiptAmount}
                     onChange={(e) => setReceiptAmount(+e.target.value || 0)}
                     placeholder="Amount on receipt"
-                    className="border rounded-lg px-3 py-2"
+                    className="border rounded-lg px-3 py-2 text-sm"
                   />
                   <input
                     type="number"
                     value={deliveryFee}
                     onChange={(e) => setDeliveryFee(+e.target.value || 0)}
                     placeholder="Delivery fee (₦)"
-                    className="border rounded-lg px-3 py-2"
+                    className="border rounded-lg px-3 py-2 text-sm"
                   />
                   <textarea
                     rows={2}
                     value={deliveryNote}
                     onChange={(e) => setDeliveryNote(e.target.value)}
                     placeholder="Additional note"
-                    className="border rounded-lg px-3 py-2 md:col-span-2"
+                    className="border rounded-lg px-3 py-2 text-sm md:col-span-2"
                   />
                   <div className="flex items-center gap-6 col-span-full">
                     <span className="text-sm">Delivery paid?</span>
-                    <label className="flex items-center gap-1">
+                    <label className="flex items-center gap-1 text-sm">
                       <input
                         type="radio"
                         checked={deliveryPaid}
@@ -674,7 +740,7 @@ export default function SingleSalePage({
                       />{" "}
                       Paid
                     </label>
-                    <label className="flex items-center gap-1">
+                    <label className="flex items-center gap-1 text-sm">
                       <input
                         type="radio"
                         checked={!deliveryPaid}
@@ -690,16 +756,16 @@ export default function SingleSalePage({
         </section>
       )}
 
-      {/* Payment (unchanged UI) */}
+      {/* Payment */}
       {mode !== "invoice" && (orderType === "order" || paid) && (
-        <section className="space-y-4">
-          <h3 className="text-lg font-semibold">Payment</h3>
-          <div className="flex gap-4 flex-wrap">
+        <section className="space-y-3">
+          <h3 className="text-base md:text-lg font-semibold">Payment</h3>
+          <div className="flex gap-2 flex-wrap">
             {["cash", "bank", "card"].map((m) => (
               <button
                 key={m}
                 onClick={() => setPayMethod(m)}
-                className={`px-4 py-1.5 rounded-lg border ${
+                className={`px-3 py-1.5 rounded-lg border text-sm ${
                   payMethod === m
                     ? "bg-orange-600 text-white border-orange-600"
                     : "border-gray-300 text-gray-700"
@@ -711,49 +777,49 @@ export default function SingleSalePage({
           </div>
 
           {payMethod === "bank" && (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <label className="block">
-                <span className="text-sm">Bank account</span>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <label className="block text-sm">
+                <span>Bank account</span>
                 <select
                   value={bankAccount}
                   onChange={(e) => setBankAccount(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 mt-1"
+                  className="w-full border rounded-lg px-3 py-2 mt-1 text-sm"
                 >
                   <option>Moniepoint - Alogoman 2</option>
                   <option>GTB - 00112233</option>
                 </select>
               </label>
-              <label className="block">
-                <span className="text-sm">Date</span>
+              <label className="block text-sm">
+                <span>Date</span>
                 <input
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 mt-1"
+                  className="w-full border rounded-lg px-3 py-2 mt-1 text-sm"
                 />
               </label>
-              <label className="block">
-                <span className="text-sm">Name on account</span>
+              <label className="block text-sm">
+                <span>Name on account</span>
                 <input
                   value={accountName}
                   onChange={(e) => setAccountName(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 mt-1"
+                  className="w-full border rounded-lg px-3 py-2 mt-1 text-sm"
                 />
               </label>
-              <label className="block">
-                <span className="text-sm">Amount transferred</span>
+              <label className="block text-sm">
+                <span>Amount transferred</span>
                 <input
                   type="number"
                   value={amountTransferred}
                   onChange={(e) => setAmountTransferred(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 mt-1"
+                  className="w-full border rounded-lg px-3 py-2 mt-1 text-sm"
                 />
               </label>
             </div>
           )}
 
-          <label className="flex items-center gap-2">
-            <span className="text-sm">Tax %</span>
+          <label className="flex items-center gap-2 text-sm">
+            <span>Tax %</span>
             <input
               type="number"
               value={taxPct}
@@ -764,8 +830,8 @@ export default function SingleSalePage({
         </section>
       )}
 
-      {/* summary */}
-      <section className="space-y-2 max-w-sm ml-auto">
+      {/* Desktop summary */}
+      <section className="hidden md:block space-y-2 max-w-sm ml-auto">
         <div className="flex justify-between text-gray-600">
           <span>Subtotal</span>
           <span>₦{subtotal.toLocaleString()}</span>
@@ -775,19 +841,26 @@ export default function SingleSalePage({
           <span>₦{taxTotal.toLocaleString()}</span>
         </div>
         <div className="flex justify-between text-gray-600">
-          <span>Delivery {deliveryPaid ? "" : "(unpaid)"}</span>
+          <span>Delivery {deliveryPaid ? "" : "(unpaid)"} </span>
           <span>₦{Number(deliveryFee || 0).toLocaleString()}</span>
         </div>
         <div className="flex justify-between font-semibold">
           <span>Total</span>
-          <span>₦{grand.toLocaleString()}</span>
+          <span>
+            ₦
+            {(
+              subtotal +
+              taxTotal +
+              (deliveryPaid ? Number(deliveryFee || 0) : 0)
+            ).toLocaleString()}
+          </span>
         </div>
 
         <button
           onClick={saveSale}
           disabled={isSaving}
           aria-busy={isSaving}
-          className={`w-full mt-4 text-white py-2 rounded-lg ${
+          className={`w-full mt-3 text-white py-2 rounded-lg ${
             isSaving
               ? "bg-orange-400 cursor-not-allowed opacity-60"
               : "bg-orange-600 hover:bg-orange-700"
@@ -796,6 +869,35 @@ export default function SingleSalePage({
           {isSaving ? "Completing…" : "Complete sale"}
         </button>
       </section>
+
+      {/* Sticky bottom checkout on mobile */}
+      <div className="md:hidden h-20" />
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-20 bg-white border-t px-3 py-2">
+        <div className="flex items-center justify-between">
+          <div className="text-sm">
+            <div className="text-gray-500 leading-tight">Total</div>
+            <div className="font-semibold text-base">
+              ₦
+              {(
+                subtotal +
+                taxTotal +
+                (deliveryPaid ? Number(deliveryFee || 0) : 0)
+              ).toLocaleString()}
+            </div>
+          </div>
+          <button
+            onClick={saveSale}
+            disabled={isSaving}
+            className={`rounded-lg px-4 py-2 text-white text-sm font-semibold ${
+              isSaving
+                ? "bg-orange-400 cursor-not-allowed opacity-60"
+                : "bg-orange-600 hover:bg-orange-700"
+            }`}
+          >
+            {isSaving ? "Completing…" : "Complete sale"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -15,6 +15,7 @@ import {
   FiChevronRight,
   FiMoreVertical,
   FiX,
+  FiChevronUp,
 } from "react-icons/fi";
 import { toast } from "react-toastify";
 import api from "../../api";
@@ -311,6 +312,16 @@ export default function CustomerTable() {
 
   const searchInputRef = useRef(null);
 
+  // mobile "view more" state per customer id
+  const [expanded, setExpanded] = useState(() => new Set());
+  const toggleExpanded = (id) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
   /* fetch customers */
   useEffect(() => {
     (async () => {
@@ -380,7 +391,7 @@ export default function CustomerTable() {
   const safePage = Math.min(page, totalPages);
   const pageData = sorted.slice((safePage - 1) * perPage, safePage * perPage);
 
-  /* table header spec */
+  /* table header spec (desktop) */
   const HEADERS = [
     { id: "name", label: "Customer Name", sortable: true },
     { id: "email", label: "Email" },
@@ -432,7 +443,7 @@ export default function CustomerTable() {
   if (error) return <p className="p-6 text-red-600">{error}</p>;
 
   return (
-    <section className="bg-white rounded-2xl shadow p-6">
+    <section className="bg-white rounded-2xl shadow p-4 sm:p-6">
       {/* Title + controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
         <h2 className="text-lg font-medium text-gray-800">Customers</h2>
@@ -513,8 +524,8 @@ export default function CustomerTable() {
         setSortDir={setSortDir}
       />
 
-      {/* Table */}
-      <div className="overflow-x-auto">
+      {/* Desktop table */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
@@ -627,6 +638,147 @@ export default function CustomerTable() {
         </table>
       </div>
 
+      {/* Mobile list (compact) */}
+      <div className="md:hidden">
+        {/* Mobile header row */}
+        <div className="grid grid-cols-6 items-center bg-gray-50 text-[11px] uppercase text-gray-600 px-3 py-2 rounded-t-lg border border-b-0">
+          <div className="col-span-3">Customer</div>
+          <div className="col-span-2 text-center">Phone</div>
+          <div className="text-center">Total</div>
+        </div>
+
+        <div className="border rounded-b-lg divide-y">
+          {pageData.map((c) => {
+            const isOpen = expanded.has(c._id);
+            return (
+              <div key={c._id} className="px-3 py-2">
+                {/* Compact row */}
+                <div className="grid grid-cols-6 items-center gap-2">
+                  <div className="col-span-3 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <input type="checkbox" className="h-4 w-4" />
+                      <span className="font-medium truncate">
+                        {c.firstName} {c.lastName}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="col-span-2 text-center text-gray-700 truncate">
+                    {c.whatAppNumber || "-"}
+                  </div>
+                  <div className="text-center text-gray-800">
+                    {c.totalOrders > 0 ? c.totalOrders : 0}
+                  </div>
+                </div>
+
+                {/* Actions + More toggle */}
+                <div className="mt-2 flex items-center justify-between">
+                  <button
+                    onClick={(e) => openActionMenu(e, c._id)}
+                    className="text-xs px-3 py-1.5 rounded border hover:bg-gray-50"
+                    aria-haspopup="menu"
+                    aria-expanded={menuFor === c._id}
+                  >
+                    Actions
+                  </button>
+
+                  <button
+                    onClick={() => toggleExpanded(c._id)}
+                    className="text-xs px-3 py-1.5 rounded border hover:bg-gray-50 flex items-center gap-1"
+                    aria-expanded={isOpen}
+                    aria-controls={`cust-more-${c._id}`}
+                  >
+                    {isOpen ? (
+                      <>
+                        <FiChevronUp /> Hide
+                      </>
+                    ) : (
+                      <>
+                        <FiChevronDown /> View more
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Hidden details */}
+                {isOpen && (
+                  <div
+                    id={`cust-more-${c._id}`}
+                    className="mt-3 rounded-lg border bg-gray-50 p-3 text-sm space-y-2"
+                  >
+                    <DetailRow label="Email" value={c.email || "-"} />
+                    <DetailRow
+                      label="Last Order"
+                      value={
+                        c.lastOrderDate
+                          ? new Date(c.lastOrderDate).toLocaleDateString(
+                              "en-GB",
+                              {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              }
+                            )
+                          : "Yet to order"
+                      }
+                    />
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Status</span>
+                      <span
+                        className={`px-2 inline-flex text-xs font-semibold rounded-full ${
+                          c.status === "Pending"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : c.status === "Delivered"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-gray-100 text-gray-800"
+                        }`}
+                      >
+                        {c.status || "No Order"}
+                      </span>
+                    </div>
+                    <div className="pt-1">
+                      <button
+                        onClick={() => navigate(`/customers/${c._id}`)}
+                        className="w-full text-xs px-3 py-2 rounded bg-orange-600 text-white"
+                      >
+                        View customer
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {!pageData.length && (
+            <div className="px-3 py-6 text-center text-gray-500">No data</div>
+          )}
+        </div>
+
+        {/* Action menu overlays for mobile too */}
+        <ActionMenu
+          open={!!menuFor}
+          anchorRect={anchorRect}
+          onClose={() => {
+            setMenuFor(null);
+            setAnchorRect(null);
+          }}
+          onView={() => {
+            const id = menuFor;
+            setMenuFor(null);
+            setAnchorRect(null);
+            if (id) navigate(`/customers/${id}`);
+          }}
+          onDelete={() => {
+            const id = menuFor;
+            setMenuFor(null);
+            setAnchorRect(null);
+            if (id) {
+              const c = customers.find((u) => u._id === id);
+              handleDelete(id, `${c?.firstName || ""} ${c?.lastName || ""}`);
+            }
+          }}
+        />
+      </div>
+
       {/* Pagination */}
       <div className="flex items-center justify-between mt-6">
         <span className="text-sm text-gray-500">
@@ -668,5 +820,17 @@ export default function CustomerTable() {
         </div>
       </div>
     </section>
+  );
+}
+
+/* --- Small helper row for mobile hidden details --- */
+function DetailRow({ label, value }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-gray-600">{label}</span>
+      <span className="font-medium truncate max-w-[60%] text-right">
+        {String(value ?? "-")}
+      </span>
+    </div>
   );
 }

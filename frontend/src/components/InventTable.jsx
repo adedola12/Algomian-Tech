@@ -30,6 +30,13 @@ const testImage = (url) =>
     img.onerror = () => ok(false);
   });
 
+/* NEW: first two words + ellipsis */
+const firstTwoWords = (s = "") => {
+  const words = String(s).trim().split(/\s+/);
+  if (words.length <= 2) return s;
+  return `${words.slice(0, 2).join(" ")}…`;
+};
+
 /* ─── component ────────────────────────────────────────────── */
 export default function InventTable() {
   const nav = useNavigate();
@@ -59,6 +66,9 @@ export default function InventTable() {
     direction: "asc",
   });
 
+  /* NEW: mobile “view more columns” toggle */
+  const [showMoreCols, setShowMoreCols] = useState(false);
+
   const debouncedSearch = useDebounce(search.trim(), 300);
 
   /* ------------ sorting handler ------------ */
@@ -69,62 +79,17 @@ export default function InventTable() {
         : { key, direction: "asc" }
     );
 
-  /* ------------ data loader (server pagination) ------------ */
-  // const loadProducts = useCallback(async () => {
-  //   setLoading(true);
-  //   try {
-  //     const {
-  //       products = [],
-  //       total: grandTotal = 0,
-  //       pages: apiPages,
-  //     } = await fetchProducts({
-  //       search: debouncedSearch || undefined,
-  //       category: category || undefined,
-  //       page,
-  //       limit: LIMIT,
-  //       inStockOnly: 1, // 👈 only fetch items with quantity > 0
-  //     });
-
-  //     const safeProducts = Array.isArray(products) ? products : [];
-
-  //     const verified = await Promise.all(
-  //       safeProducts.map(async (p) => {
-  //         const img = p.images?.[0] ? toEmbedUrl(p.images[0]) : null;
-  //         return {
-  //           ...p,
-  //           verifiedImage: img && (await testImage(img)) ? img : null,
-  //         };
-  //       })
-  //     );
-
-  //     setRows(verified);
-  //     setTotal(Number.isFinite(grandTotal) ? grandTotal : verified.length);
-  //     setPages(
-  //       Number.isFinite(apiPages)
-  //         ? apiPages
-  //         : Math.max(1, Math.ceil((grandTotal || verified.length) / LIMIT))
-  //     );
-  //     setError(null);
-  //   } catch (e) {
-  //     setError(e.response?.data?.message || e.message);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // }, [debouncedSearch, category, page]);
-
-  // keep the existing imports and the top: const { user } = useAuth();
-
+  /* ------------ data loader (server pagination + location restriction) ------------ */
   const loadProducts = useCallback(async () => {
     setLoading(true);
     try {
-      // restrict SalesRep / Manager to their location
       const isRestricted = ["SalesRep", "Manager"].includes(user?.userType);
       const baseParams = {
         search: debouncedSearch || undefined,
         category: category || undefined,
         page,
         limit: LIMIT,
-        inStockOnly: 1, // keep only items with quantity > 0
+        inStockOnly: 1,
         ...(isRestricted && user?.location
           ? { stockLocation: user.location }
           : {}),
@@ -238,6 +203,10 @@ export default function InventTable() {
     }
   };
 
+  /* convenience: classes that hide on mobile unless toggled */
+  const hideOnMobile = (extra = "") =>
+    `${showMoreCols ? "table-cell" : "hidden"} md:table-cell ${extra}`;
+
   return (
     <>
       <section className="space-y-4 rounded-lg bg-white p-4 sm:p-5 shadow-sm">
@@ -249,7 +218,7 @@ export default function InventTable() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search here…"
-              className="peer w-full rounded border-gray-300 py-2 pl-10 pr-3 text-sm focus:outline-none"
+              className="peer w-full rounded border-gray-300 py-2 pl-3 pr-3 text-sm focus:outline-none"
             />
           </div>
 
@@ -265,6 +234,15 @@ export default function InventTable() {
               <option key={c}>{c}</option>
             ))}
           </select>
+
+          {/* NEW: mobile toggle for more columns */}
+          <button
+            type="button"
+            onClick={() => setShowMoreCols((s) => !s)}
+            className="ml-auto inline-flex md:hidden rounded border px-3 py-2 text-xs"
+          >
+            {showMoreCols ? "Hide extra columns" : "View more columns"}
+          </button>
         </div>
 
         {error && <p className="text-sm text-red-600">Error: {error}</p>}
@@ -277,42 +255,67 @@ export default function InventTable() {
         {/* table */}
         <div className="w-full overflow-x-auto relative">
           {loading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-white/60 z-10">
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60">
               <span className="text-sm text-gray-500">Loading…</span>
             </div>
           )}
 
-          <table className="w-full min-w-[900px] text-sm">
+          {/* NEW: no forced wide table on mobile; enforce min width from md+ */}
+          <table className="w-full text-sm md:min-w-[900px]">
             <thead className="whitespace-nowrap border-b text-left text-gray-500">
-              <tr>
+              <tr className="[&>th]:py-2 md:[&>th]:py-3">
                 {isPrivileged && (
-                  <th className="py-3 pl-4">
+                  <th
+                    className={
+                      hideOnMobile(
+                        ""
+                      ) /* checkbox hidden on mobile by default */
+                    }
+                  >
                     <input type="checkbox" className="accent-orange-500" />
                   </th>
                 )}
-                {[
-                  ["Name", "productName"],
-                  ["Details", ""],
-                  ["Selling Price", "sellingPrice"],
-                  ["Quantity", "quantity"],
-                  ...(isPrivileged
-                    ? [
-                        ["Supplier", ""],
-                        ["Cost Price", "costPrice"],
-                      ]
-                    : []),
-                  ["Status", "status"],
-                  ["Date Added", "createdAt"],
-                  ["Action", ""],
-                ].map(([label, key]) => (
-                  <th
-                    key={label}
-                    className={`py-3 ${key ? "cursor-pointer" : ""}`}
-                    onClick={() => key && handleSort(key)}
-                  >
-                    {label}
-                  </th>
-                ))}
+
+                <th className="cursor-default">Name</th>
+                <th className="cursor-default">Details</th>
+                <th
+                  className="cursor-pointer"
+                  onClick={() => handleSort("sellingPrice")}
+                >
+                  Selling Price
+                </th>
+                <th
+                  className="cursor-pointer"
+                  onClick={() => handleSort("quantity")}
+                >
+                  Quantity
+                </th>
+
+                {isPrivileged && (
+                  <>
+                    <th className={hideOnMobile("")}>Supplier</th>
+                    <th
+                      className={hideOnMobile("cursor-pointer")}
+                      onClick={() => handleSort("costPrice")}
+                    >
+                      Cost Price
+                    </th>
+                  </>
+                )}
+
+                <th
+                  className={hideOnMobile("cursor-default")}
+                  onClick={() => handleSort("status")}
+                >
+                  Status
+                </th>
+                <th
+                  className={hideOnMobile("cursor-pointer")}
+                  onClick={() => handleSort("createdAt")}
+                >
+                  Date Added
+                </th>
+                <th className={hideOnMobile("")}>Action</th>
               </tr>
             </thead>
 
@@ -320,7 +323,7 @@ export default function InventTable() {
               {!loading && sortedRows.length === 0 && (
                 <tr>
                   <td
-                    colSpan={isPrivileged ? 8 : 6}
+                    colSpan={isPrivileged ? 10 : 8}
                     className="py-6 text-center text-gray-500"
                   >
                     No products match your query.
@@ -331,15 +334,16 @@ export default function InventTable() {
               {sortedRows.map((p) => (
                 <tr
                   key={p._id}
-                  className="whitespace-nowrap hover:bg-gray-50 relative"
+                  className="whitespace-nowrap hover:bg-gray-50 relative [&&>td]:py-2 md:[&&>td]:py-3"
                 >
                   {isPrivileged && (
-                    <td className="py-3 pl-4">
+                    <td className={hideOnMobile("pl-4")}>
                       <input type="checkbox" className="accent-orange-500" />
                     </td>
                   )}
 
-                  <td className="py-3 flex min-w-[180px] items-center gap-3">
+                  {/* Name (smaller image on mobile, 1–2 word name) */}
+                  <td className="flex min-w-[180px] items-center gap-2 md:gap-3">
                     <img
                       src={
                         p.verifiedImage ||
@@ -348,27 +352,30 @@ export default function InventTable() {
                         )}`
                       }
                       alt={p.productName}
-                      className="h-9 w-9 shrink-0 rounded object-cover"
+                      className="h-7 w-7 md:h-9 md:w-9 shrink-0 rounded object-cover"
                     />
-                    <span className="truncate">{p.productName}</span>
+                    <span
+                      className="truncate max-w-[140px] md:max-w-[220px]"
+                      title={p.productName}
+                    >
+                      {firstTwoWords(p.productName)}
+                    </span>
                   </td>
 
-                  <td className="py-3">{compactDetails(p)}</td>
-                  <td className="py-3">{fmtNGN(p.sellingPrice)}</td>
-                  <td className="py-3">{p.quantity}</td>
+                  <td>{compactDetails(p)}</td>
+                  <td>{fmtNGN(p.sellingPrice)}</td>
+                  <td>{p.quantity}</td>
 
                   {isPrivileged && (
                     <>
-                      <td className="py-3 hidden md:table-cell">
-                        {p.supplier || "—"}
-                      </td>
-                      <td className="py-3 hidden md:table-cell">
+                      <td className={hideOnMobile("")}>{p.supplier || "—"}</td>
+                      <td className={hideOnMobile("")}>
                         {fmtNGN(p.costPrice)}
                       </td>
                     </>
                   )}
 
-                  <td className="py-3">
+                  <td className={hideOnMobile("")}>
                     <span
                       className={`rounded-full px-3 py-0.5 text-xs font-medium ${badge(
                         p.quantity,
@@ -383,7 +390,7 @@ export default function InventTable() {
                     </span>
                   </td>
 
-                  <td className="py-3">
+                  <td className={hideOnMobile("")}>
                     {new Date(p.createdAt).toLocaleDateString("en-GB", {
                       year: "numeric",
                       month: "short",
@@ -391,7 +398,7 @@ export default function InventTable() {
                     })}
                   </td>
 
-                  <td className="pr-4 text-right relative">
+                  <td className={hideOnMobile("pr-4 text-right relative")}>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();

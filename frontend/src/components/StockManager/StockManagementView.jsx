@@ -2,6 +2,12 @@ import { useEffect, useState } from "react";
 import api from "../../api";
 import { toast } from "react-toastify";
 
+const firstThreeWords = (s = "") => {
+  const words = String(s).trim().split(/\s+/);
+  if (words.length <= 3) return s;
+  return `${words.slice(0, 3).join(" ")}…`;
+};
+
 export default function StockManagementView() {
   const [data, setData] = useState([]);
   const [search, setSearch] = useState("");
@@ -12,6 +18,9 @@ export default function StockManagementView() {
 
   const [reorderInputs, setReorderInputs] = useState({});
   const [saving, setSaving] = useState({});
+
+  // mobile: toggle to show hidden columns
+  const [showMoreCols, setShowMoreCols] = useState(false);
 
   // ── pagination ─────────────────────────────────────────────
   const PAGE_SIZE = 25;
@@ -24,10 +33,10 @@ export default function StockManagementView() {
   const handleSortToggle = (key) => {
     setSortBy((prevKey) => {
       if (prevKey === key) {
-        setSortAsc((prev) => !prev); // same column → flip direction
+        setSortAsc((prev) => !prev);
         return prevKey;
       }
-      setSortAsc(true); // new column → default to ascending
+      setSortAsc(true);
       return key;
     });
   };
@@ -47,7 +56,7 @@ export default function StockManagementView() {
       });
       setReorderInputs(inputs);
       setSaving(saveState);
-      setPage(1); // reset to first page on fresh load
+      setPage(1);
     } catch (err) {
       toast.error("Error fetching stock data");
     } finally {
@@ -98,7 +107,7 @@ export default function StockManagementView() {
     }
   };
 
-  /* ---------- status helpers (declare BEFORE use) ---------- */
+  /* ---------- status helpers ---------- */
   const getStatusRank = (item, currentLevel) => {
     if (item.totalQuantity === 0) return 0; // Out of stock
     if (item.totalQuantity <= currentLevel) return 1; // Low stock
@@ -108,6 +117,12 @@ export default function StockManagementView() {
   const getStatusLabel = (item, currentLevel) => {
     const r = getStatusRank(item, currentLevel);
     return r === 0 ? "Out of stock" : r === 1 ? "Low stock" : "In stock";
+  };
+
+  const getStatusDotClass = (item, currentLevel) => {
+    const r = getStatusRank(item, currentLevel);
+    // colors for the tiny dot on <=360px
+    return r === 0 ? "bg-red-500" : r === 1 ? "bg-orange-500" : "bg-green-500";
   };
 
   // ── filter + sort ──────────────────────────────────────────
@@ -121,14 +136,12 @@ export default function StockManagementView() {
         const rb = getStatusRank(b, bLevel);
         return sortAsc ? ra - rb : rb - ra;
       } else {
-        // name
         return sortAsc
           ? a.displayName.localeCompare(b.displayName)
           : b.displayName.localeCompare(a.displayName);
       }
     });
 
-  // Reset to first page when filters/sort change
   useEffect(() => {
     setPage(1);
   }, [search, sortAsc, sortBy, data]);
@@ -159,32 +172,47 @@ export default function StockManagementView() {
   const nextPage = () => setPage((p) => Math.min(p + 1, totalPages));
   const prevPage = () => setPage((p) => Math.max(p - 1, 1));
 
+  // helpers: hide on mobile (unless toggled)
+  const hideOnMobile = (extra = "") =>
+    `${showMoreCols ? "table-cell" : "hidden"} md:table-cell ${extra}`;
+
   return (
-    <section className="bg-white p-5 rounded-2xl shadow">
-      <div className="flex flex-wrap justify-between items-center mb-4 gap-3">
-        <h2 className="text-xl font-semibold">Stock Overview</h2>
+    <section className="bg-white p-4 sm:p-5 rounded-2xl shadow">
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <h2 className="text-lg sm:text-xl font-semibold">Stock Overview</h2>
 
-        <div className="text-sm text-gray-600">
-          <strong>Total Stock Available:</strong> {totalStock}
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <div className="text-xs sm:text-sm text-gray-600">
+            <strong>Total Stock Available:</strong> {totalStock}
+          </div>
+
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name..."
+            className="border rounded px-2 py-1 text-sm w-40 sm:w-64"
+          />
+
+          {/* Mobile toggle */}
+          <button
+            type="button"
+            onClick={() => setShowMoreCols((s) => !s)}
+            className="md:hidden border rounded px-2 py-1 text-xs"
+          >
+            {showMoreCols ? "Hide extra columns" : "View more columns"}
+          </button>
+
+          <button
+            onClick={updateAllReorderLevels}
+            className="bg-orange-500 text-white text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2 rounded hover:bg-orange-600"
+          >
+            Save All Reorder Levels
+          </button>
         </div>
-
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name..."
-          className="border rounded px-3 py-2 text-sm w-64"
-        />
-
-        <button
-          onClick={updateAllReorderLevels}
-          className="bg-orange-500 text-white text-sm px-4 py-2 rounded hover:bg-orange-600"
-        >
-          Save All Reorder Levels
-        </button>
       </div>
 
       {/* Status counters */}
-      <div className="flex flex-wrap gap-2 mb-3 text-sm">
+      <div className="flex flex-wrap gap-2 mb-3 text-xs sm:text-sm">
         <span className="px-2 py-1 rounded-full bg-green-100 text-green-700">
           In stock: {counts.inStock}
         </span>
@@ -201,29 +229,35 @@ export default function StockManagementView() {
       ) : (
         <>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-sm border-collapse">
+            {/* md+ enforces layout width; mobile stays fluid */}
+            <table className="w-full text-sm md:min-w-[900px] border-collapse">
               <thead className="text-left border-b text-gray-500">
-                <tr>
+                <tr className="[&>th]:py-2 md:[&>th]:py-3">
                   <th
-                    className="cursor-pointer py-3"
+                    className="cursor-pointer w-[46%] sm:w-auto"
                     onClick={() => handleSortToggle("name")}
                     title="Sort by name"
                   >
                     Product Name{" "}
                     {sortBy === "name" ? (sortAsc ? "▲" : "▼") : ""}
                   </th>
-                  <th>Brand</th>
-                  <th>Category</th>
-                  <th>Total Qty</th>
-                  <th>Reorder Level</th>
+                  {/* Hidden by default on mobile, available via toggle */}
+                  <th className={hideOnMobile("w-[14%]")}>Brand</th>
+                  <th className={hideOnMobile("w-[14%]")}>Category</th>
+
+                  <th className="w-[14%]">Total Qty</th>
+
+                  <th className={hideOnMobile("w-[16%]")}>Reorder Level</th>
+
                   <th
-                    className="cursor-pointer"
+                    className="cursor-pointer w-[12%]"
                     onClick={() => handleSortToggle("status")}
                     title="Sort by status"
                   >
                     Status {sortBy === "status" ? (sortAsc ? "▲" : "▼") : ""}
                   </th>
-                  <th className="text-center">Save</th>
+
+                  <th className={hideOnMobile("text-center w-[10%]")}>Save</th>
                 </tr>
               </thead>
 
@@ -240,49 +274,77 @@ export default function StockManagementView() {
                       ? "bg-orange-100 border-orange-400 text-orange-800"
                       : "bg-green-100 border-green-400 text-green-800";
 
-                  const statusBadge = () => {
-                    const label = getStatusLabel(item, currentLevel);
-                    if (label === "Out of stock") {
-                      return (
-                        <span className="text-red-600 font-medium">
-                          Out of stock
-                        </span>
-                      );
-                    } else if (label === "Low stock") {
-                      return (
-                        <span className="text-orange-500 font-medium">
-                          Low stock
-                        </span>
-                      );
-                    }
-                    return (
-                      <span className="text-green-600 font-medium">
-                        In stock
-                      </span>
-                    );
-                  };
+                  const label = getStatusLabel(item, currentLevel);
+                  const dotClass = getStatusDotClass(item, currentLevel);
 
                   return (
-                    <tr key={item._id} className="border-b hover:bg-gray-50">
-                      <td className="py-3">{item.displayName}</td>
-                      <td>{item.brand}</td>
-                      <td>{item.category}</td>
-                      <td>{item.totalQuantity}</td>
-                      <td className="flex items-center gap-2 py-2">
-                        <input
-                          type="number"
-                          value={currentLevel}
-                          onChange={(e) =>
-                            setReorderInputs((prev) => ({
-                              ...prev,
-                              [item.displayName]: Number(e.target.value),
-                            }))
-                          }
-                          className={`border rounded px-2 py-1 w-20 ${inputColor}`}
+                    <tr
+                      key={item._id}
+                      className="border-b hover:bg-gray-50 [&&>td]:py-2 md:[&&>td]:py-3"
+                    >
+                      {/* Product Name (3 words on mobile) */}
+                      <td className="align-middle">
+                        <span
+                          className="inline-block max-w-[180px] sm:max-w-none truncate text-sm"
+                          title={item.displayName}
+                        >
+                          {firstThreeWords(item.displayName)}
+                        </span>
+                      </td>
+
+                      {/* Brand (hidden on mobile unless toggled) */}
+                      <td className={hideOnMobile("align-middle")}>
+                        {item.brand || "—"}
+                      </td>
+
+                      {/* Category (hidden on mobile unless toggled) */}
+                      <td className={hideOnMobile("align-middle")}>
+                        {item.category || "—"}
+                      </td>
+
+                      {/* Total Qty (always visible) */}
+                      <td className="align-middle">{item.totalQuantity}</td>
+
+                      {/* Reorder Level input (hidden on mobile unless toggled) */}
+                      <td className={hideOnMobile("align-middle")}>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            value={currentLevel}
+                            onChange={(e) =>
+                              setReorderInputs((prev) => ({
+                                ...prev,
+                                [item.displayName]: Number(e.target.value),
+                              }))
+                            }
+                            className={`border rounded px-2 py-1 w-16 sm:w-20 ${inputColor}`}
+                          />
+                        </div>
+                      </td>
+
+                      {/* Status: text normally; on <=360px show only a colored dot with tooltip */}
+                      <td className="align-middle">
+                        {/* Text label (hidden on very small screens) */}
+                        <span className="max-[360px]:hidden text-sm font-medium">
+                          {label === "Out of stock" ? (
+                            <span className="text-red-600">Out of stock</span>
+                          ) : label === "Low stock" ? (
+                            <span className="text-orange-500">Low stock</span>
+                          ) : (
+                            <span className="text-green-600">In stock</span>
+                          )}
+                        </span>
+
+                        {/* Dot for tiny screens (<=360px) */}
+                        <span
+                          className={`hidden max-[360px]:inline-block h-2.5 w-2.5 rounded-full align-middle ${dotClass}`}
+                          title={label}
+                          aria-label={label}
                         />
                       </td>
-                      <td>{statusBadge()}</td>
-                      <td className="text-center">
+
+                      {/* Save button (hidden on mobile unless toggled) */}
+                      <td className={hideOnMobile("text-center align-middle")}>
                         <button
                           disabled={isSaving}
                           onClick={() => updateReorderLevel(item.displayName)}
@@ -298,7 +360,7 @@ export default function StockManagementView() {
 
                 {!pageRows.length && (
                   <tr>
-                    <td colSpan="7" className="text-center py-6 text-gray-500">
+                    <td colSpan={7} className="text-center py-6 text-gray-500">
                       No matching products
                     </td>
                   </tr>

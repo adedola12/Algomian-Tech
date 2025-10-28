@@ -40,8 +40,7 @@ function Modal({ open, onClose, title, children }) {
   );
 }
 
-/* ---------------------- main component ---------------------- */
-
+/* ---------------------- helpers ---------------------- */
 const columns = [
   "Name",
   "Brand",
@@ -62,20 +61,19 @@ const createEmptyRow = () => ({
   supplier: "",
 });
 
+/* ---------------------- main component ---------------------- */
 const BulkAddProduct = () => {
   const [rows, setRows] = useState(
     Array.from({ length: 10 }, () => createEmptyRow())
   );
   const [loading, setLoading] = useState(false);
 
-  // modal state
-  const [summaryOpen, setSummaryOpen] = useState(false);
-  const [summary, setSummary] = useState({
-    added: 0,
-    failed: 0,
-    failures: [], // [{name, reason}]
-  });
+  // mobile: which rows are expanded to show hidden fields
+  const [expanded, setExpanded] = useState(() => new Set());
 
+  // modals
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [summary, setSummary] = useState({ added: 0, failed: 0, failures: [] });
   const [errorOpen, setErrorOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -89,7 +87,7 @@ const BulkAddProduct = () => {
     "supplier",
   ];
 
-  /** Excel/Sheets paste support */
+  /** Excel/Sheets paste support (works in both layouts) */
   const handleCellPaste = (e, rowIdx, colIdx) => {
     const text = e.clipboardData?.getData("text");
     if (!text) return;
@@ -100,7 +98,7 @@ const BulkAddProduct = () => {
     setRows((prev) => {
       const out = [...prev];
 
-      // Multi-row or multi-col paste
+      // Multi-row / multi-col paste
       if (lines.length > 1 || lines[0].includes("\t")) {
         lines.forEach((line, r) => {
           const cells = line.split("\t");
@@ -115,7 +113,7 @@ const BulkAddProduct = () => {
         return out;
       }
 
-      // Single value -> fill-down
+      // Single value → fill-down
       const value = lines[0].trim();
       for (let r = rowIdx; r < out.length; r++) {
         out[r][FIELDS[colIdx]] = value;
@@ -130,14 +128,22 @@ const BulkAddProduct = () => {
     );
   };
 
+  const toggleExpanded = (idx) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
+
   const handleSubmit = async () => {
-    // Only require productName; brand is optional
     const validRows = rows
       .filter((row) => row.productName && row.productName.trim())
       .map((r) => ({
         ...r,
         productName: r.productName.trim(),
-        brand: (r.brand || "").trim(), // may be empty
+        brand: (r.brand || "").trim(),
       }));
 
     if (!validRows.length) {
@@ -151,120 +157,263 @@ const BulkAddProduct = () => {
       const { data } = await api.post("/api/products/bulk", {
         products: validRows,
       });
-
-      // Expecting: { added, failed, failures: [{name,reason}] }
       setSummary({
         added: data.added ?? 0,
         failed: data.failed ?? 0,
         failures: Array.isArray(data.failures) ? data.failures : [],
       });
       setSummaryOpen(true);
-
-      // reset the sheet
       setRows(Array.from({ length: 10 }, () => createEmptyRow()));
+      setExpanded(new Set());
     } catch (e) {
       setErrorMsg(e?.response?.data?.message || "Error adding products");
       setErrorOpen(true);
-      // keep existing rows for user to fix
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="rounded bg-white p-6 shadow">
+    <div className="rounded bg-white p-4 sm:p-6 shadow">
       <h2 className="mb-4 text-xl font-bold">Bulk Add Products</h2>
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full table-auto border">
-          <thead>
-            <tr className="bg-gray-100 text-left text-sm font-medium">
-              {columns.map((col) => (
-                <th key={col} className="border p-2">
-                  {col}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, idx) => (
-              <tr key={idx} className="text-sm">
-                <td className="border p-2">
+      {/* ───────────────── Mobile cards (default) ───────────────── */}
+      <div className="space-y-3 md:hidden">
+        {rows.map((row, idx) => {
+          const isOpen = expanded.has(idx);
+          return (
+            <div key={idx} className="rounded-xl border border-gray-200 p-3">
+              {/* Always-visible fields */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <label className="mb-1 block text-xs font-semibold text-gray-600">
+                    Name
+                  </label>
                   <input
                     value={row.productName}
                     onChange={(e) =>
                       handleChange(idx, "productName", e.target.value)
                     }
                     onPasteCapture={(e) => handleCellPaste(e, idx, 0)}
-                    className="w-full rounded border px-2 py-1"
+                    className="w-full rounded-lg border px-3 py-2 text-sm"
+                    placeholder="e.g., EliteBook 840 G3"
                   />
-                </td>
-                <td className="border p-2">
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-600">
+                    Brand
+                  </label>
                   <input
                     value={row.brand}
                     onChange={(e) => handleChange(idx, "brand", e.target.value)}
                     onPasteCapture={(e) => handleCellPaste(e, idx, 1)}
-                    className="w-full rounded border px-2 py-1"
+                    className="w-full rounded-lg border px-3 py-2 text-sm"
                     placeholder="(optional)"
                   />
-                </td>
-                <td className="border p-2">
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-600">
+                    CPU
+                  </label>
                   <input
                     value={row.baseCPU}
                     onChange={(e) =>
                       handleChange(idx, "baseCPU", e.target.value)
                     }
                     onPasteCapture={(e) => handleCellPaste(e, idx, 2)}
-                    className="w-full rounded border px-2 py-1"
+                    className="w-full rounded-lg border px-3 py-2 text-sm"
+                    placeholder="e.g., i5-8350U"
                   />
-                </td>
-                <td className="border p-2">
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-600">
+                    RAM
+                  </label>
                   <input
                     value={row.baseRam}
                     onChange={(e) =>
                       handleChange(idx, "baseRam", e.target.value)
                     }
                     onPasteCapture={(e) => handleCellPaste(e, idx, 3)}
-                    className="w-full rounded border px-2 py-1"
+                    className="w-full rounded-lg border px-3 py-2 text-sm"
+                    placeholder="e.g., 8GB"
                   />
-                </td>
-                <td className="border p-2">
-                  <input
-                    value={row.baseStorage}
-                    onChange={(e) =>
-                      handleChange(idx, "baseStorage", e.target.value)
-                    }
-                    onPasteCapture={(e) => handleCellPaste(e, idx, 4)}
-                    className="w-full rounded border px-2 py-1"
-                  />
-                </td>
-                <td className="border p-2">
-                  <input
-                    value={row.serialNumber}
-                    onChange={(e) =>
-                      handleChange(idx, "serialNumber", e.target.value)
-                    }
-                    onPasteCapture={(e) => handleCellPaste(e, idx, 5)}
-                    className="w-full rounded border px-2 py-1"
-                  />
-                </td>
-                <td className="border p-2">
-                  <input
-                    value={row.supplier}
-                    onChange={(e) =>
-                      handleChange(idx, "supplier", e.target.value)
-                    }
-                    onPasteCapture={(e) => handleCellPaste(e, idx, 6)}
-                    className="w-full rounded border px-2 py-1"
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </div>
+              </div>
+
+              {/* Hidden-on-mobile group */}
+              {isOpen && (
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-gray-600">
+                      Storage
+                    </label>
+                    <input
+                      value={row.baseStorage}
+                      onChange={(e) =>
+                        handleChange(idx, "baseStorage", e.target.value)
+                      }
+                      onPasteCapture={(e) => handleCellPaste(e, idx, 4)}
+                      className="w-full rounded-lg border px-3 py-2 text-sm"
+                      placeholder="e.g., 256GB SSD"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-gray-600">
+                      Serial Number
+                    </label>
+                    <input
+                      value={row.serialNumber}
+                      onChange={(e) =>
+                        handleChange(idx, "serialNumber", e.target.value)
+                      }
+                      onPasteCapture={(e) => handleCellPaste(e, idx, 5)}
+                      className="w-full rounded-lg border px-3 py-2 text-sm"
+                      placeholder="(optional)"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="mb-1 block text-xs font-semibold text-gray-600">
+                      Supplier
+                    </label>
+                    <input
+                      value={row.supplier}
+                      onChange={(e) =>
+                        handleChange(idx, "supplier", e.target.value)
+                      }
+                      onPasteCapture={(e) => handleCellPaste(e, idx, 6)}
+                      className="w-full rounded-lg border px-3 py-2 text-sm"
+                      placeholder="(optional)"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-3 flex items-center justify-between">
+                <button
+                  onClick={() => toggleExpanded(idx)}
+                  className="text-xs font-semibold text-orange-600"
+                >
+                  {isOpen ? "Hide extra fields" : "More fields"}
+                </button>
+
+                <button
+                  onClick={() =>
+                    setRows((prev) => {
+                      const next = [...prev];
+                      next.splice(idx + 1, 0, createEmptyRow());
+                      return next;
+                    })
+                  }
+                  className="rounded border px-3 py-1.5 text-xs hover:bg-gray-50"
+                >
+                  + Add Row Below
+                </button>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      <div className="mt-4 flex gap-4">
+      {/* ───────────────── Desktop table (md and up) ───────────────── */}
+      <div className="mt-4 hidden md:block">
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="min-w-full table-auto">
+            <thead>
+              <tr className="bg-gray-50 text-left text-sm font-semibold text-gray-700">
+                {columns.map((col) => (
+                  <th key={col} className="border-b px-3 py-2">
+                    {col}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, idx) => (
+                <tr key={idx} className="text-sm">
+                  <td className="border-b px-3 py-2">
+                    <input
+                      value={row.productName}
+                      onChange={(e) =>
+                        handleChange(idx, "productName", e.target.value)
+                      }
+                      onPasteCapture={(e) => handleCellPaste(e, idx, 0)}
+                      className="w-full rounded border px-2 py-1"
+                    />
+                  </td>
+                  <td className="border-b px-3 py-2">
+                    <input
+                      value={row.brand}
+                      onChange={(e) =>
+                        handleChange(idx, "brand", e.target.value)
+                      }
+                      onPasteCapture={(e) => handleCellPaste(e, idx, 1)}
+                      className="w-full rounded border px-2 py-1"
+                      placeholder="(optional)"
+                    />
+                  </td>
+                  <td className="border-b px-3 py-2">
+                    <input
+                      value={row.baseCPU}
+                      onChange={(e) =>
+                        handleChange(idx, "baseCPU", e.target.value)
+                      }
+                      onPasteCapture={(e) => handleCellPaste(e, idx, 2)}
+                      className="w-full rounded border px-2 py-1"
+                    />
+                  </td>
+                  <td className="border-b px-3 py-2">
+                    <input
+                      value={row.baseRam}
+                      onChange={(e) =>
+                        handleChange(idx, "baseRam", e.target.value)
+                      }
+                      onPasteCapture={(e) => handleCellPaste(e, idx, 3)}
+                      className="w-full rounded border px-2 py-1"
+                    />
+                  </td>
+                  <td className="border-b px-3 py-2">
+                    <input
+                      value={row.baseStorage}
+                      onChange={(e) =>
+                        handleChange(idx, "baseStorage", e.target.value)
+                      }
+                      onPasteCapture={(e) => handleCellPaste(e, idx, 4)}
+                      className="w-full rounded border px-2 py-1"
+                    />
+                  </td>
+                  <td className="border-b px-3 py-2">
+                    <input
+                      value={row.serialNumber}
+                      onChange={(e) =>
+                        handleChange(idx, "serialNumber", e.target.value)
+                      }
+                      onPasteCapture={(e) => handleCellPaste(e, idx, 5)}
+                      className="w-full rounded border px-2 py-1"
+                    />
+                  </td>
+                  <td className="border-b px-3 py-2">
+                    <input
+                      value={row.supplier}
+                      onChange={(e) =>
+                        handleChange(idx, "supplier", e.target.value)
+                      }
+                      onPasteCapture={(e) => handleCellPaste(e, idx, 6)}
+                      className="w-full rounded border px-2 py-1"
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row">
         <button
           onClick={() => setRows((prev) => [...prev, createEmptyRow()])}
           className="rounded border px-4 py-2 hover:bg-gray-100"

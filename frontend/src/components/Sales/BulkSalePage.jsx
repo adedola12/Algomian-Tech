@@ -30,13 +30,13 @@ const specLabel = (p = {}) => {
 
 const makeEmptyLine = () => ({
   // selection
-  _picked: null, // display info (first product of group)
-  _groupKey: "", // normalized name key
-  _groupProducts: [], // all product docs with the same name
+  _picked: null,
+  _groupKey: "",
+  _groupProducts: [],
   _search: "",
   _selectedIds: [], // MULTI: chosen product ids
   _selectedLabels: [], // pretty labels (same index as ids)
-  _specOpen: false, // 👈 controls collapsed/expanded spec panel
+  _specOpen: false,
 
   // money/qty
   qty: 0, // mirrors _selectedIds.length when multi is used
@@ -49,6 +49,9 @@ const makeEmptyCustomer = () => ({
   isPaid: true,
   paymentMethod: "cash",
   rows: [makeEmptyLine()],
+
+  // mobile collapse state
+  _collapsed: false,
 });
 
 export default function BulkSalePage({ onClose }) {
@@ -172,7 +175,7 @@ export default function BulkSalePage({ onClose }) {
       if (patch._selectedIds) {
         next.qty = patch._selectedIds.length;
         if (patch._selectedIds.length > 0) {
-          next._specOpen = false; // 👈 collapse after choosing
+          next._specOpen = false; // collapse after choosing
         }
       }
 
@@ -198,13 +201,13 @@ export default function BulkSalePage({ onClose }) {
         _groupProducts: group.products,
         _selectedIds: [],
         _selectedLabels: [],
-        _specOpen: true, // 👈 open picker initially
+        _specOpen: true,
         _search: "",
         price:
           rows[rIdx].price && rows[rIdx].price > 0
             ? rows[rIdx].price
             : Number(first.sellingPrice || group.price || 0),
-        qty: 0, // multi-select drives qty
+        qty: 0,
       };
       cp[cIdx] = { ...cp[cIdx], rows };
       return cp;
@@ -375,11 +378,16 @@ export default function BulkSalePage({ onClose }) {
     }
   };
 
+  /* ----------- UI ----------- */
   return (
-    <div className="bg-white rounded-2xl shadow p-4 sm:p-6 max-w-6xl mx-auto space-y-8">
+    <div className="bg-white rounded-none md:rounded-2xl shadow p-3 md:p-6 max-w-6xl mx-auto space-y-6 md:space-y-8">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-gray-800">
-          <button onClick={onClose} className="mr-3 text-gray-500">
+        <h2 className="text-lg md:text-xl font-semibold text-gray-800">
+          <button
+            onClick={onClose}
+            className="mr-3 text-gray-600 md:text-gray-500"
+          >
             <FiArrowLeft />
           </button>
           Bulk Sales (multiple customers)
@@ -387,397 +395,385 @@ export default function BulkSalePage({ onClose }) {
 
         <button
           onClick={addCustomer}
-          className="flex items-center gap-2 px-3 py-1.5 border rounded-lg hover:bg-gray-50"
+          className="flex items-center gap-2 px-3 py-1.5 border rounded-lg hover:bg-gray-50 text-sm"
         >
-          <FiPlus /> Add new customer
+          <FiPlus /> Add customer
         </button>
       </div>
 
       {/* customers list */}
-      <div className="space-y-8">
+      <div className="space-y-6 md:space-y-8">
         {customers.map((c, cIdx) => (
-          <div key={cIdx} className="border rounded-xl p-4 space-y-4">
+          <div key={cIdx} className="border rounded-xl p-3 md:p-4 space-y-4">
+            {/* Customer header row */}
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-gray-800">
-                Customer #{cIdx + 1}
-              </h3>
               <button
-                disabled={customers.length <= minCustomers}
-                onClick={() => removeCustomer(cIdx)}
-                className={`p-2 rounded-lg border hover:bg-gray-50 ${
-                  customers.length <= minCustomers
-                    ? "opacity-40 cursor-not-allowed"
-                    : ""
-                }`}
-                title={
-                  customers.length <= minCustomers
-                    ? `Keeps minimum ${minCustomers} customers`
-                    : "Remove customer"
+                className="text-left font-semibold text-gray-800"
+                onClick={() =>
+                  updateCustomer(cIdx, { _collapsed: !c._collapsed })
                 }
+                title="Tap to collapse/expand"
               >
-                <FiTrash2 />
+                Customer #{cIdx + 1}
+                <span className="ml-2 text-gray-500 font-normal text-sm">
+                  (₦{customerSubtotal(c).toLocaleString()})
+                </span>
               </button>
-            </div>
 
-            {/* customer header */}
-            <div className="grid gap-3 md:grid-cols-4">
-              <div className="relative">
-                <FiUser className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  value={c.customerName}
-                  onChange={(e) =>
-                    updateCustomer(cIdx, { customerName: e.target.value })
-                  }
-                  placeholder="Customer full name"
-                  className="border rounded-lg pl-9 pr-3 py-2 w-full"
-                />
-              </div>
-              <div className="relative">
-                <FiPhone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  value={c.customerPhone}
-                  onChange={(e) =>
-                    updateCustomer(cIdx, { customerPhone: e.target.value })
-                  }
-                  placeholder="Mobile number"
-                  className="border rounded-lg pl-9 pr-3 py-2 w-full"
-                />
-              </div>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={c.isPaid}
-                  onChange={() => updateCustomer(cIdx, { isPaid: !c.isPaid })}
-                />
-                Payment received?
-              </label>
-              {c.isPaid ? (
-                <select
-                  value={c.paymentMethod}
-                  onChange={(e) =>
-                    updateCustomer(cIdx, { paymentMethod: e.target.value })
-                  }
-                  className="border rounded-lg px-3 py-2"
-                >
-                  <option value="cash">cash</option>
-                  <option value="bank">bank</option>
-                  <option value="card">card</option>
-                </select>
-              ) : (
-                <div className="text-sm text-gray-500 self-center">Unpaid</div>
-              )}
-            </div>
-
-            {/* rows table */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="font-medium">Products for this customer</h4>
+              <div className="flex items-center gap-2">
                 <button
-                  onClick={() => addRow(cIdx)}
-                  className="flex items-center gap-2 px-3 py-1.5 border rounded-lg hover:bg-gray-50"
+                  disabled={customers.length <= minCustomers}
+                  onClick={() => removeCustomer(cIdx)}
+                  className={`p-2 rounded-lg border hover:bg-gray-50 ${
+                    customers.length <= minCustomers
+                      ? "opacity-40 cursor-not-allowed"
+                      : ""
+                  }`}
+                  title={
+                    customers.length <= minCustomers
+                      ? `Keeps minimum ${minCustomers} customers`
+                      : "Remove customer"
+                  }
                 >
-                  <FiPlus /> Add line
+                  <FiTrash2 />
                 </button>
               </div>
+            </div>
 
-              <div className="overflow-x-auto">
-                <table className="min-w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="text-left px-3 py-2">Product</th>
-                      <th className="text-left px-3 py-2">Qty</th>
-                      <th className="text-left px-3 py-2">Price</th>
-                      <th className="text-left px-3 py-2">Line total</th>
-                      <th className="px-3 py-2"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {c.rows.map((r, rIdx) => {
-                      const options = visibleOptions(r._search);
-                      const maxForGroup = r._groupKey
-                        ? remainingForName(c, r._groupKey, rIdx)
-                        : 0;
-                      const hasMulti =
-                        Array.isArray(r._selectedIds) &&
-                        r._selectedIds.length > 0;
+            {/* Collapsible body */}
+            {!c._collapsed && (
+              <>
+                {/* customer identity */}
+                <div className="grid gap-3 md:grid-cols-4">
+                  <div className="relative">
+                    <FiUser className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      value={c.customerName}
+                      onChange={(e) =>
+                        updateCustomer(cIdx, { customerName: e.target.value })
+                      }
+                      placeholder="Customer full name"
+                      className="border rounded-lg pl-9 pr-3 py-2 w-full text-sm"
+                    />
+                  </div>
+                  <div className="relative">
+                    <FiPhone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      value={c.customerPhone}
+                      onChange={(e) =>
+                        updateCustomer(cIdx, { customerPhone: e.target.value })
+                      }
+                      placeholder="Mobile number"
+                      className="border rounded-lg pl-9 pr-3 py-2 w-full text-sm"
+                    />
+                  </div>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={c.isPaid}
+                      onChange={() =>
+                        updateCustomer(cIdx, { isPaid: !c.isPaid })
+                      }
+                    />
+                    Payment received?
+                  </label>
+                  {c.isPaid ? (
+                    <select
+                      value={c.paymentMethod}
+                      onChange={(e) =>
+                        updateCustomer(cIdx, { paymentMethod: e.target.value })
+                      }
+                      className="border rounded-lg px-3 py-2 text-sm"
+                    >
+                      <option value="cash">cash</option>
+                      <option value="bank">bank</option>
+                      <option value="card">card</option>
+                    </select>
+                  ) : (
+                    <div className="text-sm text-gray-500 self-center">
+                      Unpaid
+                    </div>
+                  )}
+                </div>
 
-                      return (
-                        <tr key={rIdx} className="border-b align-top">
-                          <td className="px-3 py-2 min-w-[360px]">
-                            {/* Search input */}
-                            <div className="relative">
-                              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                              <input
-                                value={r._search}
-                                onChange={(e) =>
-                                  updateRow(cIdx, rIdx, {
-                                    _search: e.target.value,
-                                  })
-                                }
-                                placeholder={
-                                  r._picked?.productName
-                                    ? r._picked.productName
-                                    : "Search product…"
-                                }
-                                className="w-full pl-9 pr-3 py-2 border rounded-lg"
-                              />
-                              {/* dropdown */}
-                              {!loading &&
-                                (r._search?.trim() || "") !== "" &&
-                                !r._picked && (
-                                  <div className="absolute z-20 bg-white border rounded-lg shadow mt-1 max-h-56 overflow-auto w-full">
-                                    {options.length ? (
-                                      options.map((g) => (
-                                        <div
-                                          key={g.key}
-                                          onMouseDown={(e) => {
-                                            e.preventDefault();
-                                            pickProduct(cIdx, rIdx, g);
-                                          }}
-                                          className="px-3 py-2 hover:bg-gray-50 cursor-pointer flex items-center gap-2"
-                                        >
-                                          <img
-                                            alt=""
-                                            src={
-                                              g.image ||
-                                              "https://via.placeholder.com/24"
-                                            }
-                                            className="w-6 h-6 rounded object-cover"
-                                          />
-                                          <div className="flex-1">
-                                            <div className="text-sm">
-                                              {g.displayName}
-                                            </div>
-                                            <div className="text-xs text-gray-500">
-                                              ₦
-                                              {Number(
-                                                g.price || 0
-                                              ).toLocaleString()}{" "}
-                                              — in stock: {g.totalQty}
-                                            </div>
-                                          </div>
-                                        </div>
-                                      ))
-                                    ) : (
-                                      <div className="px-3 py-2 text-sm text-gray-500">
-                                        No matches
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                            </div>
+                {/* rows header */}
+                <div className="flex items-center justify-between mt-2">
+                  <h4 className="font-medium text-sm md:text-base">
+                    Products for this customer
+                  </h4>
+                  <button
+                    onClick={() => addRow(cIdx)}
+                    className="flex items-center gap-2 px-3 py-1.5 border rounded-lg hover:bg-gray-50 text-sm"
+                  >
+                    <FiPlus /> Add line
+                  </button>
+                </div>
 
-                            {/* Chosen group */}
-                            {r._picked && (
-                              <>
-                                {/* Clickable product name toggles spec panel */}
-                                <button
-                                  type="button"
-                                  className="mt-1 text-left w-full"
-                                  onClick={() =>
+                {/* Desktop table */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="min-w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="text-left px-3 py-2">Product</th>
+                        <th className="text-left px-3 py-2">Qty</th>
+                        <th className="text-left px-3 py-2">Price</th>
+                        <th className="text-left px-3 py-2">Line total</th>
+                        <th className="px-3 py-2"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {c.rows.map((r, rIdx) => {
+                        const options = visibleOptions(r._search);
+                        const maxForGroup = r._groupKey
+                          ? remainingForName(c, r._groupKey, rIdx)
+                          : 0;
+                        const hasMulti =
+                          Array.isArray(r._selectedIds) &&
+                          r._selectedIds.length > 0;
+
+                        return (
+                          <tr key={rIdx} className="border-b align-top">
+                            <td className="px-3 py-2 min-w-[360px]">
+                              {/* Search input */}
+                              <div className="relative">
+                                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                <input
+                                  value={r._search}
+                                  onChange={(e) =>
                                     updateRow(cIdx, rIdx, {
-                                      _specOpen: !r._specOpen,
+                                      _search: e.target.value,
                                     })
                                   }
-                                  title="Click to edit specifications"
-                                >
-                                  <div className="text-xs text-gray-600">
-                                    Selected item:{" "}
-                                    <strong className="underline decoration-dotted">
-                                      {r._picked.productName}
-                                    </strong>{" "}
-                                    (group stock:{" "}
-                                    {grouped.get(r._groupKey)?.totalQty ?? 0})
-                                  </div>
-                                  {/* If collapsed & has selections, show a summary chip list */}
-                                  {!r._specOpen && hasMulti && (
-                                    <div className="mt-1 flex flex-wrap gap-1">
-                                      {r._selectedLabels.map((lbl, i) => (
-                                        <span
-                                          key={`${lbl}-${i}`}
-                                          className="text-[11px] bg-gray-100 border rounded px-2 py-0.5"
-                                        >
-                                          {lbl}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  )}
-                                </button>
-
-                                {/* Edit link (alternative target to open) */}
-                                {!r._specOpen && (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      updateRow(cIdx, rIdx, { _specOpen: true })
-                                    }
-                                    className="mt-1 text-xs text-blue-600 underline"
-                                  >
-                                    Edit specs
-                                  </button>
-                                )}
-
-                                {/* Spec panel (collapsible) */}
-                                {r._specOpen && (
-                                  <div className="mt-2 border rounded-lg p-2">
-                                    <div className="text-xs font-medium text-gray-700 mb-1">
-                                      Pick specification(s):
-                                    </div>
-                                    <div className="space-y-1">
-                                      {r._groupProducts.map((p) => {
-                                        const id = String(p._id);
-                                        const label = specLabel(p);
-                                        const isSelected =
-                                          Array.isArray(r._selectedIds) &&
-                                          r._selectedIds.includes(id);
-                                        const remaining = remainingForVariant(
-                                          c,
-                                          id,
-                                          rIdx
-                                        );
-                                        const disable =
-                                          remaining <= 0 && !isSelected;
-                                        return (
-                                          <label
-                                            key={id}
-                                            className={`flex items-start gap-2 p-2 rounded hover:bg-gray-50 cursor-pointer ${
-                                              disable
-                                                ? "opacity-50 cursor-not-allowed"
-                                                : ""
-                                            }`}
+                                  placeholder={
+                                    r._picked?.productName
+                                      ? r._picked.productName
+                                      : "Search product…"
+                                  }
+                                  className="w-full pl-9 pr-3 py-2 border rounded-lg"
+                                />
+                                {/* dropdown */}
+                                {!loading &&
+                                  (r._search?.trim() || "") !== "" &&
+                                  !r._picked && (
+                                    <div className="absolute z-20 bg-white border rounded-lg shadow mt-1 max-h-56 overflow-auto w-full">
+                                      {options.length ? (
+                                        options.map((g) => (
+                                          <div
+                                            key={g.key}
+                                            onMouseDown={(e) => {
+                                              e.preventDefault();
+                                              pickProduct(cIdx, rIdx, g);
+                                            }}
+                                            className="px-3 py-2 hover:bg-gray-50 cursor-pointer flex items-center gap-2"
                                           >
-                                            <input
-                                              type="checkbox"
-                                              disabled={disable}
-                                              checked={!!isSelected}
-                                              onChange={(e) => {
-                                                if (e.target.checked) {
-                                                  const nextIds = [
-                                                    ...(r._selectedIds || []),
-                                                    id,
-                                                  ];
-                                                  const nextLabels = [
-                                                    ...(r._selectedLabels ||
-                                                      []),
-                                                    label,
-                                                  ];
-                                                  updateRow(cIdx, rIdx, {
-                                                    _selectedIds: nextIds,
-                                                    _selectedLabels: nextLabels,
-                                                    price:
-                                                      r.price > 0
-                                                        ? r.price
-                                                        : Number(
-                                                            p.sellingPrice ||
-                                                              r.price ||
-                                                              0
-                                                          ),
-                                                  });
-                                                } else {
-                                                  const nextIds = (
-                                                    r._selectedIds || []
-                                                  ).filter((x) => x !== id);
-                                                  const nextLabels = (
-                                                    r._selectedLabels || []
-                                                  ).filter(
-                                                    (_, i) =>
-                                                      (r._selectedIds || [])[
-                                                        i
-                                                      ] !== id
-                                                  );
-                                                  updateRow(cIdx, rIdx, {
-                                                    _selectedIds: nextIds,
-                                                    _selectedLabels: nextLabels,
-                                                  });
-                                                }
-                                              }}
+                                            <img
+                                              alt=""
+                                              src={
+                                                g.image ||
+                                                "https://via.placeholder.com/24"
+                                              }
+                                              className="w-6 h-6 rounded object-cover"
                                             />
                                             <div className="flex-1">
                                               <div className="text-sm">
-                                                {label}
+                                                {g.displayName}
                                               </div>
                                               <div className="text-xs text-gray-500">
-                                                In stock:{" "}
-                                                {Number(p.quantity || 0)} • ₦
+                                                ₦
                                                 {Number(
-                                                  p.sellingPrice || r.price || 0
-                                                ).toLocaleString()}
+                                                  g.price || 0
+                                                ).toLocaleString()}{" "}
+                                                — in stock: {g.totalQty}
                                               </div>
                                             </div>
-                                          </label>
-                                        );
-                                      })}
+                                          </div>
+                                        ))
+                                      ) : (
+                                        <div className="px-3 py-2 text-sm text-gray-500">
+                                          No matches
+                                        </div>
+                                      )}
                                     </div>
-                                  </div>
-                                )}
-
-                                {/* If no selection yet, gentle hint */}
-                                {!hasMulti && !r._specOpen && (
-                                  <div className="text-xs text-orange-600 mt-1">
-                                    Tip: click the product name to open specs
-                                    and tick what you’re selling.
-                                  </div>
-                                )}
-                              </>
-                            )}
-                          </td>
-
-                          {/* Qty: from multi-select if present; else manual input */}
-                          <td className="px-3 py-2">
-                            {hasMulti ? (
-                              <div className="text-sm px-2 py-1 rounded bg-gray-50 inline-block">
-                                Qty: <strong>{r._selectedIds.length}</strong>
+                                  )}
                               </div>
-                            ) : (
+
+                              {/* Chosen group + spec panel */}
+                              <ChosenGroupBlock
+                                grouped={grouped}
+                                c={c}
+                                cIdx={cIdx}
+                                r={r}
+                                rIdx={rIdx}
+                                updateRow={updateRow}
+                                remainingForVariant={remainingForVariant}
+                              />
+                            </td>
+
+                            {/* Qty */}
+                            <td className="px-3 py-2">
+                              <QtyCell
+                                hasMulti={hasMulti}
+                                r={r}
+                                c={c}
+                                cIdx={cIdx}
+                                rIdx={rIdx}
+                                maxForGroup={maxForGroup}
+                                updateRow={updateRow}
+                              />
+                            </td>
+
+                            {/* Price */}
+                            <td className="px-3 py-2">
                               <input
                                 type="number"
-                                min={1}
-                                max={Math.max(1, maxForGroup || 1)}
-                                value={r.qty || 0}
-                                onChange={(e) => {
-                                  const raw = Math.max(
-                                    1,
-                                    Number(e.target.value || 1)
-                                  );
-                                  const cap = maxForGroup || 0;
-                                  if (cap <= 0) {
-                                    if (raw > 0)
-                                      toast.warn(
-                                        `No stock available for this selection.`
-                                      );
-                                    updateRow(cIdx, rIdx, { qty: 0 });
-                                    return;
-                                  }
-                                  const clamped = Math.min(raw, cap);
-                                  if (raw > cap)
-                                    toast.warn(
-                                      `Qty reduced to available (${cap}).`
-                                    );
-                                  updateRow(cIdx, rIdx, { qty: clamped });
-                                }}
-                                onBlur={(e) => {
-                                  const raw = Math.max(
-                                    1,
-                                    Number(e.target.value || 1)
-                                  );
-                                  const cap = maxForGroup || 0;
-                                  const clamped =
-                                    cap <= 0 ? 0 : Math.min(raw, cap);
-                                  if (clamped !== (r.qty || 0))
-                                    updateRow(cIdx, rIdx, { qty: clamped });
-                                }}
-                                className="w-24 border rounded-lg px-2 py-1"
-                                disabled={!r._groupKey || maxForGroup === 0}
+                                value={r.price}
+                                onChange={(e) =>
+                                  updateRow(cIdx, rIdx, {
+                                    price: Number(e.target.value || 0),
+                                  })
+                                }
+                                className="w-32 border rounded-lg px-2 py-1"
+                                disabled={!r._groupKey}
                               />
-                            )}
-                            {r._groupKey && !hasMulti && maxForGroup === 0 && (
-                              <div className="text-xs text-red-600 mt-1">
-                                Out of stock for this selection
+                            </td>
+
+                            {/* Line total */}
+                            <td className="px-3 py-2">
+                              ₦
+                              {(
+                                Number(
+                                  (hasMulti ? r._selectedIds.length : r.qty) ||
+                                    0
+                                ) * Number(r.price || 0)
+                              ).toLocaleString()}
+                            </td>
+
+                            {/* remove */}
+                            <td className="px-3 py-2">
+                              <button
+                                onClick={() => removeRow(cIdx, rIdx)}
+                                className="p-2 rounded-lg border hover:bg-gray-50"
+                                title="Remove row"
+                              >
+                                <FiTrash2 />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile cards (stacked) */}
+                <div className="md:hidden space-y-3">
+                  {c.rows.map((r, rIdx) => {
+                    const options = visibleOptions(r._search);
+                    const maxForGroup = r._groupKey
+                      ? remainingForName(c, r._groupKey, rIdx)
+                      : 0;
+                    const hasMulti =
+                      Array.isArray(r._selectedIds) &&
+                      r._selectedIds.length > 0;
+
+                    return (
+                      <div
+                        key={rIdx}
+                        className="rounded-xl border p-3 space-y-3 bg-white"
+                      >
+                        {/* Search */}
+                        <div className="relative">
+                          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                          <input
+                            value={r._search}
+                            onChange={(e) =>
+                              updateRow(cIdx, rIdx, { _search: e.target.value })
+                            }
+                            placeholder={
+                              r._picked?.productName
+                                ? r._picked.productName
+                                : "Search product…"
+                            }
+                            className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm"
+                          />
+                          {!loading &&
+                            (r._search?.trim() || "") !== "" &&
+                            !r._picked && (
+                              <div className="absolute z-20 bg-white border rounded-lg shadow mt-1 max-h-56 overflow-auto w-full">
+                                {options.length ? (
+                                  options.map((g) => (
+                                    <div
+                                      key={g.key}
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        pickProduct(cIdx, rIdx, g);
+                                      }}
+                                      className="px-3 py-2 hover:bg-gray-50 cursor-pointer flex items-center gap-2"
+                                    >
+                                      <img
+                                        alt=""
+                                        src={
+                                          g.image ||
+                                          "https://via.placeholder.com/24"
+                                        }
+                                        className="w-6 h-6 rounded object-cover"
+                                      />
+                                      <div className="flex-1">
+                                        <div className="text-sm">
+                                          {g.displayName}
+                                        </div>
+                                        <div className="text-xs text-gray-500">
+                                          ₦
+                                          {Number(
+                                            g.price || 0
+                                          ).toLocaleString()}{" "}
+                                          — in stock: {g.totalQty}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className="px-3 py-2 text-sm text-gray-500">
+                                    No matches
+                                  </div>
+                                )}
                               </div>
                             )}
-                          </td>
+                        </div>
 
-                          <td className="px-3 py-2">
+                        {/* Chosen group + spec panel */}
+                        <ChosenGroupBlock
+                          grouped={grouped}
+                          c={c}
+                          cIdx={cIdx}
+                          r={r}
+                          rIdx={rIdx}
+                          updateRow={updateRow}
+                          remainingForVariant={remainingForVariant}
+                          mobile
+                        />
+
+                        {/* Qty & Price */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <div className="text-xs text-gray-600 mb-1">
+                              Quantity
+                            </div>
+                            <QtyCell
+                              hasMulti={hasMulti}
+                              r={r}
+                              c={c}
+                              cIdx={cIdx}
+                              rIdx={rIdx}
+                              maxForGroup={maxForGroup}
+                              updateRow={updateRow}
+                              compact
+                            />
+                          </div>
+                          <div>
+                            <div className="text-xs text-gray-600 mb-1">
+                              Price
+                            </div>
                             <input
                               type="number"
                               value={r.price}
@@ -786,46 +782,51 @@ export default function BulkSalePage({ onClose }) {
                                   price: Number(e.target.value || 0),
                                 })
                               }
-                              className="w-32 border rounded-lg px-2 py-1"
+                              className="w-full border rounded-lg px-2 py-2 text-sm"
                               disabled={!r._groupKey}
                             />
-                          </td>
+                          </div>
+                        </div>
 
-                          <td className="px-3 py-2">
-                            ₦
-                            {(
-                              Number(
-                                (hasMulti ? r._selectedIds.length : r.qty) || 0
-                              ) * Number(r.price || 0)
-                            ).toLocaleString()}
-                          </td>
+                        {/* Total + actions */}
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm">
+                            Line total:{" "}
+                            <span className="font-semibold">
+                              ₦
+                              {(
+                                Number(
+                                  (hasMulti ? r._selectedIds.length : r.qty) ||
+                                    0
+                                ) * Number(r.price || 0)
+                              ).toLocaleString()}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => removeRow(cIdx, rIdx)}
+                            className="px-3 py-1.5 rounded-lg border hover:bg-gray-50 text-sm"
+                            title="Remove row"
+                          >
+                            <FiTrash2 />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
 
-                          <td className="px-3 py-2">
-                            <button
-                              onClick={() => removeRow(cIdx, rIdx)}
-                              className="p-2 rounded-lg border hover:bg-gray-50"
-                              title="Remove row"
-                            >
-                              <FiTrash2 />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="text-right font-medium">
-                Subtotal: ₦{customerSubtotal(c).toLocaleString()}
-              </div>
-            </div>
+                {/* Subtotal */}
+                <div className="text-right font-medium">
+                  Subtotal: ₦{customerSubtotal(c).toLocaleString()}
+                </div>
+              </>
+            )}
           </div>
         ))}
       </div>
 
-      {/* Summary + Save */}
-      <section className="max-w-sm ml-auto space-y-2">
+      {/* Desktop summary + save */}
+      <section className="hidden md:block max-w-sm ml-auto space-y-2">
         <div className="flex justify-between text-gray-600">
           <span>Grand total (all customers)</span>
           <span>₦{grandTotal.toLocaleString()}</span>
@@ -842,6 +843,227 @@ export default function BulkSalePage({ onClose }) {
           {saving ? "Saving…" : "Complete"}
         </button>
       </section>
+
+      {/* Mobile sticky checkout */}
+      <div className="md:hidden h-20" />
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-20 bg-white border-t px-3 py-2">
+        <div className="flex items-center justify-between">
+          <div className="text-sm">
+            <div className="text-gray-500 leading-tight">
+              Grand total (all customers)
+            </div>
+            <div className="font-semibold text-base">
+              ₦{grandTotal.toLocaleString()}
+            </div>
+          </div>
+          <button
+            onClick={onSave}
+            disabled={saving}
+            className={`rounded-lg px-4 py-2 text-white text-sm font-semibold ${
+              saving
+                ? "bg-orange-400 cursor-not-allowed opacity-60"
+                : "bg-orange-600 hover:bg-orange-700"
+            }`}
+          >
+            {saving ? "Saving…" : "Complete"}
+          </button>
+        </div>
+      </div>
     </div>
+  );
+}
+
+/* ---------- Small sub-components ---------- */
+
+function ChosenGroupBlock({
+  grouped,
+  c,
+  cIdx,
+  r,
+  rIdx,
+  updateRow,
+  remainingForVariant,
+  mobile = false,
+}) {
+  const hasMulti = Array.isArray(r._selectedIds) && r._selectedIds.length > 0;
+
+  if (!r._picked) return null;
+
+  return (
+    <>
+      {/* Clickable product name toggles spec panel */}
+      <button
+        type="button"
+        className={`mt-1 text-left w-full ${mobile ? "text-sm" : ""}`}
+        onClick={() => updateRow(cIdx, rIdx, { _specOpen: !r._specOpen })}
+        title="Click to edit specifications"
+      >
+        <div className="text-xs text-gray-600">
+          Selected item:{" "}
+          <strong className="underline decoration-dotted">
+            {r._picked.productName}
+          </strong>{" "}
+          (group stock: {grouped.get(r._groupKey)?.totalQty ?? 0})
+        </div>
+        {/* If collapsed & has selections, show chips */}
+        {!r._specOpen && hasMulti && (
+          <div className="mt-1 flex flex-wrap gap-1">
+            {r._selectedLabels.map((lbl, i) => (
+              <span
+                key={`${lbl}-${i}`}
+                className="text-[11px] bg-gray-100 border rounded px-2 py-0.5"
+              >
+                {lbl}
+              </span>
+            ))}
+          </div>
+        )}
+      </button>
+
+      {/* Edit link alternative */}
+      {!r._specOpen && (
+        <button
+          type="button"
+          onClick={() => updateRow(cIdx, rIdx, { _specOpen: true })}
+          className="mt-1 text-xs text-blue-600 underline"
+        >
+          Edit specs
+        </button>
+      )}
+
+      {/* Spec panel */}
+      {r._specOpen && (
+        <div className="mt-2 border rounded-lg p-2">
+          <div className="text-xs font-medium text-gray-700 mb-1">
+            Pick specification(s):
+          </div>
+          <div className="space-y-1">
+            {r._groupProducts.map((p) => {
+              const id = String(p._id);
+              const label = specLabel(p);
+              const isSelected =
+                Array.isArray(r._selectedIds) && r._selectedIds.includes(id);
+              const remaining = remainingForVariant(c, id, rIdx);
+              const disable = remaining <= 0 && !isSelected;
+              return (
+                <label
+                  key={id}
+                  className={`flex items-start gap-2 p-2 rounded hover:bg-gray-50 cursor-pointer ${
+                    disable ? "opacity-50 cursor-not-allowed" : ""
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    disabled={disable}
+                    checked={!!isSelected}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        const nextIds = [...(r._selectedIds || []), id];
+                        const nextLabels = [
+                          ...(r._selectedLabels || []),
+                          label,
+                        ];
+                        updateRow(cIdx, rIdx, {
+                          _selectedIds: nextIds,
+                          _selectedLabels: nextLabels,
+                          price:
+                            r.price > 0
+                              ? r.price
+                              : Number(p.sellingPrice || r.price || 0),
+                        });
+                      } else {
+                        const nextIds = (r._selectedIds || []).filter(
+                          (x) => x !== id
+                        );
+                        const nextLabels = (r._selectedLabels || []).filter(
+                          (_, i) => (r._selectedIds || [])[i] !== id
+                        );
+                        updateRow(cIdx, rIdx, {
+                          _selectedIds: nextIds,
+                          _selectedLabels: nextLabels,
+                        });
+                      }
+                    }}
+                  />
+                  <div className="flex-1">
+                    <div className="text-sm">{label}</div>
+                    <div className="text-xs text-gray-500">
+                      In stock: {Number(p.quantity || 0)} • ₦
+                      {Number(p.sellingPrice || r.price || 0).toLocaleString()}
+                    </div>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* If no selection yet, gentle hint */}
+      {!hasMulti && !r._specOpen && (
+        <div className="text-xs text-orange-600 mt-1">
+          Tip: tap the product name to open specs and tick what you’re selling.
+        </div>
+      )}
+    </>
+  );
+}
+
+function QtyCell({
+  hasMulti,
+  r,
+  c,
+  cIdx,
+  rIdx,
+  maxForGroup,
+  updateRow,
+  compact = false,
+}) {
+  if (hasMulti) {
+    return (
+      <div
+        className={`text-sm rounded bg-gray-50 inline-block ${
+          compact ? "px-2 py-2 w-full text-center" : "px-2 py-1"
+        }`}
+      >
+        Qty: <strong>{r._selectedIds.length}</strong>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <input
+        type="number"
+        min={1}
+        max={Math.max(1, maxForGroup || 1)}
+        value={r.qty || 0}
+        onChange={(e) => {
+          const raw = Math.max(1, Number(e.target.value || 1));
+          const cap = maxForGroup || 0;
+          if (cap <= 0) {
+            if (raw > 0) toast.warn(`No stock available for this selection.`);
+            updateRow(cIdx, rIdx, { qty: 0 });
+            return;
+          }
+          const clamped = Math.min(raw, cap);
+          if (raw > cap) toast.warn(`Qty reduced to available (${cap}).`);
+          updateRow(cIdx, rIdx, { qty: clamped });
+        }}
+        onBlur={(e) => {
+          const raw = Math.max(1, Number(e.target.value || 1));
+          const cap = maxForGroup || 0;
+          const clamped = cap <= 0 ? 0 : Math.min(raw, cap);
+          if (clamped !== (r.qty || 0)) updateRow(cIdx, rIdx, { qty: clamped });
+        }}
+        className={`border rounded-lg px-2 ${
+          compact ? "py-2 w-full text-sm" : "py-1 w-24"
+        }`}
+        disabled={!r._groupKey || maxForGroup === 0}
+      />
+      {r._groupKey && !hasMulti && maxForGroup === 0 && (
+        <div className="text-xs text-red-600 mt-1">Out of stock</div>
+      )}
+    </>
   );
 }

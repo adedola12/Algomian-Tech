@@ -9,7 +9,6 @@ import {
 } from "react-icons/fi";
 import SingleSalePage from "./SingleSalePage";
 import BulkSalePage from "./BulkSalePage.jsx";
-
 import { useLocation } from "react-router-dom";
 
 /* ---------- tiny helper just for the "seed" nav flow ---------- */
@@ -34,6 +33,27 @@ const buildLine = (p) => {
   };
 };
 
+/* ---------- display helpers (mobile shaping) ---------- */
+const firstTwoWords = (s = "") => {
+  const words = String(s).trim().split(/\s+/);
+  if (words.length <= 2) return String(s).trim();
+  return `${words.slice(0, 2).join(" ")}…`;
+};
+const firstNameOnly = (full = "") => {
+  const t = String(full).trim();
+  return t ? t.split(/\s+/)[0] : "—";
+};
+const repFirst3 = (rep = "") => {
+  const t = String(rep).trim();
+  return t ? t.slice(0, 3) : "—";
+};
+const shortDayMonth = (dateLike) => {
+  const d = new Date(dateLike);
+  return d
+    .toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
+    .replace(",", "");
+};
+
 export default function SalesTable() {
   const location = useLocation();
   const seedLine = location.state?.product
@@ -49,13 +69,16 @@ export default function SalesTable() {
   const [q, setQ] = useState("");
 
   // sorting
-  const [sortField, setSortField] = useState("time");
+  const [sortField, setSortField] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState("desc");
   const [actionsOpenFor, setActionsOpenFor] = useState(null);
 
   // pagination
-  const PAGE_SIZE = 20;
+  const PAGE_SIZE = 20; // 20 per page works well on mobile
   const [page, setPage] = useState(1);
+
+  // mobile column toggle
+  const [showMoreCols, setShowMoreCols] = useState(false);
 
   useEffect(() => {
     fetchOrders();
@@ -99,24 +122,32 @@ export default function SalesTable() {
     () =>
       (orders || []).map((o) => {
         const names = (o.orderItems || []).map((i) => i?.name).filter(Boolean);
-        const first = (o.orderItems || [])[0] || {};
-        const productLabel =
+        const firstItem = (o.orderItems || [])[0] || {};
+        const productFull = names.join(", ") || "—";
+        const productPrimary =
           names.length > 1 ? `${names[0]} …` : names[0] || "—";
 
         const linkedCustomerName = o.user
           ? `${o.user.firstName || ""} ${o.user.lastName || ""}`.trim()
           : "";
+
+        const created = new Date(o.createdAt);
+
         return {
           id: o._id,
-          time: new Date(o.createdAt).toLocaleString(),
-          product: productLabel,
-          productTitle: names.join(", "),
-          details: compactDetails(first),
-          customer:
+          createdAt: created, // <-- store actual date for sorting
+          timeFull: created.toLocaleString(),
+          timeShort: shortDayMonth(created),
+          productFull,
+          productPrimary,
+          productFirstName2: firstTwoWords(names[0] || ""),
+          details: compactDetails(firstItem),
+          customerFull:
             (o.customerName && o.customerName.trim()) ||
             linkedCustomerName ||
             "—",
-          salesRep: o.createdBy?.firstName || "—",
+          salesRepFull: o.createdBy?.firstName || "—",
+          salesRepShort: repFirst3(o.createdBy?.firstName || "—"),
           price: `NGN ${Number(
             o.totalPrice ?? computeTotal(o)
           ).toLocaleString()}`,
@@ -135,18 +166,20 @@ export default function SalesTable() {
       ? rows
       : rows.filter(
           (r) =>
-            r.product.toLowerCase().includes(search) ||
-            r.customer.toLowerCase().includes(search)
+            r.productFull.toLowerCase().includes(search) ||
+            r.customerFull.toLowerCase().includes(search)
         );
 
     const sorted = [...base].sort((a, b) => {
       const va = a[sortField];
       const vb = b[sortField];
-      if (sortField === "time") {
+
+      if (sortField === "createdAt") {
         return sortOrder === "asc"
-          ? new Date(va) - new Date(vb)
-          : new Date(vb) - new Date(va);
+          ? va.getTime() - vb.getTime()
+          : vb.getTime() - va.getTime();
       }
+
       if (va < vb) return sortOrder === "asc" ? -1 : 1;
       if (va > vb) return sortOrder === "asc" ? 1 : -1;
       return 0;
@@ -203,7 +236,7 @@ export default function SalesTable() {
 
   // pretty page numbers with ellipsis
   const pageNumbers = useMemo(() => {
-    const maxButtons = 7; // how many number buttons to show total
+    const maxButtons = 7;
     if (totalPages <= maxButtons) {
       return Array.from({ length: totalPages }, (_, i) => i + 1);
     }
@@ -218,6 +251,10 @@ export default function SalesTable() {
     list.push(totalPages);
     return list;
   }, [page, totalPages]);
+
+  // helper: hide on mobile unless toggled
+  const hideOnMobile = (extra = "") =>
+    `${showMoreCols ? "table-cell" : "hidden"} md:table-cell ${extra}`;
 
   /* ---------- EARLY RETURNS FOR FORMS ---------- */
   if (showForm?.mode === "sale" || showForm === true) {
@@ -258,62 +295,61 @@ export default function SalesTable() {
   /* ---------- DEFAULT TABLE VIEW ---------- */
   return (
     <div className="bg-white rounded-2xl shadow p-4 sm:p-6">
-      {/* ---------- header: single line ---------- */}
-      <div className="flex items-center gap-3 sm:gap-4 justify-between flex-wrap md:flex-nowrap mb-6">
-        <h2 className="text-2xl font-semibold text-gray-800 shrink-0">
+      {/* ---------- header ---------- */}
+      <div className="flex items-center gap-3 sm:gap-4 justify-between flex-wrap md:flex-nowrap mb-4 sm:mb-6">
+        <h2 className="text-xl sm:text-2xl font-semibold text-gray-800 shrink-0">
           Sales Management
         </h2>
-        {/* search grows to fill middle space */}
-        <div className="relative flex-1 min-w-[220px] max-w-xl">
+
+        {/* search */}
+        <div className="relative flex-1 min-w-[200px] sm:min-w-[220px] max-w-xl">
           <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search by product or customer…"
-            className="w-full pl-10 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+            className="w-full pl-10 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
             aria-label="Search sales by product or customer"
           />
         </div>
 
-        <div className="flex gap-3 shrink-0 relative">
-          {/* Simple menu to open forms */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0 relative w-full md:w-auto justify-between md:justify-end mt-2 md:mt-0">
+          {/* Mobile column toggle */}
+          <button
+            type="button"
+            onClick={() => setShowMoreCols((s) => !s)}
+            className="md:hidden border rounded px-2 py-1 text-xs"
+          >
+            {showMoreCols ? "Hide extra columns" : "View more columns"}
+          </button>
+
+          {/* Quick actions */}
           <div className="relative">
             <button
-              onClick={() => setEnterMenuOpen((v) => !v)}
-              className="bg-orange-600 hover:bg-orange-700 text-white px-5 py-2 rounded-lg"
-            >
-              + Enter Sales
-            </button>
-            {enterMenuOpen && (
-              <div className="absolute right-0 top-12 w-56 bg-white border rounded-lg shadow-lg z-20">
-                <button
-                  onClick={() => {
-                    setShowForm({ mode: "sale" });
-                    setEnterMenuOpen(false);
-                  }}
-                  className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
-                >
-                  Create Single Sale
-                </button>
-                <button
-                  onClick={() => {
-                    setShowForm({ mode: "bulk" });
-                    setEnterMenuOpen(false);
-                  }}
-                  className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
-                >
-                  Create Multiple Sales
-                </button>
-              </div>
-            )}
+              onClick={() => {}}
+              className="hidden" // kept for layout parity; menu moved below
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowForm({ mode: "sale" })}
+                className="bg-orange-600 hover:bg-orange-700 text-white px-4 sm:px-5 py-2 rounded-lg text-sm"
+              >
+                + Enter Sales
+              </button>
+              <button
+                onClick={() => setShowForm({ mode: "invoice" })}
+                className="bg-teal-600 hover:bg-teal-700 text-white px-4 sm:px-5 py-2 rounded-lg text-sm"
+              >
+                + Create Invoice
+              </button>
+              <button
+                onClick={() => setShowForm({ mode: "bulk" })}
+                className="bg-slate-700 hover:bg-slate-800 text-white px-4 sm:px-5 py-2 rounded-lg text-sm"
+              >
+                + Multiple Sales
+              </button>
+            </div>
           </div>
-
-          <button
-            onClick={() => setShowForm({ mode: "invoice" })}
-            className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2 rounded-lg"
-          >
-            + Create Invoice
-          </button>
         </div>
       </div>
 
@@ -324,32 +360,67 @@ export default function SalesTable() {
         <p className="text-red-600">{error}</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="min-w-full whitespace-nowrap">
+          <table className="min-w-full whitespace-nowrap table-auto">
             <thead>
               <tr className="border-b bg-gray-50">
-                {[
-                  ["Time", "time"],
-                  ["Product", ""],
-                  ["Details", ""],
-                  ["Customer", "customer"],
-                  ["Sales Rep", "salesRep"],
-                  ["Price", ""],
-                  ["Status", "status"],
-                  ["Action", ""],
-                ].map(([label, field]) => (
-                  <th
-                    key={label}
-                    onClick={() => toggleSort(field)}
-                    className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase cursor-pointer"
-                  >
-                    {label}
-                    {sortField === field && (
-                      <span className="ml-1 text-xs">
-                        {sortOrder === "asc" ? "▲" : "▼"}
-                      </span>
-                    )}
-                  </th>
-                ))}
+                {/* Time */}
+                <th
+                  onClick={() => toggleSort("createdAt")}
+                  className="px-3 md:px-4 py-2 md:py-3 text-left text-[11px] md:text-xs font-medium text-gray-500 uppercase cursor-pointer w-[16%] md:w-auto"
+                >
+                  Time{" "}
+                  {sortField === "createdAt" &&
+                    (sortOrder === "asc" ? "▲" : "▼")}
+                </th>
+
+                {/* Product */}
+                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[11px] md:text-xs font-medium text-gray-500 uppercase w-[26%] md:w-auto">
+                  Product
+                </th>
+
+                {/* Details (hidden by default on mobile) */}
+                <th
+                  className={hideOnMobile(
+                    "px-3 md:px-4 py-2 md:py-3 text-left text-[11px] md:text-xs font-medium text-gray-500 uppercase"
+                  )}
+                >
+                  Details
+                </th>
+
+                {/* Customer */}
+                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[11px] md:text-xs font-medium text-gray-500 uppercase w-[18%] md:w-auto">
+                  Customer
+                </th>
+
+                {/* Sales Rep (mobile label “Rep”) */}
+                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-[11px] md:text-xs font-medium text-gray-500 uppercase w-[12%] md:w-auto">
+                  <span className="md:hidden">Rep</span>
+                  <span className="hidden md:inline">Sales Rep</span>
+                </th>
+
+                {/* Price (hidden by default on mobile) */}
+                <th
+                  className={hideOnMobile(
+                    "px-3 md:px-4 py-2 md:py-3 text-left text-[11px] md:text-xs font-medium text-gray-500 uppercase"
+                  )}
+                >
+                  Price
+                </th>
+
+                {/* Status (hidden by default on mobile) */}
+                <th
+                  className={hideOnMobile(
+                    "px-3 md:px-4 py-2 md:py-3 text-left text-[11px] md:text-xs font-medium text-gray-500 uppercase"
+                  )}
+                >
+                  Status
+                </th>
+
+                {/* Action → A on mobile */}
+                <th className="px-2 md:px-4 py-2 md:py-3 text-left text-[11px] md:text-xs font-medium text-gray-500 uppercase w-[8%] md:w-auto">
+                  <span className="md:hidden">A</span>
+                  <span className="hidden md:inline">Action</span>
+                </th>
               </tr>
             </thead>
 
@@ -357,31 +428,67 @@ export default function SalesTable() {
               {visible.map((r) => (
                 <Fragment key={r.id}>
                   <tr className="border-b">
-                    <td className="px-4 py-4 text-sm text-gray-700">
-                      {r.time}
+                    {/* Time: mobile short / desktop full */}
+                    <td className="px-3 md:px-4 py-3 text-sm text-gray-700">
+                      <span className="md:hidden">{r.timeShort}</span>
+                      <span className="hidden md:inline">{r.timeFull}</span>
                     </td>
 
+                    {/* Product: first 2 words on mobile */}
                     <td
-                      className="px-4 py-4 text-sm text-gray-700"
-                      title={r.productTitle}
+                      className="px-3 md:px-4 py-3 text-sm text-gray-700 truncate max-w-[140px] md:max-w-none"
+                      title={r.productFull}
                     >
-                      {r.product}
+                      <span className="md:hidden">
+                        {r.productFirstName2 || "—"}
+                      </span>
+                      <span className="hidden md:inline">
+                        {r.productPrimary}
+                      </span>
                     </td>
-                    <td className="px-4 py-4 text-sm text-gray-700">
+
+                    {/* Details (hidden on mobile unless toggled) */}
+                    <td
+                      className={hideOnMobile(
+                        "px-3 md:px-4 py-3 text-sm text-gray-700"
+                      )}
+                    >
                       {r.details}
                     </td>
-                    <td className="px-4 py-4 text-sm text-gray-700">
-                      {r.customer}
+
+                    {/* Customer: first name on mobile, full on desktop */}
+                    <td
+                      className="px-3 md:px-4 py-3 text-sm text-gray-700 truncate max-w-[120px] md:max-w-none"
+                      title={r.customerFull}
+                    >
+                      <span className="md:hidden">
+                        {firstNameOnly(r.customerFull)}
+                      </span>
+                      <span className="hidden md:inline">{r.customerFull}</span>
                     </td>
-                    <td className="px-4 py-4 text-sm text-gray-700">
-                      {r.salesRep}
+
+                    {/* Sales Rep: first 3 letters on mobile */}
+                    <td
+                      className="px-3 md:px-4 py-3 text-sm text-gray-700"
+                      title={r.salesRepFull}
+                    >
+                      <span className="md:hidden">{r.salesRepShort}</span>
+                      <span className="hidden md:inline">{r.salesRepFull}</span>
                     </td>
-                    <td className="px-4 py-4 text-sm text-gray-700">
+
+                    {/* Price (hidden on mobile unless toggled) */}
+                    <td
+                      className={hideOnMobile(
+                        "px-3 md:px-4 py-3 text-sm text-gray-700"
+                      )}
+                    >
                       {r.price}
                     </td>
-                    <td className="px-4 py-4">
+
+                    {/* Status (hidden on mobile unless toggled) */}
+                    <td className={hideOnMobile("px-3 md:px-4 py-3")}>
                       <span
-                        className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
+                        className={`inline-flex px-2 py-0.5 text-[11px] font-semibold rounded-full ${
                           r.status === "Pending"
                             ? "bg-yellow-100 text-yellow-800"
                             : r.status === "Processing"
@@ -396,7 +503,9 @@ export default function SalesTable() {
                         {r.status}
                       </span>
                     </td>
-                    <td className="px-4 py-4 relative">
+
+                    {/* Action menu */}
+                    <td className="px-2 md:px-4 py-3 relative">
                       <button
                         onClick={() =>
                           setActionsOpenFor(
@@ -404,6 +513,8 @@ export default function SalesTable() {
                           )
                         }
                         className="text-gray-500 hover:text-gray-800"
+                        aria-label="Row actions"
+                        title="Actions"
                       >
                         <FiMoreVertical />
                       </button>
@@ -428,16 +539,6 @@ export default function SalesTable() {
                           >
                             Return Sale
                           </button>
-                          {/* <button
-                            onClick={() => {
-                              deleteOrder(r.id);
-                              setActionsOpenFor(null);
-                            }}
-                            className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
-                          >
-                            Delete Sale
-                          </button> */}
-
                           <button
                             onClick={() => {
                               updateStatus(r.id, "Processing");
@@ -464,6 +565,15 @@ export default function SalesTable() {
                             className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
                           >
                             Mark as Delivered
+                          </button>
+                          <button
+                            onClick={() => {
+                              deleteOrder(r.id);
+                              setActionsOpenFor(null);
+                            }}
+                            className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+                          >
+                            Delete Sale
                           </button>
                         </div>
                       )}
